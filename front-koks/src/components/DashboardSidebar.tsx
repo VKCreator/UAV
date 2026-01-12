@@ -6,7 +6,8 @@ import Drawer from "@mui/material/Drawer";
 import List from "@mui/material/List";
 import Toolbar from "@mui/material/Toolbar";
 import type {} from "@mui/material/themeCssVarsAugmentation";
-import DescriptionIcon from "@mui/icons-material/Description";
+import MapRoundedIcon from '@mui/icons-material/MapRounded';
+import LocalAirportRoundedIcon from '@mui/icons-material/LocalAirportRounded';
 import { matchPath, useLocation } from "react-router";
 import DashboardSidebarContext from "../context/DashboardSidebarContext";
 import { DRAWER_WIDTH, MINI_DRAWER_WIDTH } from "../constants";
@@ -173,28 +174,25 @@ export default function DashboardSidebar({
             sx={{
               padding: mini ? 0 : 0.5,
               mb: 4,
-              mt: 2,
               width: mini ? MINI_DRAWER_WIDTH : "auto",
             }}
           >
+            <DashboardSidebarHeaderItem>Полёты</DashboardSidebarHeaderItem>
             <DashboardSidebarPageItem
               id="coals-receipt"
               title="Схемы полётов"
-              icon={<DescriptionIcon />}
+              icon={<MapRoundedIcon  />}
               href="/trajectories"
               selected={
-                !!matchPath("/trajectories/*", pathname) ||
-                pathname === "/"
+                !!matchPath("/trajectories/*", pathname) || pathname === "/"
               }
             />
             <DashboardSidebarDividerItem />
-            <DashboardSidebarHeaderItem>
-              Справочники
-            </DashboardSidebarHeaderItem>
+            <DashboardSidebarHeaderItem>Справочники</DashboardSidebarHeaderItem>
             <DashboardSidebarPageItem
               id="natural-sheets"
               title="Квадрокоптеры"
-              icon={<ArticleIcon />}
+              icon={<LocalAirportRoundedIcon />}
               href="/manufacture/natural-sheets"
               selected={!!matchPath("/manufacture/natural-sheets/*", pathname)}
             />

@@ -8,9 +8,11 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import AddIcon from "@mui/icons-material/Add";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import VisibilityIcon from '@mui/icons-material/Visibility';
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import { TextField, InputAdornment } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
 
 import {
   DataGrid,
@@ -204,6 +206,19 @@ export default function CoalReceiptList() {
       title={pageTitle}
       actions={
         <Stack direction="row" alignItems="center" spacing={1}>
+          <TextField
+            size="small"
+            placeholder="Поиск..."
+            variant="outlined"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ width: 300 }}
+          />
           <Tooltip title="Обновить данные" placement="right" enterDelay={1000}>
             <div>
               <IconButton
@@ -223,9 +238,7 @@ export default function CoalReceiptList() {
           >
             Создать
           </Button>
-          <Button variant="contained" startIcon={<FileDownloadIcon />} disabled>
-            Экспорт
-          </Button>
+
         </Stack>
       }
     >

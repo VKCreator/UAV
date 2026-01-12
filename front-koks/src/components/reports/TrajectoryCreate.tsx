@@ -7,10 +7,11 @@ import CoalReceiptForm, {
   type FormFieldValue,
   type CoalReceiptFormState,
 } from "./CoalReceiptForm";
-import PageContainer from "../PageContainer";
+import StepperContainer from "../StepperContainer";
 import TrajectoryStepper from "./TrajectoryStepper";
 
 import { api, CreateCoalReceiptInput } from "../../api/client";
+import { Box } from "@mui/material";
 
 type ValidationResult = {
   issues: { message: string; path: (keyof CoalReceiptInput)[] }[];
@@ -238,17 +239,13 @@ export default function TrajectoryCreate() {
   }, [formValues, navigate, notifications, setFormErrors]);
 
   return (
-    <PageContainer
-      title="Создание новой схемы полётов"
-      centerContent
-    >
+    <StepperContainer title="Создание новой схемы полётов" centerContent>
       <TrajectoryStepper
         formState={formState}
         onFieldChange={handleFormFieldChange}
         onSubmit={handleFormSubmit}
         onReset={handleFormReset}
       />
-
-    </PageContainer>
+    </StepperContainer>
   );
 }

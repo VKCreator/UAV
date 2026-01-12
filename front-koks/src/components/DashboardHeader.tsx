@@ -11,11 +11,11 @@ import MenuOpenIcon from "@mui/icons-material/MenuOpen";
 import Stack from "@mui/material/Stack";
 import { Link } from "react-router";
 import ThemeSwitcher from "./ThemeSwitcher";
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 const AppBar = styled(MuiAppBar)(({ theme }) => ({
   borderWidth: 0,
-  borderBottomWidth: 1,
+  borderBottomWidth: 2,
   borderStyle: "solid",
   borderColor: (theme.vars ?? theme).palette.divider,
   boxShadow: "none",
@@ -121,10 +121,11 @@ export default function DashboardHeader({
             sx={{ marginLeft: "auto" }}
           >
             <Stack direction="row" alignItems="center">
-              {/* <ThemeSwitcher /> */}
-              <IconButton size="medium" sx={{ color: "#014488ff" }}>
-                <InfoOutlinedIcon fontSize="medium" />
-              </IconButton>
+              <Tooltip title="Информация" enterDelay={1000}>
+                <IconButton size="medium" sx={{ color: "#014488ff" }}>
+                  <InfoOutlinedIcon fontSize="medium" />
+                </IconButton>
+              </Tooltip>
             </Stack>
           </Stack>
         </Stack>
