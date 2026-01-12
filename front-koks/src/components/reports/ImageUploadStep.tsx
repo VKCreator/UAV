@@ -485,7 +485,7 @@ const ImageUploadStep: React.FC = () => {
             justifyContent: "center",
             alignItems: "center",
             flex: 1,
-            overflow: "hidden", // 🚫 Скролл убран!
+            overflow: "hidden",
             m: 2,
           }}
         >
@@ -510,23 +510,28 @@ const ImageUploadStep: React.FC = () => {
                 alignItems: "center",
                 overflow: "auto",
                 width: "100%",
-                maxHeight: "calc(100% - 40px)", // оставляем место для подписи
+                maxHeight: "calc(100% - 60px)",
               }}
             >
-              <img
-                src={imageUrl}
-                alt="Полноэкранный просмотр"
-                style={{
-                  ...(originalSize
-                    ? {}
-                    : {
-                        maxWidth: "100%",
-                        maxHeight: "100%",
-                        objectFit: "contain",
-                      }),
-                }}
-              />
+              {originalSize ? (
+                <div
+                  style={{ width: "100%", height: "100%", overflow: "auto" }}
+                >
+                  <img src={imageUrl} alt="Полноэкранный просмотр" style={{}} />
+                </div>
+              ) : (
+                <img
+                  src={imageUrl}
+                  alt="Полноэкранный просмотр"
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    objectFit: "contain",
+                  }}
+                />
+              )}
             </Box>
+
             {/* Подпись снизу */}
             {originalSize ? (
               <Typography

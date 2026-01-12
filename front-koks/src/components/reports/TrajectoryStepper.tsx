@@ -115,7 +115,7 @@ const TrajectoryStepper: React.FC<{
       </Box>
 
       {/* Степпер */}
-      <Box sx={{ p: 2, flexShrink: 0 }}>
+      <Box sx={{ p: 2, flexShrink: 0, overflow: "auto" }}>
         <Stepper
           activeStep={activeStep}
           alternativeLabel
