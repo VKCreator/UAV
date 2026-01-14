@@ -54,6 +54,7 @@ interface ExifData {
 
 interface ImageUploadStepProps {
   onUpload: (files: File[], exifData: ExifData[]) => void;
+  onDelete: ()=> void,
   initialFiles?: File[];
   initialExifData?: ExifData[];
   initialImageUrl?: string;
@@ -61,6 +62,7 @@ interface ImageUploadStepProps {
 
 const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   onUpload,
+  onDelete,
   initialFiles,
   initialExifData,
   initialImageUrl,
@@ -185,6 +187,8 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     setFiles([]);
     setExifData([]);
     setError(null);
+
+    onDelete();
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -236,10 +240,11 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           display: "flex",
           flexDirection: "column",
           border: "1px solid #e0e0e0",
+          overflowY: "hidden"
         }}
       >
         <Table>
-          <TableHead>
+          <TableHead sx={{borderBottom: "1px solid"}}>
             <TableRow>
               <TableCell sx={{ fontWeight: "bold", width: "50%" }}>
                 {title}
@@ -422,27 +427,21 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
 
           {/* Таблицы в один ряд, одинаковой высоты и ширины */}
           {exifData.length > 0 && (
-            <Grid container spacing={2} sx={{ height: 400 }}>
+            <Grid container spacing={2} sx={{ height: 450, pb: 2 }}>
               <Grid
-                item
-                xs={12}
-                md={4}
+                size={{ xs: 12, md: 4 }}
                 sx={{ height: "100%", display: "flex" }}
               >
                 {renderTable(exifData[0], keysGroup1, "Основная информация")}
               </Grid>
               <Grid
-                item
-                xs={12}
-                md={4}
+                size={{ xs: 12, md: 4 }}
                 sx={{ height: "100%", display: "flex" }}
               >
                 {renderTable(exifData[0], keysGroup2, "Параметры изображения")}
               </Grid>
               <Grid
-                item
-                xs={12}
-                md={4}
+                size={{ xs: 12, md: 4 }}
                 sx={{ height: "100%", display: "flex" }}
               >
                 {renderTable(
@@ -471,7 +470,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
               p: 4,
               textAlign: "center",
               cursor: "pointer",
-              backgroundColor: isDragActive ? "#f0f8ff" : "transparent",
+              backgroundColor: isDragActive ? "#f0f8ff" : "hsl(220, 35%, 97%)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",

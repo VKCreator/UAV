@@ -47,21 +47,10 @@ interface ExifData {
   longitude: string;
 }
 
-// Тип для состояния формы
-type CoalReceiptFormState = {
-  values: Partial<Record<string, any>>;
-  errors: Partial<Record<string, string>>;
-};
-
 const TrajectoryStepper: React.FC<{
-  formState: CoalReceiptFormState;
-  onFieldChange: (
-    name: keyof CoalReceiptFormState["values"],
-    value: any
-  ) => void;
   onSubmit: () => void;
   onReset: () => void;
-}> = ({ formState, onFieldChange, onSubmit, onReset }) => {
+}> = ({ onSubmit, onReset }) => {
   const [activeStep, setActiveStep] = React.useState(0);
   const [schemaName, setSchemaName] = React.useState("Схема 1"); // начальное название
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -76,10 +65,26 @@ const TrajectoryStepper: React.FC<{
   const handleImageUpload = (newFiles: File[], newExif: ExifData[]) => {
     setFiles(newFiles);
     setExifData(newExif);
+    if (imageUrl) {
+      console.info("очищена память");
+      URL.revokeObjectURL(imageUrl);
+      setImageUrl(String());
+    }
+  };
+
+  const handleImageDelete = () => {
+    setFiles([]);
+    setExifData([]);
+
+    if (imageUrl) {
+      console.info("очищена память in delete");
+      URL.revokeObjectURL(imageUrl);
+      setImageUrl(String());
+    }
   };
 
   const steps = [
-    "Загрузка изображения",
+    "Загрузка базового слоя",
     "Построение траектории",
     "Оптимизация траектории",
     "Сравнение траекторий",
@@ -123,11 +128,13 @@ const TrajectoryStepper: React.FC<{
   };
 
   React.useEffect(() => {
+    console.info("new image");
     if (files.length > 0) {
       const url = URL.createObjectURL(files[0]);
       setImageUrl(url);
 
       return () => {
+        console.info("useEffect", "clear memory");
         URL.revokeObjectURL(url);
       };
     }
@@ -139,13 +146,13 @@ const TrajectoryStepper: React.FC<{
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        height: "calc(100vh - 85px)",
+        height: "calc(100vh - 90px)",
         overflow: "hidden",
       }}
     >
       {/* Название схемы + карандаш */}
       <Box
-        sx={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 1 }}
+        sx={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 1, pl: 2 }}
       >
         <Typography variant="h6" sx={{ fontWeight: 400 }}>
           Название:
@@ -161,7 +168,7 @@ const TrajectoryStepper: React.FC<{
       </Box>
 
       {/* Степпер */}
-      <Box sx={{ p: 2, flexShrink: 0, overflow: "auto" }}>
+      <Box sx={{ pt: 2, pb: 0, pl: 0, pr: 0, flexShrink: 0, overflow: "auto" }}>
         <Stepper
           activeStep={activeStep}
           alternativeLabel
@@ -174,6 +181,8 @@ const TrajectoryStepper: React.FC<{
                 color: "#014488ff", // завершённый шаг
               },
             },
+            borderBottom: "1px solid #e0e0e0",
+            paddingBottom: 2
           }}
         >
           {steps.map((label) => (
@@ -195,6 +204,7 @@ const TrajectoryStepper: React.FC<{
         {activeStep === 0 ? (
           <ImageUploadStep
             onUpload={handleImageUpload}
+            onDelete={handleImageDelete}
             initialFiles={files}
             initialExifData={exifData}
             initialImageUrl={imageUrl}

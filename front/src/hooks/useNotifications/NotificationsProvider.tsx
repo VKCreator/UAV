@@ -1,23 +1,23 @@
-import * as React from 'react';
-import Alert from '@mui/material/Alert';
-import Badge from '@mui/material/Badge';
-import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import Snackbar from '@mui/material/Snackbar';
-import SnackbarContent from '@mui/material/SnackbarContent';
-import type { SnackbarCloseReason } from '@mui/material/Snackbar';
-import type { CloseReason } from '@mui/material/SpeedDial';
-import CloseIcon from '@mui/icons-material/Close';
-import useSlotProps from '@mui/utils/useSlotProps';
-import NotificationsContext from './NotificationsContext';
+import * as React from "react";
+import Alert from "@mui/material/Alert";
+import Badge from "@mui/material/Badge";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Snackbar from "@mui/material/Snackbar";
+import SnackbarContent from "@mui/material/SnackbarContent";
+import type { SnackbarCloseReason } from "@mui/material/Snackbar";
+import type { CloseReason } from "@mui/material/SpeedDial";
+import CloseIcon from "@mui/icons-material/Close";
+import useSlotProps from "@mui/utils/useSlotProps";
+import NotificationsContext from "./NotificationsContext";
 import type {
   CloseNotification,
   ShowNotification,
   ShowNotificationOptions,
-} from './useNotifications';
+} from "./useNotifications";
 
 const RootPropsContext = React.createContext<NotificationsProviderProps | null>(
-  null,
+  null
 );
 
 interface NotificationProps {
@@ -37,7 +37,7 @@ function Notification({
 }: NotificationProps) {
   const notificationsContext = React.useContext(NotificationsContext);
   if (!notificationsContext) {
-    throw new Error('Notifications context was used without a provider.');
+    throw new Error("Notifications context was used without a provider.");
   }
   const { close } = notificationsContext;
 
@@ -45,19 +45,19 @@ function Notification({
 
   const handleClose = React.useCallback(
     (event: unknown, reason?: CloseReason | SnackbarCloseReason) => {
-      if (reason === 'clickaway') {
+      if (reason === "clickaway") {
         return;
       }
       close(notificationKey);
     },
-    [notificationKey, close],
+    [notificationKey, close]
   );
 
   const action = (
     <React.Fragment>
       {onAction ? (
         <Button color="inherit" size="small" onClick={onAction}>
-          {actionText ?? 'Action'}
+          {actionText ?? "Action"}
         </Button>
       ) : null}
       <IconButton
@@ -86,10 +86,18 @@ function Notification({
   });
 
   return (
-    <Snackbar key={notificationKey} {...snackbarSlotProps}>
-      <Badge badgeContent={badge} color="primary" sx={{ width: '100%' }}>
+    <Snackbar
+      key={notificationKey}
+      anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      {...snackbarSlotProps}
+    >
+      <Badge badgeContent={badge} color="primary" sx={{ width: "100%" }}>
         {severity ? (
-          <Alert severity={severity} sx={{ width: '100%' }} action={action}>
+          <Alert
+            severity={severity}
+            sx={{ width: "100%" }}
+            action={action}
+          >
             {message}
           </Alert>
         ) : (
@@ -141,7 +149,9 @@ const generateId = () => {
  * Provider for Notifications. The subtree of this component can use the `useNotifications` hook to
  * access the notifications API. The notifications are shown in the same order they are requested.
  */
-export default function NotificationsProvider(props: NotificationsProviderProps) {
+export default function NotificationsProvider(
+  props: NotificationsProviderProps
+) {
   const { children } = props;
   const [state, setState] = React.useState<NotificationsState>({ queue: [] });
 
@@ -155,7 +165,10 @@ export default function NotificationsProvider(props: NotificationsProviderProps)
       }
       return {
         ...prev,
-        queue: [...prev.queue, { message, options, notificationKey, open: true }],
+        queue: [
+          ...prev.queue,
+          { message, options, notificationKey, open: true },
+        ],
       };
     });
     return notificationKey;

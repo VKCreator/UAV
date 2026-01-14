@@ -7,7 +7,7 @@ import Container, { ContainerProps } from "@mui/material/Container";
 import MuiLink from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import NavigateNextRoundedIcon from "@mui/icons-material/NavigateNextRounded";
+import MapRoundedIcon from "@mui/icons-material/MapRounded";
 import { Link } from "react-router";
 
 const PageContentHeader = styled("div")(({ theme }) => ({
@@ -62,9 +62,9 @@ export default function PageContainer(props: PageContainerProps) {
       maxWidth={false}
       sx={{ height: "100%", display: "flex", flexDirection: "column" }}
     >
-      <Stack sx={{ flex: 1, my: 0 }} spacing={2}>
+      <Stack sx={{ flex: 1, pt: 5, pl: 5, pr: 5 }} spacing={2}>
         <Stack>
-          <PageHeaderBreadcrumbs
+          {/* <PageHeaderBreadcrumbs
             aria-label="breadcrumb"
             separator={<NavigateNextRoundedIcon fontSize="small" />}
           >
@@ -90,7 +90,7 @@ export default function PageContainer(props: PageContainerProps) {
                   );
                 })
               : null}
-          </PageHeaderBreadcrumbs>
+          </PageHeaderBreadcrumbs> */}
           <PageContentHeader>
             <Box
               sx={{
@@ -108,7 +108,14 @@ export default function PageContainer(props: PageContainerProps) {
                 },
               }}
             >
-              {title ? <Typography variant="h4">{title}</Typography> : null}
+{title ? (
+  <Stack direction="row" alignItems="center" spacing={1}>
+    <MapRoundedIcon fontSize="medium" />
+    <Typography variant="h4" fontWeight={600} component="h1">
+      {title}
+    </Typography>
+  </Stack>
+) : null}
               <PageHeaderToolbar>{actions}</PageHeaderToolbar>
             </Box>
           </PageContentHeader>

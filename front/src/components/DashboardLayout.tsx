@@ -2,11 +2,10 @@ import * as React from "react";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Box from "@mui/material/Box";
-import Toolbar from "@mui/material/Toolbar";
 import { Outlet } from "react-router";
-import DashboardHeader from "./DashboardHeader";
 import DashboardSidebar from "./DashboardSidebar";
 import AppIcon from "./AppIcon";
+import { LayoutContext } from "../context/LayoutContext";
 
 export default function DashboardLayout() {
   const theme = useTheme();
@@ -34,7 +33,7 @@ export default function DashboardLayout() {
       isOverMdViewport,
       setIsDesktopNavigationExpanded,
       setIsMobileNavigationExpanded,
-    ],
+    ]
   );
   const handleToggleHeaderMenu = React.useCallback(
     (isExpanded: boolean) => {
@@ -46,51 +45,53 @@ export default function DashboardLayout() {
   const layoutRef = React.useRef<HTMLDivElement>(null);
 
   return (
-    <Box
-      ref={layoutRef}
-      sx={{
-        position: "relative",
-        display: "flex",
-        overflow: "hidden",
-        height: "100%",
-        width: "100%",
-      }}
-    >
-      {/* <DashboardHeader
+    <LayoutContext.Provider value={{ setIsNavigationExpanded }}>
+      <Box
+        ref={layoutRef}
+        sx={{
+          position: "relative",
+          display: "flex",
+          overflow: "hidden",
+          height: "100%",
+          width: "100%",
+        }}
+      >
+        {/* <DashboardHeader
         logo={isOverMdViewport ? <AppIcon /> : null}
         title=""
         menuOpen={isNavigationExpanded}
         onToggleMenu={handleToggleHeaderMenu}
       /> */}
-      <DashboardSidebar
-        logo={<AppIcon />}
-        expanded={isNavigationExpanded}
-        setExpanded={setIsNavigationExpanded}
-        container={layoutRef?.current ?? undefined}
-        menuOpen={isNavigationExpanded}
-        onToggleMenu={handleToggleHeaderMenu}
-      />
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          flex: 1,
-          minWidth: 0,
-        }}
-      >
-        {/* <Toolbar sx={{ displayPrint: "none" }} /> */}
+        <DashboardSidebar
+          logo={<AppIcon />}
+          expanded={isNavigationExpanded}
+          setExpanded={setIsNavigationExpanded}
+          container={layoutRef?.current ?? undefined}
+          menuOpen={isNavigationExpanded}
+          onToggleMenu={handleToggleHeaderMenu}
+        />
         <Box
-          component="main"
           sx={{
             display: "flex",
             flexDirection: "column",
             flex: 1,
-            overflow: "auto",
+            minWidth: 0,
           }}
         >
-          <Outlet />
+          {/* <Toolbar sx={{ displayPrint: "none" }} /> */}
+          <Box
+            component="main"
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              overflow: "auto",
+            }}
+          >
+            <Outlet />
+          </Box>
         </Box>
       </Box>
-    </Box>
+    </LayoutContext.Provider>
   );
 }

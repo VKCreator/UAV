@@ -23,6 +23,7 @@ import {
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useNavigate } from "react-router";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
+import { useContext } from "react";
 
 import PageContainer from "../PageContainer";
 
@@ -34,10 +35,11 @@ import {
   createCoalReceiptWorksheet,
   createCoalUnloadingWorksheet,
 } from "../../utils/exportUtils";
+import { useLayout } from "../../context/LayoutContext";
 
 import { russianLocale } from "../../constants";
 
-export default function CoalReceiptList() {
+export default function TrajectoryList() {
   const navigate = useNavigate();
   const notifications = useNotifications();
 

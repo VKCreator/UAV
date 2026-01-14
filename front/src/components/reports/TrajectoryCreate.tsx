@@ -137,8 +137,6 @@ export default function TrajectoryCreate() {
   return (
     <StepperContainer title="Создание новой схемы полётов" centerContent>
       <TrajectoryStepper
-        formState={formState}
-        onFieldChange={handleFormFieldChange}
         onSubmit={handleFormSubmit}
         onReset={handleFormReset}
       />

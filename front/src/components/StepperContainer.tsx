@@ -3,8 +3,10 @@ import * as React from "react";
 import { styled } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Container, { ContainerProps } from "@mui/material/Container";
-import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
+import KeyboardBackspaceOutlinedIcon from "@mui/icons-material/KeyboardBackspaceOutlined";
+import { useNavigate } from "react-router";
+import { Stack, Typography, IconButton } from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 const StepperContentHeader = styled("div")(({ theme }) => ({
   display: "flex",
@@ -30,13 +32,14 @@ export interface StepperContainerProps extends ContainerProps {
 
 export default function StepperContainer(props: StepperContainerProps) {
   const { children, title, actions = null, centerContent = false } = props;
+  const navigate = useNavigate();
 
   return (
     <Container
       maxWidth={false}
-      sx={{ display: "flex", flexDirection: "column" }}
+      sx={{ height: "100%", display: "flex", flexDirection: "column" }}
     >
-      <Stack sx={{ flex: 1, my: 2 }} spacing={1}>
+      <Stack sx={{ flex: 1, pt: 5, pl: 5, pr: 5 }} spacing={1}>
         <Stack>
           <StepperContentHeader>
             <Box
@@ -55,7 +58,25 @@ export default function StepperContainer(props: StepperContainerProps) {
                 },
               }}
             >
-              {title ? <Typography variant="h4">{title}</Typography> : null}
+              {title ? (
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <IconButton
+                    onClick={() => navigate("/")}
+                    sx={{
+                      color: "text.secondary", // серый цвет
+                      "&:hover": {
+                        backgroundColor: "rgba(0, 0, 0, 0.04)", // лёгкий ховер-эффект
+                      },
+                    }}
+                    aria-label="Назад на главную"
+                  >
+                    <ArrowBackIcon fontSize="medium" />
+                  </IconButton>
+                  <Typography variant="h4" fontWeight={600} component="h1">
+                    {title}
+                  </Typography>
+                </Stack>
+              ) : null}
               <StepperHeaderToolbar>{actions}</StepperHeaderToolbar>
             </Box>
           </StepperContentHeader>
