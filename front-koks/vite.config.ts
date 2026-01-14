@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react()],
   define: { "process.env": {} },
   server: {
-    port: 7777,
-    host: true,
-    allowedHosts: ["vkcreator.duckdns.org", "vkcreator.chickenkiller.com", "vkcreator.ddns.net"],
+    port: 5000,
+    host: "0.0.0.0",
+    allowedHosts: true,
   },
 });
