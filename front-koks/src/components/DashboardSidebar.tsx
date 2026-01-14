@@ -27,11 +27,13 @@ import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 
 export interface DashboardSidebarProps {
-  logo?: React.ReactNode; // ← добавлено
+  logo?: React.ReactNode;
   expanded?: boolean;
   setExpanded: (expanded: boolean) => void;
   disableCollapsibleSidebar?: boolean;
   container?: Element;
+  menuOpen: boolean;
+  onToggleMenu: (open: boolean) => void;
 }
 
 export default function DashboardSidebar({
@@ -40,6 +42,8 @@ export default function DashboardSidebar({
   setExpanded,
   disableCollapsibleSidebar = false,
   container,
+  menuOpen,
+  onToggleMenu,
 }: DashboardSidebarProps) {
   const theme = useTheme();
 
@@ -146,6 +150,7 @@ export default function DashboardSidebar({
             alignItems: "center",
             justifyContent: mini ? "center" : "space-between",
             p: mini ? 1 : 2,
+            pr: "3px",
             height: 64, // высота как у AppBar
             borderBottom: "1px solid",
             borderColor: "divider",
@@ -153,7 +158,6 @@ export default function DashboardSidebar({
         >
           {mini ? null : (
             <Stack direction="row" alignItems="center" spacing={1}>
-              {/* Здесь можно передать logo через props или захардкодить */}
               {logo ? (
                 <Box sx={{ height: 40, display: "flex", alignItems: "center" }}>
                   {logo}
@@ -235,8 +239,8 @@ export default function DashboardSidebar({
               id="natural-sheets"
               title="Квадрокоптеры"
               icon={<LocalAirportRoundedIcon />}
-              href="/manufacture/natural-sheets"
-              selected={!!matchPath("/manufacture/natural-sheets/*", pathname)}
+              href="/drones"
+              selected={!!matchPath("/drones/*", pathname)}
             />
           </List>
 
@@ -245,6 +249,7 @@ export default function DashboardSidebar({
               mt: "auto",
               p: 2,
               textAlign: "center",
+              justifyContent: mini ? "center" : "space-between",
               borderTop: "1px solid",
               borderColor: "divider",
               color: "text.secondary",
@@ -253,11 +258,11 @@ export default function DashboardSidebar({
               opacity: 0.7,
               display: "flex",
               flexDirection: "column",
-              alignItems: "flex-start",
+              alignItems: mini ? "center" : "flex-start",
               gap: 0.5,
             }}
           >
-            v12.01.2026
+            v14.01.2026
           </Box>
         </Box>
       </React.Fragment>
@@ -269,7 +274,7 @@ export default function DashboardSidebar({
       expanded,
       setExpanded,
       disableCollapsibleSidebar,
-      logo, // ← добавьте logo в зависимости!
+      logo,
       pathname,
     ]
   );
@@ -316,7 +321,7 @@ export default function DashboardSidebar({
     <DashboardSidebarContext.Provider value={sidebarContextValue}>
       <Drawer
         container={container}
-        variant="temporary"
+        variant="permanent"
         open={expanded}
         onClose={handleSetSidebarExpanded(false)}
         ModalProps={{
@@ -328,10 +333,10 @@ export default function DashboardSidebar({
             sm: disableCollapsibleSidebar ? "block" : "none",
             md: "none",
           },
-          ...getDrawerSharedSx(true),
+          ...getDrawerSharedSx(false),
         }}
       >
-        {getDrawerContent("phone")}
+        {getDrawerContent("tablet")}
       </Drawer>
       <Drawer
         variant="permanent"
@@ -349,11 +354,11 @@ export default function DashboardSidebar({
       <Drawer
         variant="permanent"
         sx={{
-          display: { xs: 'none', md: 'block' },
+          display: { xs: "none", md: "block" },
           ...getDrawerSharedSx(false),
         }}
       >
-        {getDrawerContent('desktop')}
+        {getDrawerContent("desktop")}
       </Drawer>
     </DashboardSidebarContext.Provider>
   );

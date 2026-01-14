@@ -67,6 +67,8 @@ export default function DashboardLayout() {
         expanded={isNavigationExpanded}
         setExpanded={setIsNavigationExpanded}
         container={layoutRef?.current ?? undefined}
+        menuOpen={isNavigationExpanded}
+        onToggleMenu={handleToggleHeaderMenu}
       />
       <Box
         sx={{

@@ -62,7 +62,7 @@ export default function PageContainer(props: PageContainerProps) {
       maxWidth={false}
       sx={{ height: "100%", display: "flex", flexDirection: "column" }}
     >
-      <Stack sx={{ flex: 1, my: 2 }} spacing={2}>
+      <Stack sx={{ flex: 1, my: 0 }} spacing={2}>
         <Stack>
           <PageHeaderBreadcrumbs
             aria-label="breadcrumb"

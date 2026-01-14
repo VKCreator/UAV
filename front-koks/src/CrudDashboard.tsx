@@ -4,6 +4,7 @@ import DashboardLayout from "./components/DashboardLayout";
 
 import TrajectoriesList from "./components/reports/TrajectoryList";
 import TrajectoryCreate from "./components/reports/TrajectoryCreate";
+import DronesList from "./components/reports/DronesList";
 
 import NotificationsProvider from "./hooks/useNotifications/NotificationsProvider";
 import DialogsProvider from "./hooks/useDialogs/DialogsProvider";
@@ -26,6 +27,10 @@ const router = createHashRouter([
       {
         path: "/trajectories/new",
         Component: TrajectoryCreate,
+      },
+      {
+        path: "/drones",
+        Component: DronesList,
       },
       // Fallback route for the example routes in dashboard sidebar items
       {

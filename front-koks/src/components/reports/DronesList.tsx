@@ -1,4 +1,4 @@
-// src/components/CoalReceiptList.tsx
+// src/components/DronesList.tsx
 import * as React from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -7,7 +7,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import AddIcon from "@mui/icons-material/Add";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -20,28 +20,16 @@ import {
   GridPaginationModel,
   gridClasses,
 } from "@mui/x-data-grid";
-import RefreshIcon from "@mui/icons-material/Refresh";
 import { useNavigate } from "react-router";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 
 import PageContainer from "../PageContainer";
-
-import * as XLSX from "xlsx-js-style";
-import { api } from "../../api/client";
-import { DateToPrettyLocalDateTime } from "../../utils/dateUtils";
-
-import {
-  createCoalReceiptWorksheet,
-  createCoalUnloadingWorksheet,
-} from "../../utils/exportUtils";
-
+import { api, Drone } from "../../api/client";
 import { russianLocale } from "../../constants";
 
-export default function CoalReceiptList() {
+export default function DronesList() {
   const navigate = useNavigate();
   const notifications = useNotifications();
-
-  const [isExportDialogOpen, setIsExportDialogOpen] = React.useState(false);
 
   const [paginationModel, setPaginationModel] =
     React.useState<GridPaginationModel>({
@@ -50,7 +38,7 @@ export default function CoalReceiptList() {
     });
 
   const [rowsState, setRowsState] = React.useState<{
-    rows: Any[];
+    rows: Drone[];
     rowCount: number;
   }>({
     rows: [],
@@ -60,25 +48,28 @@ export default function CoalReceiptList() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
 
-  // Функция загрузки данных с сервера
+  // Загрузка данных
   const loadData = React.useCallback(async () => {
     setError(null);
     setIsLoading(true);
 
     try {
-      // const data = await api.coalReceipts.getAll();
-      const data = { data: [] };
+      const response = await api.drones.getAll();
 
       setRowsState({
-        rows: data.data || [],
-        rowCount: (data.data || []).length,
+        rows: response || [],
+        rowCount: (response || []).length,
       });
-    } catch (fetchError) {
-      // setError(fetchError as Error);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Неизвестная ошибка"));
+      notifications.show("Не удалось загрузить список дронов", {
+        severity: "error",
+        autoHideDuration: 3000,
+      });
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
-  }, []);
+  }, [notifications]);
 
   React.useEffect(() => {
     loadData();
@@ -91,107 +82,98 @@ export default function CoalReceiptList() {
   }, [isLoading, loadData]);
 
   const handleCreateClick = React.useCallback(() => {
-    navigate("/trajectories/new");
+    navigate("/drones/new");
   }, [navigate]);
 
-  // Определяем колонки таблицы
+  // Колонки таблицы
   const columns = React.useMemo<GridColDef[]>(
     () => [
       {
-        field: "schemaName",
-        headerName: "Имя схемы",
-        minWidth: 100,
-        flex: 0.8,
-        sortable: true,
-      },
-      {
-        field: "schemaImage",
-        headerName: "Изображение схемы",
-        minWidth: 200,
-        flex: 0.9,
-        renderCell: (params) => {
-          const imageUrl = params.value; // предполагаем, что это URL изображения
-          return imageUrl ? (
-            <img
-              src={imageUrl}
-              alt="Схема"
-              style={{
-                width: "100%",
-                height: "auto",
-                maxHeight: "80px",
-                objectFit: "contain",
-                borderRadius: "4px",
-              }}
-            />
-          ) : (
-            <span>Нет изображения</span>
-          );
-        },
-      },
-      {
-        field: "pointCount",
-        headerName: "Количество точек съёмки",
-        type: "number",
-        minWidth: 150,
-        flex: 0.6,
-        sortable: true,
-        valueFormatter: (value) => Number(value).toFixed(0),
-      },
-      {
-        field: "distanceToCamera",
-        headerName: "Расстояние от камеры до объекта",
-        type: "number",
+        field: "model",
+        headerName: "Модель",
         minWidth: 180,
-        flex: 0.7,
+        flex: 1,
         sortable: true,
-        valueFormatter: (value) => `${Number(value).toFixed(2)} м`,
       },
       {
-        field: "cameraAngle",
-        headerName: "Угол раскрытия камеры",
+        field: "fov_vertical",
+        headerName: "Угол обзора (°)",
         type: "number",
-        minWidth: 160,
+        minWidth: 140,
         flex: 0.7,
         sortable: true,
         valueFormatter: (value) => `${Number(value).toFixed(1)}°`,
       },
       {
-        field: "formatEquivalent",
-        headerName: "Эквивалент формата",
+        field: "resolution",
+        headerName: "Разрешение",
+        minWidth: 140,
+        flex: 0.8,
+        sortable: false,
+        valueGetter: (_, row: Drone) =>
+          row.resolution_width && row.resolution_height
+            ? `${row.resolution_width} × ${row.resolution_height}`
+            : "—",
+      },
+      {
+        field: "max_wind_resistance",
+        headerName: "Сопротивляемость ветру (м/с)",
+        type: "number",
+        minWidth: 180,
+        flex: 0.9,
+        sortable: true,
+        valueFormatter: (value) =>
+          value != null ? Number(value).toFixed(1) : "—",
+      },
+      {
+        field: "speedRange",
+        headerName: "Диапазон скорости (м/с)",
         minWidth: 160,
+        flex: 0.9,
+        sortable: false,
+        valueGetter: (_, row: Drone) => {
+          if (row.min_speed != null && row.max_speed != null) {
+            return `${row.min_speed} – ${row.max_speed}`;
+          }
+          return "—";
+        },
+      },
+      {
+        field: "battery_life",
+        headerName: "Время полёта (мин)",
+        type: "number",
+        minWidth: 140,
         flex: 0.7,
         sortable: true,
-        valueGetter: (value, row) => row.formatEquivalent || "—",
+        valueFormatter: (value) =>
+          value != null ? Number(value).toFixed(0) : "—",
       },
-      {
-        field: "methodType",
-        headerName: "Тип метода",
-        minWidth: 150,
-        flex: 0.6,
-        sortable: true,
-        valueGetter: (value, row) => row.methodType || "Не указан",
-      },
-      // Столбец с действиями — последний
       {
         field: "actions",
-        headerName: "Действия",
+        headerName: "",
         minWidth: 120,
-        flex: 0.4,
+        flex: 0.5,
         sortable: false,
         filterable: false,
         disableColumnMenu: true,
         renderCell: (params) => {
           return (
             <Box sx={{ display: "flex", gap: 0.5 }}>
-              <IconButton size="small" color="primary">
-                <EditIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" color="error">
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" color="info">
-                <VisibilityIcon fontSize="small" />
-              </IconButton>
+              <Tooltip title="Редактировать" placement="top">
+                <IconButton size="small" color="primary">
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Удалить" placement="top">
+                <IconButton size="small" color="error">
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Просмотреть" placement="top">
+                <IconButton size="small" color="info">
+                  <VisibilityIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Box>
           );
         },
@@ -200,7 +182,7 @@ export default function CoalReceiptList() {
     []
   );
 
-  const pageTitle = "Схемы полётов";
+  const pageTitle = "Квадрокоптеры";
 
   return (
     <PageContainer
@@ -209,7 +191,7 @@ export default function CoalReceiptList() {
         <Stack direction="row" alignItems="center" spacing={1}>
           <TextField
             size="small"
-            placeholder="Поиск..."
+            placeholder="Поиск по модели..."
             variant="outlined"
             InputProps={{
               startAdornment: (
@@ -237,14 +219,12 @@ export default function CoalReceiptList() {
             onClick={handleCreateClick}
             startIcon={<AddIcon />}
           >
-            Создать
+            Добавить
           </Button>
         </Stack>
       }
     >
-      <Box
-        sx={{ width: "100%", overflow: "auto", height: "calc(100vh - 200px)" }}
-      >
+      <Box sx={{ width: "100%", overflow: "auto", height: "calc(100vh - 200px)" }}>
         {error ? (
           <Box sx={{ flexGrow: 1 }}>
             <Alert severity="error">{error.message}</Alert>
@@ -262,11 +242,6 @@ export default function CoalReceiptList() {
             pageSizeOptions={[5, 10, 25]}
             getRowHeight={() => "auto"}
             localeText={russianLocale}
-            initialState={{
-              sorting: {
-                sortModel: [{ field: "receiptDate", sort: "desc" }],
-              },
-            }}
             sx={{
               [`& .${gridClasses.columnHeader}, & .${gridClasses.cell}`]: {
                 outline: "transparent",
@@ -276,16 +251,13 @@ export default function CoalReceiptList() {
                   outline: "none",
                 },
               [`& .${gridClasses.row}:hover`]: {
-                cursor: "arrow",
+                cursor: "pointer",
               },
               ["& .MuiDataGrid-columnHeaders"]: {
                 position: "sticky",
                 top: 0,
                 zIndex: 10,
                 backgroundColor: "background.paper",
-              },
-              ["& .MuiDataGrid-virtualScroller"]: {
-                marginTop: "0 !important",
               },
               [`& .${gridClasses.cell}`]: {
                 whiteSpace: "normal",
@@ -295,7 +267,6 @@ export default function CoalReceiptList() {
                 minHeight: "48px",
                 display: "flex",
                 alignItems: "center",
-                // fontFamily: "monospace",
               },
               [`& .${gridClasses.columnHeader}`]: {
                 whiteSpace: "normal",

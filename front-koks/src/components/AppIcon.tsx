@@ -1,5 +1,7 @@
+// AppIcon.tsx
 import * as React from "react";
 import { Box, Typography } from "@mui/material";
+import { Link } from "react-router";
 import RouteIcon from "@mui/icons-material/Route";
 
 interface AppIconProps {
@@ -13,60 +15,70 @@ interface AppIconProps {
 const AppIcon: React.FC<AppIconProps> = ({
   className = "",
   style = {},
-  width = 500,
+  width = 215,
   height = 48,
   fontSize = "medium",
 }) => {
   return (
-    <Box
-      className={className}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 1.5,
-        width,
-        height,
-        padding: "6px 0px",
+    // Оборачиваем в Link → кликабельный переход
+    <Link
+      to="/trajectories"
+      style={{
+        textDecoration: "none", // убираем подчёркивание
+        display: "inline-block",
         ...style,
       }}
+      className={className}
     >
-      {/* Синий квадрат с белой иконкой Route */}
       <Box
         sx={{
-          width: 40,
-          height: 40,
-          backgroundColor: "#014488ff", // синий цвет как в примере
-          borderRadius: "8px",
           display: "flex",
-          justifyContent: "center",
           alignItems: "center",
+          gap: 1.5,
+          width,
+          height,
+          padding: "6px 0px",
+          cursor: "pointer",
         }}
       >
-        <RouteIcon
-          fontSize={fontSize}
+        {/* Синий квадрат с белой иконкой Route */}
+        <Box
           sx={{
-            color: "white",
-            width: 24,
-            height: 24,
+            width: 36,
+            height: 36,
+            backgroundColor: "#014488ff",
+            borderRadius: "8px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
           }}
-        />
-      </Box>
+        >
+          <RouteIcon
+            fontSize={fontSize}
+            sx={{
+              color: "white",
+              width: 20,
+              height: 20,
+            }}
+          />
+        </Box>
 
-      <Typography
-        variant="h6"
-        component="span"
-        sx={{
-          color: "#014488ff", // тот же синий
-          fontWeight: 600,
-          fontFamily: "Roboto, Arial, sans-serif",
-          fontSize: "18px",
-          letterSpacing: "0.3px",
-          whiteSpace: "nowrap",
-        }}
-      >
-        SkyPath UAV Service
-      </Typography>
-    </Box>
+        <Typography
+          variant="h6"
+          component="span"
+          sx={{
+            color: "#014488ff",
+            fontWeight: 600,
+            fontFamily: "Roboto, Arial, sans-serif",
+            fontSize: "16px",
+            letterSpacing: "0.3px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          SkyPath UAV Service
+        </Typography>
+      </Box>
+    </Link>
   );
 };
 
