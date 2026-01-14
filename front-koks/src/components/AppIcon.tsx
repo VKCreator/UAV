@@ -26,7 +26,7 @@ const AppIcon: React.FC<AppIconProps> = ({
         gap: 1.5,
         width,
         height,
-        padding: "6px 12px",
+        padding: "6px 0px",
         ...style,
       }}
     >

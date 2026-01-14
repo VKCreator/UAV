@@ -73,7 +73,7 @@ export default function CoalReceiptList() {
         rowCount: (data.data || []).length,
       });
     } catch (fetchError) {
-      setError(fetchError as Error);
+      // setError(fetchError as Error);
     }
 
     setIsLoading(false);

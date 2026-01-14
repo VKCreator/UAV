@@ -19,7 +19,33 @@ import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import { useNavigate } from "react-router";
 import Tooltip from "@mui/material/Tooltip";
+
 import ImageUploadStep from "./ImageUploadStep";
+import BuildTrajectoryStep from "./BuildTrajectoryStep";
+import PolygonTool from "./PolygonTool";
+
+import ExifData from "./ImageUploadStep";
+
+interface ExifData {
+  fileName: string;
+  fileSize: string;
+  width?: number;
+  height?: number;
+  dateTime?: string;
+  make?: string;
+  model?: string;
+  orientation?: number;
+  xResolution?: number;
+  yResolution?: number;
+  resolutionUnit?: number;
+  software?: string;
+  artist?: string;
+  copyright?: string;
+  focalLength: number;
+  focalLengthIn35mmFormat: number;
+  latitude: string;
+  longitude: string;
+}
 
 // Тип для состояния формы
 type CoalReceiptFormState = {
@@ -42,6 +68,15 @@ const TrajectoryStepper: React.FC<{
   const [dialogValue, setDialogValue] = React.useState("");
   const [error, setError] = React.useState("");
   const navigate = useNavigate();
+
+  const [files, setFiles] = React.useState<File[]>([]);
+  const [exifData, setExifData] = React.useState<ExifData[]>([]);
+  const [imageUrl, setImageUrl] = React.useState<string>("");
+
+  const handleImageUpload = (newFiles: File[], newExif: ExifData[]) => {
+    setFiles(newFiles);
+    setExifData(newExif);
+  };
 
   const steps = [
     "Загрузка изображения",
@@ -87,13 +122,24 @@ const TrajectoryStepper: React.FC<{
     handleCloseDialog();
   };
 
+  React.useEffect(() => {
+    if (files.length > 0) {
+      const url = URL.createObjectURL(files[0]);
+      setImageUrl(url);
+
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    }
+  }, [files]);
+
   return (
     <Box
       sx={{
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        height: "calc(100vh - 150px)",
+        height: "calc(100vh - 85px)",
         overflow: "hidden",
       }}
     >
@@ -147,7 +193,23 @@ const TrajectoryStepper: React.FC<{
         }}
       >
         {activeStep === 0 ? (
-          <ImageUploadStep />
+          <ImageUploadStep
+            onUpload={handleImageUpload}
+            initialFiles={files}
+            initialExifData={exifData}
+            initialImageUrl={imageUrl}
+          />
+        ) : activeStep === 1 ? (
+          <BuildTrajectoryStep
+            imageData={{
+              imageUrl,
+              fileName: files[0]?.name || "",
+              width: exifData[0]?.width,
+              height: exifData[0]?.height,
+            }}
+          />
+        ) : activeStep === 2 ? (
+          <PolygonTool />
         ) : (
           <Paper sx={{ p: 3, height: "2000px" }}>
             <Typography variant="h6" gutterBottom>
@@ -191,6 +253,7 @@ const TrajectoryStepper: React.FC<{
           variant="contained"
           color="primary"
           endIcon={<KeyboardArrowRightIcon />}
+          disabled={activeStep === 0 && imageUrl == ""}
         >
           {activeStep === steps.length - 1 ? "Создать" : "Далее"}
         </Button>

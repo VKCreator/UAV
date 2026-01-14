@@ -6,8 +6,8 @@ import Drawer from "@mui/material/Drawer";
 import List from "@mui/material/List";
 import Toolbar from "@mui/material/Toolbar";
 import type {} from "@mui/material/themeCssVarsAugmentation";
-import MapRoundedIcon from '@mui/icons-material/MapRounded';
-import LocalAirportRoundedIcon from '@mui/icons-material/LocalAirportRounded';
+import MapRoundedIcon from "@mui/icons-material/MapRounded";
+import LocalAirportRoundedIcon from "@mui/icons-material/LocalAirportRounded";
 import { matchPath, useLocation } from "react-router";
 import DashboardSidebarContext from "../context/DashboardSidebarContext";
 import { DRAWER_WIDTH, MINI_DRAWER_WIDTH } from "../constants";
@@ -19,28 +19,15 @@ import {
   getDrawerWidthTransitionMixin,
 } from "../mixins";
 
-import PushPinIcon from "@mui/icons-material/PushPin";
-import ArticleIcon from "@mui/icons-material/Article";
-import TrainIcon from "@mui/icons-material/Train";
-import FactoryIcon from "@mui/icons-material/Factory";
-import StorageIcon from "@mui/icons-material/Storage";
-import SettingsIcon from "@mui/icons-material/Settings";
-import InventoryIcon from "@mui/icons-material/Inventory";
-import CategoryIcon from "@mui/icons-material/Category";
-import WarehouseIcon from "@mui/icons-material/Warehouse";
-import ApartmentIcon from "@mui/icons-material/Apartment";
-import UnarchiveIcon from "@mui/icons-material/Unarchive";
-import BusinessIcon from "@mui/icons-material/Business";
-import MenuBookIcon from "@mui/icons-material/MenuBook";
-import Inventory2Icon from "@mui/icons-material/Inventory2";
-import GroupIcon from "@mui/icons-material/Group";
-import GroupWorkIcon from "@mui/icons-material/GroupWork";
-import BookmarkIcon from "@mui/icons-material/Bookmark";
-import LocationSearchingIcon from "@mui/icons-material/LocationSearching";
-import EngineeringIcon from "@mui/icons-material/Engineering";
-import ChangeCircleIcon from "@mui/icons-material/ChangeCircle";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+import MenuIcon from "@mui/icons-material/Menu";
+import MenuOpenIcon from "@mui/icons-material/MenuOpen";
+import Typography from "@mui/material/Typography";
+import Stack from "@mui/material/Stack";
 
 export interface DashboardSidebarProps {
+  logo?: React.ReactNode; // ← добавлено
   expanded?: boolean;
   setExpanded: (expanded: boolean) => void;
   disableCollapsibleSidebar?: boolean;
@@ -48,6 +35,7 @@ export interface DashboardSidebarProps {
 }
 
 export default function DashboardSidebar({
+  logo,
   expanded = true,
   setExpanded,
   disableCollapsibleSidebar = false,
@@ -151,7 +139,61 @@ export default function DashboardSidebar({
   const getDrawerContent = React.useCallback(
     (viewport: "phone" | "tablet" | "desktop") => (
       <React.Fragment>
-        <Toolbar />
+        {/* === НОВЫЙ БЛОК: ЛОГОТИП + КНОПКА МЕНЮ === */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: mini ? "center" : "space-between",
+            p: mini ? 1 : 2,
+            height: 64, // высота как у AppBar
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          {mini ? null : (
+            <Stack direction="row" alignItems="center" spacing={1}>
+              {/* Здесь можно передать logo через props или захардкодить */}
+              {logo ? (
+                <Box sx={{ height: 40, display: "flex", alignItems: "center" }}>
+                  {logo}
+                </Box>
+              ) : (
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 700,
+                    color: "primary.main",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Ваш Логотип
+                </Typography>
+              )}
+            </Stack>
+          )}
+
+          {!disableCollapsibleSidebar && (
+            <Tooltip
+              title={expanded ? "Скрыть меню" : "Показать меню"}
+              enterDelay={1000}
+            >
+              <IconButton
+                size="small"
+                aria-label={
+                  expanded
+                    ? "Скрыть навигационное меню"
+                    : "Показать навигационное меню"
+                }
+                onClick={() => setExpanded(!expanded)}
+              >
+                {expanded ? <MenuOpenIcon /> : <MenuIcon />}
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+
+        {/* === ОСНОВНОЕ МЕНЮ === */}
         <Box
           component="nav"
           aria-label={`${viewport.charAt(0).toUpperCase()}${viewport.slice(1)}`}
@@ -163,7 +205,7 @@ export default function DashboardSidebar({
             overflow: "auto",
             scrollbarGutter: mini ? "stable" : "auto",
             overflowX: "hidden",
-            pt: !mini ? 0 : 2,
+            pt: 0,
             ...(hasDrawerTransitions
               ? getDrawerSxTransitionMixin(isFullyExpanded, "padding")
               : {}),
@@ -181,7 +223,7 @@ export default function DashboardSidebar({
             <DashboardSidebarPageItem
               id="coals-receipt"
               title="Схемы полётов"
-              icon={<MapRoundedIcon  />}
+              icon={<MapRoundedIcon />}
               href="/trajectories"
               selected={
                 !!matchPath("/trajectories/*", pathname) || pathname === "/"
@@ -220,7 +262,16 @@ export default function DashboardSidebar({
         </Box>
       </React.Fragment>
     ),
-    [mini, hasDrawerTransitions, isFullyExpanded, expandedItemIds, pathname]
+    [
+      mini,
+      hasDrawerTransitions,
+      isFullyExpanded,
+      expanded,
+      setExpanded,
+      disableCollapsibleSidebar,
+      logo, // ← добавьте logo в зависимости!
+      pathname,
+    ]
   );
 
   const getDrawerSharedSx = React.useCallback(
@@ -287,7 +338,7 @@ export default function DashboardSidebar({
         sx={{
           display: {
             xs: "none",
-            sm: expanded && !disableCollapsibleSidebar ? "block" : "none",
+            sm: disableCollapsibleSidebar ? "none" : "block",
             md: "none",
           },
           ...getDrawerSharedSx(false),
@@ -298,14 +349,11 @@ export default function DashboardSidebar({
       <Drawer
         variant="permanent"
         sx={{
-          display: {
-            xs: "none",
-            md: expanded && !disableCollapsibleSidebar ? "block" : "none",
-          },
+          display: { xs: 'none', md: 'block' },
           ...getDrawerSharedSx(false),
         }}
       >
-        {getDrawerContent("desktop")}
+        {getDrawerContent('desktop')}
       </Drawer>
     </DashboardSidebarContext.Provider>
   );

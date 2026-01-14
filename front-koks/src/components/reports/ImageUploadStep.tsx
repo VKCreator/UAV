@@ -20,14 +20,15 @@ import {
   TableHead,
   TableRow,
   Grid,
+  Divider,
 } from "@mui/material";
 import { useDropzone, FileRejection } from "react-dropzone";
 import FileUploadOutlinedIcon from "@mui/icons-material/FileUploadOutlined";
 import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CloseIcon from "@mui/icons-material/Close";
 import FindReplaceOutlinedIcon from "@mui/icons-material/FindReplaceOutlined";
+import useNotifications from "../../hooks/useNotifications/useNotifications";
 
 // Тип для EXIF данных
 interface ExifData {
@@ -51,12 +52,29 @@ interface ExifData {
   longitude: string;
 }
 
-const ImageUploadStep: React.FC = () => {
-  const [files, setFiles] = React.useState<File[]>([]);
-  const [exifData, setExifData] = React.useState<ExifData[]>([]);
+interface ImageUploadStepProps {
+  onUpload: (files: File[], exifData: ExifData[]) => void;
+  initialFiles?: File[];
+  initialExifData?: ExifData[];
+  initialImageUrl?: string;
+}
+
+const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
+  onUpload,
+  initialFiles,
+  initialExifData,
+  initialImageUrl,
+}) => {
+  const notifications = useNotifications();
+  const [files, setFiles] = React.useState<File[]>(initialFiles || []);
+  const [exifData, setExifData] = React.useState<ExifData[]>(
+    initialExifData || []
+  );
   const [error, setError] = React.useState<string | null>(null);
   const [openPreview, setOpenPreview] = React.useState(false);
-  const [originalSize, setOriginalSize] = React.useState(false); // чекбокс
+  const [originalSize, setOriginalSize] = React.useState(false);
+
+  const imageUrl = initialImageUrl || "";
 
   const onDrop = (acceptedFiles: File[], fileRejections: FileRejection[]) => {
     if (fileRejections.length > 0) {
@@ -74,6 +92,11 @@ const ImageUploadStep: React.FC = () => {
 
     setFiles([file]);
     setError(null); // сбрасываем ошибку
+
+    notifications.show("Изображение загружено", {
+      severity: "success",
+      autoHideDuration: 3000,
+    });
 
     readExif(file);
   };
@@ -151,6 +174,7 @@ const ImageUploadStep: React.FC = () => {
       };
 
       setExifData([newExifData]);
+      onUpload([file], [newExifData]);
     } catch (err) {
       console.error("Ошибка при чтении EXIF или размеров:", err);
       setError("Не удалось прочитать метаданные изображения");
@@ -158,12 +182,6 @@ const ImageUploadStep: React.FC = () => {
   };
 
   const handleDelete = () => {
-    setFiles([]);
-    setExifData([]);
-    setError(null);
-  };
-
-  const handleReplace = () => {
     setFiles([]);
     setExifData([]);
     setError(null);
@@ -194,34 +212,90 @@ const ImageUploadStep: React.FC = () => {
     }
   };
 
-  // Получаем URL изображения, если файл загружен
-  const imageUrl = files.length > 0 ? URL.createObjectURL(files[0]) : "";
-
-  React.useEffect(() => {
-    // Очищаем URL при размонтировании
-    return () => {
-      if (imageUrl) {
-        URL.revokeObjectURL(imageUrl);
-      }
-    };
-  }, [imageUrl]);
-
   const handleOriginalSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setOriginalSize(e.target.checked);
   };
 
-  const createTables = (data: ExifData) => {
-    const entries = Object.entries(data).filter(
-      ([key]) => key !== "fileName" && key !== "fileSize" // пропускаем дубли
+  // Функция для создания таблицы
+  const renderTable = (
+    data: ExifData,
+    keys: (keyof ExifData)[],
+    title: string
+  ) => {
+    const filteredData = Object.entries(data).filter(([key]) =>
+      keys.includes(key as keyof ExifData)
     );
 
-    const tables = [];
-    for (let i = 0; i < entries.length; i += 5) {
-      tables.push(entries.slice(i, i + 5));
-    }
+    if (filteredData.length === 0) return null;
 
-    return tables;
+    return (
+      <TableContainer
+        component={Paper}
+        sx={{
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          border: "1px solid #e0e0e0",
+        }}
+      >
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: "bold", width: "50%" }}>
+                {title}
+              </TableCell>
+              <TableCell sx={{ fontWeight: "bold", width: "50%" }}>
+                Значение
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredData.map(([key, value]) => (
+              <TableRow key={key}>
+                <TableCell component="th" scope="row">
+                  {key.charAt(0).toUpperCase() +
+                    key.slice(1).replace(/([A-Z])/g, " $1")}
+                </TableCell>
+                <TableCell>
+                  {value === undefined || value === null
+                    ? "—"
+                    : key === "width" || key === "height"
+                    ? `${value} px`
+                    : String(value)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
   };
+
+  // Разбиваем ключи на 3 группы по 6
+  const keysGroup1: (keyof ExifData)[] = [
+    "fileName",
+    "fileSize",
+    "width",
+    "height",
+    "dateTime",
+    "make",
+  ];
+
+  const keysGroup2: (keyof ExifData)[] = [
+    "model",
+    "orientation",
+    "xResolution",
+    "yResolution",
+    "resolutionUnit",
+    "software",
+  ];
+
+  const keysGroup3: (keyof ExifData)[] = [
+    "focalLength",
+    "focalLengthIn35mmFormat",
+    "latitude",
+    "longitude",
+  ];
 
   return (
     <Box
@@ -330,7 +404,7 @@ const ImageUploadStep: React.FC = () => {
                 type="file"
                 ref={inputRef}
                 style={{ display: "none" }}
-                accept="image/*"
+                accept="image/png, image/jpeg"
                 onChange={handleInputChange}
               />
             </Box>
@@ -345,41 +419,39 @@ const ImageUploadStep: React.FC = () => {
               {error}
             </Alert>
           )}
-          {/* Таблица EXIF */}
-          {/* Таблицы метаданных (до 5 столбцов в каждой) */}
+
+          {/* Таблицы в один ряд, одинаковой высоты и ширины */}
           {exifData.length > 0 && (
-            <>
-              {createTables(exifData[0]).map((tableData, tableIndex) => (
-                <TableContainer
-                  component={Paper}
-                  key={tableIndex}
-                  sx={{ mb: 2, border: "1px solid #e0e0e0", borderRadius: 1 }}
-                >
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        {tableData.map(([key]) => (
-                          <TableCell key={key}>{key}</TableCell>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      <TableRow>
-                        {tableData.map(([key, value]) => (
-                          <TableCell key={key}>
-                            {value === undefined || value === null
-                              ? "—"
-                              : key === "width" || key === "height"
-                              ? `${value} px`
-                              : String(value)}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              ))}
-            </>
+            <Grid container spacing={2} sx={{ height: 400 }}>
+              <Grid
+                item
+                xs={12}
+                md={4}
+                sx={{ height: "100%", display: "flex" }}
+              >
+                {renderTable(exifData[0], keysGroup1, "Основная информация")}
+              </Grid>
+              <Grid
+                item
+                xs={12}
+                md={4}
+                sx={{ height: "100%", display: "flex" }}
+              >
+                {renderTable(exifData[0], keysGroup2, "Параметры изображения")}
+              </Grid>
+              <Grid
+                item
+                xs={12}
+                md={4}
+                sx={{ height: "100%", display: "flex" }}
+              >
+                {renderTable(
+                  exifData[0],
+                  keysGroup3,
+                  "Гео- и оптические данные"
+                )}
+              </Grid>
+            </Grid>
           )}
         </Box>
       ) : (
@@ -515,7 +587,12 @@ const ImageUploadStep: React.FC = () => {
             >
               {originalSize ? (
                 <div
-                  style={{ width: "100%", height: "100%", overflow: "auto" }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    textAlign: "center",
+                    overflow: "auto",
+                  }}
                 >
                   <img src={imageUrl} alt="Полноэкранный просмотр" style={{}} />
                 </div>
