@@ -26,16 +26,10 @@ import useNotifications from "../../hooks/useNotifications/useNotifications";
 import { useContext } from "react";
 
 import PageContainer from "../PageContainer";
+import { api, TrajectorySchema } from "../../api/client";
 
 import * as XLSX from "xlsx-js-style";
-import { api } from "../../api/client";
 import { DateToPrettyLocalDateTime } from "../../utils/dateUtils";
-
-import {
-  createCoalReceiptWorksheet,
-  createCoalUnloadingWorksheet,
-} from "../../utils/exportUtils";
-import { useLayout } from "../../context/LayoutContext";
 
 import { russianLocale } from "../../constants";
 
@@ -52,7 +46,7 @@ export default function TrajectoryList() {
     });
 
   const [rowsState, setRowsState] = React.useState<{
-    rows: Any[];
+    rows: TrajectorySchema[];
     rowCount: number;
   }>({
     rows: [],
@@ -103,7 +97,7 @@ export default function TrajectoryList() {
         field: "schemaName",
         headerName: "Имя схемы",
         minWidth: 100,
-        flex: 0.8,
+        flex: 0.5,
         sortable: true,
       },
       {
@@ -132,39 +126,31 @@ export default function TrajectoryList() {
       },
       {
         field: "pointCount",
-        headerName: "Количество точек съёмки",
+        headerName: "Количество точек",
         type: "number",
         minWidth: 150,
-        flex: 0.6,
+        flex: 0.4,
         sortable: true,
         valueFormatter: (value) => Number(value).toFixed(0),
       },
       {
         field: "distanceToCamera",
-        headerName: "Расстояние от камеры до объекта",
+        headerName: "Расстояние до объекта",
         type: "number",
         minWidth: 180,
-        flex: 0.7,
+        flex: 0.9,
         sortable: true,
         valueFormatter: (value) => `${Number(value).toFixed(2)} м`,
       },
-      {
-        field: "cameraAngle",
-        headerName: "Угол раскрытия камеры",
-        type: "number",
-        minWidth: 160,
-        flex: 0.7,
-        sortable: true,
-        valueFormatter: (value) => `${Number(value).toFixed(1)}°`,
-      },
-      {
-        field: "formatEquivalent",
-        headerName: "Эквивалент формата",
-        minWidth: 160,
-        flex: 0.7,
-        sortable: true,
-        valueGetter: (value, row) => row.formatEquivalent || "—",
-      },
+      // {
+      //   field: "cameraAngle",
+      //   headerName: "Угол раскрытия камеры",
+      //   type: "number",
+      //   minWidth: 160,
+      //   flex: 0.7,
+      //   sortable: true,
+      //   valueFormatter: (value) => `${Number(value).toFixed(1)}°`,
+      // },
       {
         field: "methodType",
         headerName: "Тип метода",
@@ -176,9 +162,9 @@ export default function TrajectoryList() {
       // Столбец с действиями — последний
       {
         field: "actions",
-        headerName: "Действия",
-        minWidth: 120,
-        flex: 0.4,
+        headerName: "",
+        minWidth: 50,
+        flex: 0.2,
         sortable: false,
         filterable: false,
         disableColumnMenu: true,

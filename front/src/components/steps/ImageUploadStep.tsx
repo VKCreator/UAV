@@ -240,7 +240,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           display: "flex",
           flexDirection: "column",
           border: "1px solid #e0e0e0",
-          overflowY: "hidden"
+          overflowY: "auto"
         }}
       >
         <Table>
@@ -427,7 +427,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
 
           {/* Таблицы в один ряд, одинаковой высоты и ширины */}
           {exifData.length > 0 && (
-            <Grid container spacing={2} sx={{ height: 450, pb: 2 }}>
+            <Grid container spacing={2} sx={{ height: 500, pb: 2 }}>
               <Grid
                 size={{ xs: 12, md: 4 }}
                 sx={{ height: "100%", display: "flex" }}

@@ -18,8 +18,12 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import DownloadIcon from "@mui/icons-material/Download";
 import SettingsIcon from "@mui/icons-material/Settings";
+import { Tooltip } from "@mui/material";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import CleaningServicesIcon from "@mui/icons-material/CleaningServices"; // значок "метлы"
+import DownloadIcon from "@mui/icons-material/Download";
+import FlightPlanningAccordion from "./FlightPlanningAccordion";
 
 // Тип для данных из первого шага
 interface ImageData {
@@ -33,7 +37,8 @@ const BuildTrajectoryStep: React.FC<{
   imageData: ImageData; // передаём данные из первого шага
 }> = ({ imageData }) => {
   const [uavTypeBase, setUavTypeBase] = React.useState<string>("DJI Mavic 2"); // для базового изображения
-  const [uavTypePlanned, setUavTypePlanned] = React.useState<string>("DJI Mavic 2"); // для планируемой съёмки
+  const [uavTypePlanned, setUavTypePlanned] =
+    React.useState<string>("DJI Mavic 2"); // для планируемой съёмки
   const [distance, setDistance] = React.useState<string>("50");
   const [plannedDistance, setPlannedDistance] = React.useState<string>("");
 
@@ -73,6 +78,14 @@ const BuildTrajectoryStep: React.FC<{
     // Здесь логика генерации сетки
   };
 
+  const handleViewScheme = React.useCallback(() => {
+    // Открыть полноэкранный просмотр схемы
+  }, []);
+
+  const handleClearScheme = React.useCallback(() => {
+    // Очистить сетку, траекторию, препятствия и т.д.
+  }, []);
+
   const handleClear = () => {
     setFormatX("10");
     setFormatY("10");
@@ -101,12 +114,12 @@ const BuildTrajectoryStep: React.FC<{
               borderRadius: 1,
               display: "flex",
               flexDirection: "column",
-              alignItems: "center",
+              // alignItems: "center",
               width: "100%",
             }}
           >
-            <Typography variant="h6" sx={{ mb: 2, textAlign: "center" }}>
-              Базовое изображение
+            <Typography variant="h6" sx={{ mb: 1 }}>
+              Базовый слой
             </Typography>
 
             <Box
@@ -115,7 +128,7 @@ const BuildTrajectoryStep: React.FC<{
                 maxHeight: "400px",
                 display: "flex",
                 justifyContent: "center",
-                mb: 2,
+                mb: 1,
               }}
             >
               {imageUrl && (
@@ -139,7 +152,7 @@ const BuildTrajectoryStep: React.FC<{
               p: 2,
               border: "1px solid #e0e0e0",
               borderRadius: 1,
-              mt: 2, // отступ сверху
+              mt: 2,
               display: "flex",
               flexDirection: "column",
               gap: 1,
@@ -148,20 +161,35 @@ const BuildTrajectoryStep: React.FC<{
             <Box
               sx={{
                 display: "flex",
-                justifyContent: "flex-end",
+                justifyContent: "space-between", // распределяет элементы по краям
+                alignItems: "center",
                 gap: 1,
               }}
             >
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleBuildTrajectory}
-                color="primary"
-                disabled
-              >
-                Построить траекторию
-              </Button>
+              {/* Левая группа: иконки действий */}
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Tooltip title="Просмотр схемы" enterDelay={500}>
+                  <IconButton
+                    color="primary"
+                    onClick={handleViewScheme} // убедитесь, что эта функция определена
+                    aria-label="Просмотр схемы"
+                  >
+                    <VisibilityIcon />
+                  </IconButton>
+                </Tooltip>
 
+                <Tooltip title="Очистить схему" enterDelay={500}>
+                  <IconButton
+                    color="error"
+                    onClick={handleClearScheme} // убедитесь, что эта функция определена
+                    aria-label="Очистить схему"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+
+              {/* Правая часть: кнопка скачивания */}
               <Button
                 variant="contained"
                 startIcon={<DownloadIcon />}
@@ -176,156 +204,12 @@ const BuildTrajectoryStep: React.FC<{
 
         {/* Правая колонка — всё остальное */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Typography variant="h6" sx={{ mb: 2, textAlign: "left" }}>
-            Настройки параметров для формирования сетки кадров
+          <Typography variant="h6" sx={{ mb: 1, textAlign: "left" }}>
+            Порядок построения траектории
           </Typography>
 
-          {/* Карточка: Параметры базового изображения */}
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2,
-              border: "1px solid #e0e0e0",
-              borderRadius: 1,
-              mb: 2,
-            }}
-          >
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Параметры базового изображения
-            </Typography>
-
-            {/* Тип БПЛА для базового изображения + шестерёнка */}
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                mb: 2,
-              }}
-            >
-              <FormControl fullWidth>
-                <InputLabel>Тип БПЛА</InputLabel>
-                <Select
-                  value={uavTypeBase}
-                  label="Тип БПЛА"
-                  onChange={(e) => setUavTypeBase(e.target.value)}
-                >
-                  <MenuItem value="DJI Mavic 2">DJI Mavic 2</MenuItem>
-                  {/* можно добавить другие варианты */}
-                </Select>
-              </FormControl>
-              <IconButton onClick={handleUavParamsOpen}>
-                <SettingsIcon />
-              </IconButton>
-            </Box>
-
-            <TextField
-              fullWidth
-              label="Расстояние от объекта до камеры, м"
-              variant="outlined"
-              value={distance}
-              onChange={(e) => setDistance(e.target.value)}
-              inputProps={{ type: "number" }}
-              sx={{ mb: 2 }}
-            />
-
-            {/* Ширина и высота кадра на одной строке */}
-            <Box
-              sx={{
-                display: "flex",
-                gap: 2,
-                mb: 2,
-              }}
-            >
-              <TextField
-                fullWidth
-                label="Ширина кадра, м"
-                variant="outlined"
-                value={frameWidth}
-                disabled
-              />
-              <TextField
-                fullWidth
-                label="Высота кадра, м"
-                variant="outlined"
-                value={frameHeight}
-                disabled
-              />
-            </Box>
-          </Paper>
-
-          {/* Карточка: Параметры планируемой съёмки */}
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2,
-              border: "1px solid #e0e0e0",
-              borderRadius: 1,
-              mb: 2,
-            }}
-          >
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Параметры планируемой съёмки
-            </Typography>
-
-            {/* Тип БПЛА для планируемой съёмки + шестерёнка */}
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                mb: 2,
-              }}
-            >
-              <FormControl fullWidth>
-                <InputLabel>Тип БПЛА</InputLabel>
-                <Select
-                  value={uavTypePlanned}
-                  label="Тип БПЛА"
-                  onChange={(e) => setUavTypePlanned(e.target.value)}
-                >
-                  <MenuItem value="DJI Mavic 2">DJI Mavic 2</MenuItem>
-                  {/* можно добавить другие варианты */}
-                </Select>
-              </FormControl>
-              <IconButton onClick={handleUavParamsOpen}>
-                <SettingsIcon />
-              </IconButton>
-            </Box>
-
-            <TextField
-              fullWidth
-              label="Расстояние от объекта до камеры, м"
-              variant="outlined"
-              value={plannedDistance}
-              onChange={(e) => setPlannedDistance(e.target.value)}
-              inputProps={{ type: "number" }}
-            />
-          </Paper>
-
-          {/* Кнопки без карточки */}
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: 1,
-            }}
-          >
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={handleGenerateGrid}
-            >
-              Сформировать сетку
-            </Button>
-
-            <Button
-              variant="outlined"
-              startIcon={<DeleteIcon />}
-              onClick={handleClear}
-            >
-              Очистить
-            </Button>
+          <Box sx={{ mt: 1 }}>
+            <FlightPlanningAccordion />
           </Box>
         </Grid>
       </Grid>

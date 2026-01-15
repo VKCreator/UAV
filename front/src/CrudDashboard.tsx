@@ -2,9 +2,9 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { createHashRouter, RouterProvider } from "react-router";
 import DashboardLayout from "./components/DashboardLayout";
 
-import TrajectoriesList from "./components/reports/TrajectoryList";
-import TrajectoryCreate from "./components/reports/TrajectoryCreate";
-import DronesList from "./components/reports/DronesList";
+import TrajectoriesList from "./components/steps/TrajectoryList";
+import TrajectoryCreate from "./components/steps/TrajectoryCreate";
+import DronesList from "./components/steps/DronesList";
 
 import NotificationsProvider from "./hooks/useNotifications/NotificationsProvider";
 import DialogsProvider from "./hooks/useDialogs/DialogsProvider";

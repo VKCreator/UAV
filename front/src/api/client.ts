@@ -62,6 +62,9 @@ export interface Drone {
   battery_life?: number;         // минуты
 }
 
+export interface TrajectorySchema {
+  
+}
 
 // Типы для создания
 export interface CreateDroneInput {

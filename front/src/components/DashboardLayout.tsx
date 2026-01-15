@@ -5,7 +5,6 @@ import Box from "@mui/material/Box";
 import { Outlet } from "react-router";
 import DashboardSidebar from "./DashboardSidebar";
 import AppIcon from "./AppIcon";
-import { LayoutContext } from "../context/LayoutContext";
 
 export default function DashboardLayout() {
   const theme = useTheme();
@@ -45,7 +44,6 @@ export default function DashboardLayout() {
   const layoutRef = React.useRef<HTMLDivElement>(null);
 
   return (
-    <LayoutContext.Provider value={{ setIsNavigationExpanded }}>
       <Box
         ref={layoutRef}
         sx={{
@@ -92,6 +90,5 @@ export default function DashboardLayout() {
           </Box>
         </Box>
       </Box>
-    </LayoutContext.Provider>
   );
 }

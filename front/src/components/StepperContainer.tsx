@@ -39,7 +39,15 @@ export default function StepperContainer(props: StepperContainerProps) {
       maxWidth={false}
       sx={{ height: "100%", display: "flex", flexDirection: "column" }}
     >
-      <Stack sx={{ flex: 1, pt: 5, pl: 5, pr: 5 }} spacing={1}>
+      <Stack
+        sx={{
+          flex: 1,
+          pt: 5,
+          pl: { xs: 0, sm: 0, md: 3, lg: 25 },
+          pr: { xs: 0, sm: 0, md: 3, lg: 25 },
+        }}
+        spacing={1}
+      >
         <Stack>
           <StepperContentHeader>
             <Box
