@@ -120,7 +120,7 @@ export default function TrajectoryCreate() {
     try {
       // await api.coalReceipts.create(formValues as CreateCoalReceiptInput);
 
-      notifications.show("Поступление создано", {
+      notifications.show("Схема полётов создана", {
         severity: "success",
         autoHideDuration: 3000,
       });

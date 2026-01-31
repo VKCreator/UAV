@@ -24,6 +24,10 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import CleaningServicesIcon from "@mui/icons-material/CleaningServices"; // значок "метлы"
 import DownloadIcon from "@mui/icons-material/Download";
 import FlightPlanningAccordion from "./FlightPlanningAccordion";
+import ImageWithSvgOverlay from "../draw/GridCanvas";
+import ImageGridCanvas from "../draw/canvas";
+import SceneEditor from "../draw/sceneeditor";
+import ModeEditIcon from "@mui/icons-material/ModeEdit";
 
 // Тип для данных из первого шага
 interface ImageData {
@@ -41,6 +45,8 @@ const BuildTrajectoryStep: React.FC<{
     React.useState<string>("DJI Mavic 2"); // для планируемой съёмки
   const [distance, setDistance] = React.useState<string>("50");
   const [plannedDistance, setPlannedDistance] = React.useState<string>("");
+  const [showEditor, setShowEditor] = React.useState(false);
+  const [mode, setMode] = React.useState<string>("pan");
 
   // Параметры БПЛА (из диалога)
   const [angle, setAngle] = React.useState<string>("77");
@@ -50,6 +56,18 @@ const BuildTrajectoryStep: React.FC<{
   const [openUavParams, setOpenUavParams] = React.useState(false);
 
   const [imageUrl, setImageUrl] = React.useState<string>(imageData.imageUrl);
+
+  const [gridConfig, setGridConfig] = React.useState<{
+    columns: number;
+    rows: number;
+  }>({
+    columns: 0,
+    rows: 0,
+  });
+
+  const handleEditTrajectory = () => {
+    // stub for editing trajectory
+  };
 
   React.useEffect(() => {
     setImageUrl(imageData.imageUrl);
@@ -82,6 +100,11 @@ const BuildTrajectoryStep: React.FC<{
     // Открыть полноэкранный просмотр схемы
   }, []);
 
+  const handleEditScheme = React.useCallback(() => {
+    // Открыть полноэкранный просмотр схемы
+    setShowEditor(true);
+  }, []);
+
   const handleClearScheme = React.useCallback(() => {
     // Очистить сетку, траекторию, препятствия и т.д.
   }, []);
@@ -97,12 +120,23 @@ const BuildTrajectoryStep: React.FC<{
     // Здесь логика скачивания
   };
 
+  const [selectedCell, setSelectedCell] = React.useState<{
+    row: number;
+    col: number;
+  } | null>(null);
+
+  const handleCellClick = (row: number, col: number) => {
+    console.log("Клик по ячейке:", row, col);
+    setSelectedCell({ row, col });
+  };
+
   // Предположим, ширина и высота кадра вычисляются из других параметров
   const frameWidth = "100"; // пример
   const frameHeight = "75"; // пример
 
   return (
     <Box sx={{ p: 2 }}>
+      {/* {imageUrl && <SceneEditor imageUrl={imageUrl} />} */}
       <Grid container spacing={3}>
         {/* Левая колонка — изображение */}
         <Grid size={{ xs: 12, md: 6 }}>
@@ -129,18 +163,34 @@ const BuildTrajectoryStep: React.FC<{
                 display: "flex",
                 justifyContent: "center",
                 mb: 1,
+                position: "relative",
+                overflow: "hidden",
               }}
             >
-              {imageUrl && (
-                <img
-                  src={imageUrl}
-                  alt="Компонент"
-                  style={{
-                    maxWidth: "100%",
-                    objectFit: "contain",
-                    borderRadius: "4px",
-                  }}
-                />
+              {imageUrl && gridConfig.columns == 0 && gridConfig.rows == 0 && (
+                <>
+                  <img
+                    src={imageUrl}
+                    alt="Компонент"
+                    style={{
+                      maxWidth: "100%",
+                      objectFit: "contain",
+                      borderRadius: "4px",
+                    }}
+                  />
+                </>
+              )}
+
+              {imageUrl && gridConfig.columns > 0 && gridConfig.rows > 0 && (
+                <ImageWithSvgOverlay imageUrl={imageUrl} />
+                // <GridCanvas
+                //   imageUrl={imageUrl}
+                //   originalWidth={imageData.width!} // ширина оригинала в px
+                //   originalHeight={imageData.height!} // высота оригинала в px
+                //   gridColumns={gridConfig.columns}
+                //   gridRows={gridConfig.rows}
+                //   onCellClick={handleCellClick}
+                // />
               )}
             </Box>
           </Paper>
@@ -178,6 +228,16 @@ const BuildTrajectoryStep: React.FC<{
                   </IconButton>
                 </Tooltip>
 
+                <Tooltip title="Редактировать схему" enterDelay={500}>
+                  <IconButton
+                    color="primary"
+                    onClick={handleEditScheme} // убедитесь, что эта функция определена
+                    aria-label="Редактор схемы"
+                  >
+                    <ModeEditIcon />
+                  </IconButton>
+                </Tooltip>
+
                 <Tooltip title="Очистить схему" enterDelay={500}>
                   <IconButton
                     color="error"
@@ -201,7 +261,6 @@ const BuildTrajectoryStep: React.FC<{
             </Box>
           </Paper>
         </Grid>
-
         {/* Правая колонка — всё остальное */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Typography variant="h6" sx={{ mb: 1, textAlign: "left" }}>
@@ -209,7 +268,14 @@ const BuildTrajectoryStep: React.FC<{
           </Typography>
 
           <Box sx={{ mt: 1 }}>
-            <FlightPlanningAccordion />
+            <FlightPlanningAccordion
+              onGridGenerated={(cols, rows) =>
+                setGridConfig({ columns: cols, rows: rows })
+              }
+              onEditTrajectory={handleEditTrajectory}
+              onEditObstacles={() => { setShowEditor(true); setMode("polygons"); }}
+              onEditUserTrajectory={() => { setShowEditor(true); setMode("points"); }}
+            />
           </Box>
         </Grid>
       </Grid>
@@ -262,6 +328,16 @@ const BuildTrajectoryStep: React.FC<{
             Сохранить
           </Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={showEditor}
+        onClose={() => setShowEditor(false)}
+        fullScreen
+      >
+        <DialogContent sx={{ p: 0}}>
+          <SceneEditor onClose={() => setShowEditor(false)} mode={mode} imageData={imageData} />
+        </DialogContent>
       </Dialog>
     </Box>
   );

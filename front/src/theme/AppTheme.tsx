@@ -9,6 +9,7 @@ import { surfacesCustomizations } from "./customizations/surfaces";
 import { buttonCustomizations } from "./customizations/button";
 import { dataGridCustomizations } from "./customizations/dataGrid";
 import { datePickersCustomizations } from "./customizations/datePickers";
+import { checkboxCustomizations } from "./customizations/checkBox";
 
 import { colorSchemes, typography, shadows, shape } from "./themePrimitives";
 
@@ -45,6 +46,7 @@ export default function AppTheme(props: AppThemeProps) {
             ...buttonCustomizations,
             ...dataGridCustomizations,
             ...datePickersCustomizations,
+            ...checkboxCustomizations
             // ...themeComponents,
           },
         });

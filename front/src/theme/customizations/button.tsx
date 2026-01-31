@@ -5,33 +5,28 @@ import { Components } from "@mui/material/styles";
 export const buttonCustomizations: Components<Theme> = {
   MuiButton: {
     styleOverrides: {
-      // Стиль для всех кнопок (основной)
       root: {
         textTransform: "none",
         fontWeight: 600,
-        borderRadius: 8, // Круглые углы
-        boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)", // Лёгкая тень
+        borderRadius: 8,
+        boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)",
         transition: "all 0.3s ease",
       },
-
-      // Стиль для variant="contained"
       contained: {
         backgroundColor: "#004e9e",
-        color: "white", // Белый текст
+        color: "white",
         "&:hover": {
-          backgroundColor: "#014488ff", // Темнее при наведении
+          backgroundColor: "#014488ff",
           boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.15)",
         },
         "&:active": {
-          backgroundColor: "#013c76ff", // Ещё темнее при нажатии
+          backgroundColor: "#013c76ff",
         },
         "&:disabled": {
-          backgroundColor: "#b0bec5", // Серый при отключении
+          backgroundColor: "#b0bec5",
           color: "rgba(255, 255, 255, 0.7)",
         },
       },
-
-      // Стиль для variant="outlined"
       outlined: {
         borderColor: "#004e9e",
         color: "#004e9e",
@@ -43,8 +38,6 @@ export const buttonCustomizations: Components<Theme> = {
           backgroundColor: "rgba(76, 134, 175, 0.08)",
         },
       },
-
-      // Стиль для variant="text"
       text: {
         color: "#004e9e",
         "&:hover": {
@@ -56,20 +49,15 @@ export const buttonCustomizations: Components<Theme> = {
   MuiIconButton: {
     styleOverrides: {
       root: {
-        // Общие стили для всех IconButton
-        borderRadius: "50%", // Круглая форма
-        padding: "8px", // Минимальный отступ вокруг иконки
+        borderRadius: "50%",
+        padding: "8px",
         transition: "all 0.2s ease",
-        // color: "#ffffffff", // Цвет иконки по умолчанию
         "&:disabled": {
-          color: "#b0bec5", // Серый цвет для отключённых
-          backgroundColor: "transparent", // Не меняем фон — сохраняем прозрачность
+          color: "#b0bec5",
+          backgroundColor: "transparent",
         },
-        // Опционально: убираем лишние границы
         border: "none",
       },
-
-      // Стили для кнопок с цветом "primary" (если используете color="primary")
       colorPrimary: {
         color: "#004e9e",
         "&:hover": {
@@ -79,7 +67,6 @@ export const buttonCustomizations: Components<Theme> = {
           backgroundColor: "rgba(0, 78, 158, 0.12)",
         },
       },
-
       colorSecondary: {
         color: "#ffffffff",
         "&:hover": {
@@ -89,8 +76,6 @@ export const buttonCustomizations: Components<Theme> = {
           backgroundColor: "rgba(0, 78, 158, 0.12)",
         },
       },
-
-      // Стили для кнопок с цветом "inherit" (наследует цвет текста)
       colorInherit: {
         "&:hover": {
           backgroundColor: "rgba(0, 0, 0, 0.04)",
@@ -98,14 +83,49 @@ export const buttonCustomizations: Components<Theme> = {
       },
     },
   },
+  MuiToggleButton: {
+    styleOverrides: {
+      root: {
+        textTransform: "none",
+        fontWeight: 600,
+        borderRadius: 8,
+        border: "1px solid #004e9e",
+        padding: "6px 12px",
+        transition: "all 0.3s ease",
+        color: "#004e9e",
 
+        "&:hover": {
+          backgroundColor: "rgba(0, 78, 158, 0.08)",
+        },
+
+        "&:disabled": {
+          color: "#b0bec5",
+          borderColor: "#b0bec5",
+          backgroundColor: "transparent",
+        },
+
+        // <-- вот правильный способ для selected
+        "&.Mui-selected": {
+          backgroundColor: "#004e9e",
+          color: "white",
+
+          "&:hover": {
+            backgroundColor: "#014488ff",
+          },
+          "&:active": {
+            backgroundColor: "#013c76ff",
+          },
+        },
+      },
+    },
+  },
   MuiDataGrid: {
     styleOverrides: {
       toolbarContainer: {
         MuiIconButton: {
-          color: "#000000 !important"
-        }
-      }
-    }
-  }
+          color: "#000000 !important",
+        },
+      },
+    },
+  },
 };

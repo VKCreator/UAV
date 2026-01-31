@@ -1,5 +1,5 @@
 // src/api/client.ts
-const API_BASE_URL = "http://localhost:5000";
+const API_BASE_URL = "http://nmstuvtip.ddns.net:5000";
 
 // Универсальная функция для HTTP-запросов
 async function request<T>(

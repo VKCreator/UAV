@@ -208,7 +208,7 @@ export default function TrajectoryList() {
             }}
             sx={{ width: 300 }}
           />
-          <Tooltip title="Обновить данные" placement="right" enterDelay={1000}>
+          <Tooltip title="Обновить данные" placement="bottom" enterDelay={1000}>
             <div>
               <IconButton
                 size="small"

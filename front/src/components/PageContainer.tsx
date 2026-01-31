@@ -118,7 +118,7 @@ export default function PageContainer(props: PageContainerProps) {
             >
               {title ? (
                 <Stack direction="row" alignItems="center" spacing={1}>
-                  <MapRoundedIcon fontSize="medium" />
+                  {/* <MapRoundedIcon fontSize="medium" /> */}
                   <Typography variant="h4" fontWeight={600} component="h1">
                     {title}
                   </Typography>

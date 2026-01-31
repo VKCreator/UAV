@@ -92,7 +92,7 @@ export default function DronesList() {
         field: "model",
         headerName: "Модель",
         minWidth: 180,
-        flex: 1,
+        flex: 0.5,
         sortable: true,
       },
       {
@@ -100,7 +100,7 @@ export default function DronesList() {
         headerName: "Угол обзора (°)",
         type: "number",
         minWidth: 140,
-        flex: 0.7,
+        flex: 0.2,
         sortable: true,
         valueFormatter: (value) => `${Number(value).toFixed(1)}°`,
       },
@@ -120,7 +120,7 @@ export default function DronesList() {
         headerName: "Сопротивляемость ветру (м/с)",
         type: "number",
         minWidth: 180,
-        flex: 0.9,
+        flex: 0.3,
         sortable: true,
         valueFormatter: (value) =>
           value != null ? Number(value).toFixed(1) : "—",
@@ -151,15 +151,15 @@ export default function DronesList() {
       {
         field: "actions",
         headerName: "",
-        minWidth: 120,
-        flex: 0.5,
+        minWidth: 50,
+        flex: 0.2,
         sortable: false,
         filterable: false,
         disableColumnMenu: true,
         renderCell: (params) => {
           return (
             <Box sx={{ display: "flex", gap: 0.5 }}>
-              <Tooltip title="Редактировать" placement="top">
+              {/* <Tooltip title="Редактировать" placement="top">
                 <IconButton size="small" color="primary">
                   <EditIcon fontSize="small" />
                 </IconButton>
@@ -173,7 +173,7 @@ export default function DronesList() {
                 <IconButton size="small" color="info">
                   <VisibilityIcon fontSize="small" />
                 </IconButton>
-              </Tooltip>
+              </Tooltip> */}
             </Box>
           );
         },
@@ -202,7 +202,7 @@ export default function DronesList() {
             }}
             sx={{ width: 300 }}
           />
-          <Tooltip title="Обновить данные" placement="right" enterDelay={1000}>
+          <Tooltip title="Обновить данные" placement="bottom" enterDelay={1000}>
             <div>
               <IconButton
                 size="small"
@@ -273,6 +273,7 @@ export default function DronesList() {
                 wordBreak: "break-word",
                 lineHeight: "1.4",
                 padding: "8px",
+
               },
             }}
             slotProps={{

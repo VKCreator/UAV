@@ -22,7 +22,7 @@ import Tooltip from "@mui/material/Tooltip";
 
 import ImageUploadStep from "./ImageUploadStep";
 import BuildTrajectoryStep from "./BuildTrajectoryStep";
-import PolygonTool from "./PolygonTool";
+// import PolygonTool from "./PolygonTool";
 
 import ExifData from "./ImageUploadStep";
 
@@ -51,12 +51,13 @@ const TrajectoryStepper: React.FC<{
   onSubmit: () => void;
   onReset: () => void;
 }> = ({ onSubmit, onReset }) => {
+  const navigate = useNavigate();
+
   const [activeStep, setActiveStep] = React.useState(0);
   const [schemaName, setSchemaName] = React.useState("Схема 1"); // начальное название
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [dialogValue, setDialogValue] = React.useState("");
   const [error, setError] = React.useState("");
-  const navigate = useNavigate();
 
   const [files, setFiles] = React.useState<File[]>([]);
   const [exifData, setExifData] = React.useState<ExifData[]>([]);
@@ -152,7 +153,13 @@ const TrajectoryStepper: React.FC<{
     >
       {/* Название схемы + карандаш */}
       <Box
-        sx={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 1, pl: 2 }}
+        sx={{
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          pl: 2,
+        }}
       >
         <Typography variant="h6" sx={{ fontWeight: 400 }}>
           Название:
@@ -182,7 +189,7 @@ const TrajectoryStepper: React.FC<{
               },
             },
             borderBottom: "1px solid #e0e0e0",
-            paddingBottom: 2
+            paddingBottom: 2,
           }}
         >
           {steps.map((label) => (
@@ -218,8 +225,6 @@ const TrajectoryStepper: React.FC<{
               height: exifData[0]?.height,
             }}
           />
-        ) : activeStep === 2 ? (
-          <PolygonTool />
         ) : (
           <Paper sx={{ p: 3, height: "2000px" }}>
             <Typography variant="h6" gutterBottom>
