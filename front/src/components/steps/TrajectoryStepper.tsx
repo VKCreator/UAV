@@ -22,7 +22,6 @@ import Tooltip from "@mui/material/Tooltip";
 
 import ImageUploadStep from "./ImageUploadStep";
 import BuildTrajectoryStep from "./BuildTrajectoryStep";
-// import PolygonTool from "./PolygonTool";
 
 import ExifData from "./ImageUploadStep";
 
@@ -67,7 +66,6 @@ const TrajectoryStepper: React.FC<{
     setFiles(newFiles);
     setExifData(newExif);
     if (imageUrl) {
-      console.info("очищена память");
       URL.revokeObjectURL(imageUrl);
       setImageUrl(String());
     }
@@ -78,7 +76,6 @@ const TrajectoryStepper: React.FC<{
     setExifData([]);
 
     if (imageUrl) {
-      console.info("очищена память in delete");
       URL.revokeObjectURL(imageUrl);
       setImageUrl(String());
     }
@@ -151,7 +148,6 @@ const TrajectoryStepper: React.FC<{
         overflow: "hidden",
       }}
     >
-      {/* Название схемы + карандаш */}
       <Box
         sx={{
           flexShrink: 0,
@@ -200,11 +196,10 @@ const TrajectoryStepper: React.FC<{
         </Stepper>
       </Box>
 
-      {/* Область контента — прокручивается */}
       <Box
         sx={{
-          flex: 1, // Занимает всё оставшееся место
-          overflowY: "auto", // Скролл только здесь
+          flex: 1,
+          overflowY: "auto",
           p: 1,
         }}
       >
@@ -231,20 +226,12 @@ const TrajectoryStepper: React.FC<{
               {steps[activeStep]}
             </Typography>
             <Typography variant="body1">
-              Содержимое шага {activeStep + 1}. Lorem ipsum dolor sit amet,
-              consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut
-              labore et dolore magna aliqua. Ut enim ad minim veniam, quis
-              nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo
-              consequat. Duis aute irure dolor in reprehenderit in voluptate
-              velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
-              occaecat cupidatat non proident, sunt in culpa qui officia
-              deserunt mollit anim id est laborum.
+              Содержимое шага {activeStep + 1}.
             </Typography>
           </Paper>
         )}
       </Box>
 
-      {/* Кнопки зафиксированы внизу */}
       <Box
         sx={{
           p: 2,
@@ -274,7 +261,6 @@ const TrajectoryStepper: React.FC<{
         </Button>
       </Box>
 
-      {/* Диалоговое окно */}
       <Dialog
         open={isDialogOpen}
         onClose={(event, reason) => {

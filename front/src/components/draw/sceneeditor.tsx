@@ -5,7 +5,6 @@ import {
   Divider,
   Stack,
   Typography,
-  FormControlLabel,
   Checkbox,
   ToggleButton,
   ToggleButtonGroup,
@@ -21,7 +20,6 @@ import {
   Rect,
 } from "react-konva";
 import useImage from "use-image";
-import mapImage from "../../assets/DJI_0370.JPG";
 import Konva from "konva";
 
 import PanToolIcon from "@mui/icons-material/PanTool";
@@ -36,61 +34,63 @@ import { v4 as uuidv4 } from "uuid";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckIcon from "@mui/icons-material/Check";
 
+import type { Point, Polygon, ImageData, TrajectoryPoint } from "./scene.types";
+
 const STAGE_WIDTH = 1100;
 const STAGE_HEIGHT = 700;
 
-interface Point {
-  x: number;
-  y: number;
-}
+interface SceneEditorProps {
+  onClose: () => void;
+  mode?: string;
+  imageData: ImageData;
+  sceneTitle: string;
 
-interface TrajectoryPoint {
-  x: number;
-  y: number;
-  color: string;
-}
-
-interface Polygon {
-  id: string;
   points: Point[];
-  color: string;
-}
+  setPoints: React.Dispatch<React.SetStateAction<Point[]>>;
 
-interface ImageData {
-  imageUrl: string;
-  fileName: string;
-  width?: number;
-  height?: number;
+  obstacles: Polygon[];
+  setObstacles: React.Dispatch<React.SetStateAction<Polygon[]>>;
+
+  trajectoryData: any;
+  setTrajectoryData: (data: any) => void;
 }
 
 const GRID_COLS = 6.67;
 const GRID_ROWS = 6.75;
 
-const SceneEditor: FC<{
-  onClose: () => void;
-  mode?: string;
-  imageData: ImageData;
-}> = ({ onClose, mode, imageData }) => {
+const SceneEditor: FC<SceneEditorProps> = ({
+  onClose,
+  mode,
+  imageData,
+  sceneTitle,
+  points,
+  setPoints,
+  obstacles,
+  setObstacles,
+  trajectoryData,
+  setTrajectoryData,
+}) => {
   const handleClose = () => {
     onClose();
   };
 
+  const [sceneMode, setSceneMode] = useState<string>(sceneTitle);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [image] = useImage(imageData.imageUrl);
-  const [points, setPoints] = useState<Point[]>([]); // список точек
-  const [obstacles, setObstacles] = useState<Polygon[]>([]); // список препятствий
+  // const [points, setPoints] = useState<Point[]>([]); // список точек
+  // const [obstacles, setObstacles] = useState<Polygon[]>([]); // список препятствий
   const [currentPolygon, setCurrentPolygon] = useState<Point[]>([]);
 
   const [trajectoryPoints, setTrajectoryPoints] = useState<TrajectoryPoint[]>(
     [],
   );
   const [loading, setLoading] = useState(false);
-  const [trajectoryData, setTrajectoryData] = useState<any>(null);
-  const [showGrid, setShowGrid] = useState(true); // галочка "показывать сетку"
-  const [showUserTrajectory, setShowUserTrajectory] = useState(true); // галочка пользовательской траектории
-  const [showTaxonTrajectory, setShowTaxonTrajectory] = useState(true); // галочка траекторий таксонов
-  const [showObstacles, setShowObstacles] = useState(true); // галочка препятствий
+  // const [trajectoryData, setTrajectoryData] = useState<any>(null);
+  const [showGrid, setShowGrid] = useState(true);
+  const [showUserTrajectory, setShowUserTrajectory] = useState(true);
+  const [showTaxonTrajectory, setShowTaxonTrajectory] = useState(true);
+  const [showObstacles, setShowObstacles] = useState(true);
 
   const stageRef = useRef<any>(null);
 
@@ -146,7 +146,6 @@ const SceneEditor: FC<{
   const imageX = image ? (STAGE_WIDTH - image.width * scaleToFit) / 2 : 0;
   const imageY = image ? (STAGE_HEIGHT - image.height * scaleToFit) / 2 : 0;
 
-  // Zoom колесом мыши
   const handleWheel = (e: any) => {
     e.evt.preventDefault();
 
@@ -172,7 +171,6 @@ const SceneEditor: FC<{
     });
   };
 
-  // Клик по изображению
   const handleClick = (e: any) => {
     if (!image) return;
     if (toolMode == "pan") return;
@@ -187,11 +185,9 @@ const SceneEditor: FC<{
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
 
-    // Координаты относительно Stage с учётом drag и zoom
     const xOnStage = (pointer.x - position.x) / scale;
     const yOnStage = (pointer.y - position.y) / scale;
 
-    // Координаты относительно изображения
     const xOnImage = (xOnStage - imageX) / scaleToFit;
     const yOnImage = (yOnStage - imageY) / scaleToFit;
 
@@ -239,7 +235,7 @@ const SceneEditor: FC<{
 
   // Генерация линий сетки
   const renderGrid = () => {
-    if (!image || !showGrid) return null; // учитываем галочку
+    if (!image || !showGrid) return null;
     const lines: JSX.Element[] = [];
     const imgWidth = image.width * scaleToFit;
     const imgHeight = image.height * scaleToFit;
@@ -293,8 +289,6 @@ const SceneEditor: FC<{
       points: pointsInMeters,
     };
 
-    console.log("Payload для API:", payload);
-
     try {
       const response = await fetch(
         "http://nmstuvtip.ddns.net:5000/api/calculate-trajectory",
@@ -306,44 +300,8 @@ const SceneEditor: FC<{
       );
       const data = await response.json();
       console.log("Ответ API:", data);
-      setTrajectoryData(data); // Сохраняем полный ответ для рендера
+      setTrajectoryData(data);
       setShowUserTrajectory(false);
-      //   if (!data.B || data.B.length === 0) {
-      //     console.log("Таксонов нет");
-      //     return;
-      //   }
-
-      //   // Создадим массив цветов для таксонов
-      //   const colors = [
-      //     "red",
-      //     "blue",
-      //     "green",
-      //     "orange",
-      //     "purple",
-      //     "cyan",
-      //     "magenta",
-      //     "yellow",
-      //   ];
-
-      //   // Преобразуем точки из метров в пиксели
-      //   const pointsByTaxon = data.B.map((taxon: any, idx: number) => {
-      //     const color = colors[idx % colors.length];
-      //     const pixelPoints = taxon.points.map((p: [number, number]) => ({
-      //       x: p[0] / meterPerPixelX,
-      //       y: image.height - p[1] / meterPerPixelY, // обратно в левый верхний угол
-      //       color,
-      //     }));
-      //     return pixelPoints;
-      //   });
-
-      //   // Объединим все точки в один массив для отображения
-      //   const allPoints: TrajectoryPoint[] = [];
-      //   pointsByTaxon.forEach((taxonPoints: TrajectoryPoint[]) =>
-      //     allPoints.push(...taxonPoints),
-      //   );
-
-      //   // Сохраняем в state для рендера
-      //   setTrajectoryPoints(allPoints);
     } catch (err) {
       console.error("Ошибка запроса:", err);
     } finally {
@@ -355,10 +313,9 @@ const SceneEditor: FC<{
     if (!image) return;
     setLoading(true);
 
-    // Создаем временный Stage с исходными размерами изображения
-    const container = document.createElement("div"); // временный контейнер в памяти
+    const container = document.createElement("div");
     const downloadStage = new Konva.Stage({
-      container, // добавляем этот временный контейнер
+      container,
       width: image.width,
       height: image.height,
     });
@@ -366,7 +323,6 @@ const SceneEditor: FC<{
     const layer = new Konva.Layer();
     downloadStage.add(layer);
 
-    // Добавляем изображение
     const konvaImage = new Konva.Image({
       image: image,
       x: 0,
@@ -536,16 +492,13 @@ const SceneEditor: FC<{
 
     layer.draw();
 
-    // Генерируем PNG
     const dataURL = downloadStage.toDataURL({ pixelRatio: 1 });
 
-    // Скачиваем
     const link = document.createElement("a");
     link.href = dataURL;
     link.download = "trajectory_map.png";
     link.click();
 
-    // Чистим временный Stage
     downloadStage.destroy();
 
     setLoading(false);
@@ -565,23 +518,29 @@ const SceneEditor: FC<{
         <Box display="flex" alignItems="center" gap={1}>
           <IconButton
             size="small"
-            onClick={() => handleClose()} // или ваша функция навигации
+            onClick={() => handleClose()}
             aria-label="назад"
           >
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h6" fontWeight="medium">
-            Редактор схемы
+            {sceneMode ? `${sceneMode}` : ""}
           </Typography>
         </Box>
-        {/* Пустое место справа для баланса (можно добавить что-то позже) */}
         <Box />
       </Box>
       <Box display="flex" flex={1}>
         {/* Левая панель */}
-        <Box width={350} borderRight="1px solid" borderColor="divider" p={2}>
+        <Box
+          width={350}
+          borderRight="1px solid"
+          borderColor="divider"
+          p={2}
+          sx={{
+            display: sceneMode == "Редактор схемы полётов" ? "block" : "none",
+          }}
+        >
           <Stack spacing={2}>
-            {/* === РЕЖИМЫ РАБОТЫ === */}
             <Box>
               <Typography variant="subtitle1" gutterBottom>
                 Режим работы
@@ -617,7 +576,6 @@ const SceneEditor: FC<{
 
             <Divider />
 
-            {/* === МАСШТАБНАЯ СЕТКА === */}
             <Box>
               <Box
                 display="flex"
@@ -656,9 +614,7 @@ const SceneEditor: FC<{
             </Box>
 
             <Divider />
-            {/* === ПРЕПЯТСТВИЯ === */}
             <Box>
-              {/* Заголовок с чекбоксом рядом */}
               <Box
                 display="flex"
                 alignItems="center"
@@ -674,7 +630,6 @@ const SceneEditor: FC<{
                 />
               </Box>
 
-              {/* Счетчик полигонов */}
               <Typography variant="body2" mb={1} color="text.secondary">
                 Всего:{" "}
                 <Box component="span" color="text.secondary" fontWeight="bold">
@@ -683,7 +638,6 @@ const SceneEditor: FC<{
                 шт.
               </Typography>
 
-              {/* Кнопки на одной строке */}
               <Stack direction="row" spacing={1} justifyContent="space-between">
                 <Button
                   size="small"
@@ -716,7 +670,6 @@ const SceneEditor: FC<{
             </Box>
 
             <Divider />
-            {/* === ТРАЕКТОРИИ === */}
             <Box>
               <Box
                 display="flex"
@@ -737,14 +690,12 @@ const SceneEditor: FC<{
                 </Tooltip>
               </Box>
 
-              {/* Кнопки на одной строке */}
               <Stack
                 direction="row"
                 spacing={1}
                 justifyContent="space-between"
                 alignItems="center"
               >
-                {/* Счетчик точек */}
                 <Typography variant="body2" mb={1} color="text.secondary">
                   Всего точек:{" "}
                   <Box
@@ -788,7 +739,6 @@ const SceneEditor: FC<{
                 </Tooltip>
               </Box>
 
-              {/* Счетчик таксонов и кнопка очистки */}
               <Stack
                 direction="row"
                 spacing={1}
@@ -817,7 +767,6 @@ const SceneEditor: FC<{
                 </IconButton>
               </Stack>
 
-              {/* Кнопка оптимизации */}
               <Button
                 size="small"
                 variant="contained"
@@ -831,7 +780,6 @@ const SceneEditor: FC<{
 
             <Divider />
 
-            {/* === ДЕЙСТВИЯ === */}
             <Stack spacing={1}>
               <Button
                 variant="contained"
@@ -892,7 +840,7 @@ const SceneEditor: FC<{
                       y={0}
                       width={STAGE_WIDTH}
                       height={STAGE_HEIGHT}
-                      fill="rgba(255,255,255,0.7)" // полупрозрачный фон
+                      fill="rgba(255,255,255,0.7)"
                     />
                     <Text
                       x={STAGE_WIDTH / 2}
@@ -906,10 +854,8 @@ const SceneEditor: FC<{
                   </>
                 )}
 
-                {/* Сетка */}
                 {renderGrid()}
 
-                {/* Соединяем точки стрелками */}
                 {showUserTrajectory &&
                   points.length > 1 &&
                   points.map((point, i) => {
@@ -933,7 +879,6 @@ const SceneEditor: FC<{
                     );
                   })}
 
-                {/* Рисуем точки с порядковым номером */}
                 {showUserTrajectory &&
                   points.map((point, i) => (
                     <Fragment key={`point-${i}`}>
@@ -960,7 +905,6 @@ const SceneEditor: FC<{
                       />
                     </Fragment>
                   ))}
-                {/* Trajectory Points для всех таксонов */}
                 {showTaxonTrajectory &&
                   image &&
                   trajectoryData?.B?.map((taxon: any, idx: number) => {
@@ -996,7 +940,6 @@ const SceneEditor: FC<{
                           closed
                         />
 
-                        {/* Соединяем базу с первой и последней точкой таксона */}
                         {taxonPoints.length > 0 && (
                           <>
                             <Arrow
@@ -1035,7 +978,6 @@ const SceneEditor: FC<{
                         {/* Точки таксона и номера */}
                         {taxonPoints.map((p, i) => (
                           <Fragment key={`taxon-point-${idx}-${i}`}>
-                            {/* Соединяем стрелками между точками */}
                             {i > 0 && (
                               <Arrow
                                 points={[
@@ -1109,7 +1051,6 @@ const SceneEditor: FC<{
                   </>
                 )}
 
-                {/* Спиннер поверх всего Stage */}
                 {loading && (
                   <>
                     <Rect
@@ -1117,7 +1058,7 @@ const SceneEditor: FC<{
                       y={0}
                       width={STAGE_WIDTH}
                       height={STAGE_HEIGHT}
-                      fill="rgba(255,255,255,0.7)" // полупрозрачный фон
+                      fill="rgba(255,255,255,0.7)"
                     />
                     <Text
                       x={STAGE_WIDTH / 2}
@@ -1133,7 +1074,6 @@ const SceneEditor: FC<{
               </Layer>
             </Stage>
           </Box>
-          {/* Вспомогательное сообщение поверх сцены */}
           {toolMode === "polygons" && (
             <Box
               position="absolute"
@@ -1145,7 +1085,7 @@ const SceneEditor: FC<{
                 borderRadius: 1,
                 fontSize: 14,
                 textAlign: "center",
-                pointerEvents: "none", // чтобы не мешало кликам
+                pointerEvents: "none",
               }}
             >
               Установите точки на сцене и нажмите кнопку «Замкнуть» для
@@ -1164,7 +1104,7 @@ const SceneEditor: FC<{
                 borderRadius: 1,
                 fontSize: 14,
                 textAlign: "center",
-                pointerEvents: "none", // чтобы не мешало кликам
+                pointerEvents: "none",
               }}
             >
               Установите точки съёмки на сцене для формирования траектории: ЛКМ

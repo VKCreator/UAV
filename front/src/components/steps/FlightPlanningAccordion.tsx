@@ -50,7 +50,7 @@ export default function FlightPlanningAccordion({
   const notifications = useNotifications();
 
   const [expanded, setExpanded] = React.useState<Set<string>>(
-    new Set(["panel1"])
+    new Set(["panel1"]),
   );
 
   // Раскадровка и параметры БПЛА
@@ -90,7 +90,6 @@ export default function FlightPlanningAccordion({
   const [obstaclesCount, setObstaclesCount] = React.useState(0);
   const [trajectoryPointsCount, setTrajectoryPointsCount] = React.useState(0);
 
-  // === Обработчики аккордеона ===
   const togglePanel = (panel: string) => () => {
     setExpanded((prev) => {
       const newSet = new Set(prev);
@@ -99,7 +98,6 @@ export default function FlightPlanningAccordion({
     });
   };
 
-  // === Обработчики действий ===
   const handleUavParamsOpen = () => {
     setOpenUavParams(true);
     setInitialUavParams(uavParams);
@@ -118,41 +116,9 @@ export default function FlightPlanningAccordion({
     setOpenUavParams(false);
   };
 
-  const handleGenerateStoryboard = () => {
-    // Округляем для наложения кадров
-    const cols = frameWidthBase / frameWidthPlanned;
-    const rows = frameHeightBase / frameHeightPlanned;
-    setIsGridGenerated(true);
-    if (onGridGenerated) {
-      onGridGenerated(cols, rows);
-      notifications.show("Раскадровка выполнена", {
-        autoHideDuration: 2000,
-      });
-    }
-  };
+  const handleClearObstacles = () => {};
 
-  const handleClearGrid = () => {
-    setIsGridGenerated(false);
-    if (onGridGenerated) {
-      onGridGenerated(0, 0);
-    }
-  };
-
-  const handleEditObstacles = () => {
-    /* открыть редактор препятствий */
-  };
-
-  const handleClearObstacles = () => {
-    /* очистить препятствия */
-  };
-
-  const handleEditTrajectory = () => {
-    /* открыть редактор траектории */
-  };
-
-  const handleClearTrajectory = () => {
-    /* очистить траекторию */
-  };
+  const handleClearTrajectory = () => {};
 
   const handleDroneChange = (drone: Drone) => {
     setSelectedDroneId(String(drone.id));
@@ -220,7 +186,6 @@ export default function FlightPlanningAccordion({
 
   return (
     <Box sx={{ width: "100%" }}>
-      {/* 1. Раскадровка */}
       <Accordion
         expanded={expanded.has("panel1")}
         onChange={togglePanel("panel1")}
@@ -231,11 +196,12 @@ export default function FlightPlanningAccordion({
           id="panel1-header"
           sx={{ flexDirection: "row-reverse", gap: 1 }}
         >
-          <Typography fontWeight={600}>1. Формирование масштабной сетки</Typography>
+          <Typography fontWeight={600}>
+            1. Формирование масштабной сетки
+          </Typography>
         </AccordionSummary>
         <AccordionDetails>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {/* Выбор БПЛА */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <UavSelector
                 drones={drones}
@@ -250,7 +216,6 @@ export default function FlightPlanningAccordion({
               </Tooltip>
             </Box>
 
-            {/* Параметры базового слоя */}
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5 }}>
               <Typography fontWeight={600} sx={{ pb: 2 }}>
                 Параметры съёмки базового слоя
@@ -271,7 +236,6 @@ export default function FlightPlanningAccordion({
               </Typography>
             </Paper>
 
-            {/* Параметры планируемой съёмки */}
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5 }}>
               <Typography fontWeight={600} sx={{ pb: 2 }}>
                 Параметры планируемой съёмки
@@ -295,33 +259,10 @@ export default function FlightPlanningAccordion({
                 {frameHeightPlanned.toFixed(2)} м
               </Typography>
             </Paper>
-
-            {/* Кнопки управления */}
-            {/* <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Button
-                variant="contained"
-                startIcon={<ViewListIcon />}
-                onClick={handleGenerateStoryboard}
-                size="small"
-              >
-                Раскадровать
-              </Button>
-              <Tooltip title="Очистить сетку" enterDelay={500}>
-                <IconButton
-                  color="error"
-                  onClick={handleClearGrid}
-                  aria-label="Очистить сетку"
-                  size="small"
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Box> */}
           </Box>
         </AccordionDetails>
       </Accordion>
 
-      {/* 2. Препятствия */}
       <Accordion
         expanded={expanded.has("panel2")}
         onChange={togglePanel("panel2")}
@@ -372,7 +313,6 @@ export default function FlightPlanningAccordion({
         </AccordionDetails>
       </Accordion>
 
-      {/* 3. Траектория */}
       <Accordion
         expanded={expanded.has("panel3")}
         onChange={togglePanel("panel3")}
@@ -421,7 +361,6 @@ export default function FlightPlanningAccordion({
         </AccordionDetails>
       </Accordion>
 
-      {/* Диалог: Параметры БПЛА */}
       <UavParamsDialog
         open={openUavParams}
         onOpen={handleUavParamsOpen}

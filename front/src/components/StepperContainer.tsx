@@ -3,7 +3,6 @@ import * as React from "react";
 import { styled } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Container, { ContainerProps } from "@mui/material/Container";
-import KeyboardBackspaceOutlinedIcon from "@mui/icons-material/KeyboardBackspaceOutlined";
 import { useNavigate } from "react-router";
 import { Stack, Typography, IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -19,7 +18,6 @@ const StepperHeaderToolbar = styled("div")(({ theme }) => ({
   display: "flex",
   flexDirection: "row",
   gap: theme.spacing(1),
-  // Ensure the toolbar is always on the right side, even after wrapping
   marginLeft: "auto",
 }));
 
@@ -71,9 +69,9 @@ export default function StepperContainer(props: StepperContainerProps) {
                   <IconButton
                     onClick={() => navigate("/")}
                     sx={{
-                      color: "text.secondary", // серый цвет
+                      color: "text.secondary",
                       "&:hover": {
-                        backgroundColor: "rgba(0, 0, 0, 0.04)", // лёгкий ховер-эффект
+                        backgroundColor: "rgba(0, 0, 0, 0.04)",
                       },
                     }}
                     aria-label="Назад на главную"

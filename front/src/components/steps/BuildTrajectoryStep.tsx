@@ -15,45 +15,42 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
+  Divider,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import SettingsIcon from "@mui/icons-material/Settings";
 import { Tooltip } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import CleaningServicesIcon from "@mui/icons-material/CleaningServices"; // значок "метлы"
 import DownloadIcon from "@mui/icons-material/Download";
 import FlightPlanningAccordion from "./FlightPlanningAccordion";
-import ImageWithSvgOverlay from "../draw/GridCanvas";
-import ImageGridCanvas from "../draw/canvas";
-import SceneEditor from "../draw/sceneeditor";
+import SceneEditor from "../draw/SceneEditor";
+import SceneShower from "../draw/SceneShower";
+
 import ModeEditIcon from "@mui/icons-material/ModeEdit";
 
-// Тип для данных из первого шага
-interface ImageData {
-  imageUrl: string;
-  fileName: string;
-  width?: number;
-  height?: number;
-}
+import type {
+  Point,
+  Polygon,
+  ImageData,
+  TrajectoryPoint,
+} from "../draw/scene.types";
 
 const BuildTrajectoryStep: React.FC<{
-  imageData: ImageData; // передаём данные из первого шага
+  imageData: ImageData;
 }> = ({ imageData }) => {
+  const [points, setPoints] = React.useState<Point[]>([]);
+  const [obstacles, setObstacles] = React.useState<Polygon[]>([]);
+  const [trajectoryData, setTrajectoryData] = React.useState<any>(null);
+
   const [uavTypeBase, setUavTypeBase] = React.useState<string>("DJI Mavic 2"); // для базового изображения
   const [uavTypePlanned, setUavTypePlanned] =
-    React.useState<string>("DJI Mavic 2"); // для планируемой съёмки
+    React.useState<string>("DJI Mavic 2");
   const [distance, setDistance] = React.useState<string>("50");
   const [plannedDistance, setPlannedDistance] = React.useState<string>("");
   const [showEditor, setShowEditor] = React.useState(false);
+  const [showView, setShowView] = React.useState(false);
   const [mode, setMode] = React.useState<string>("pan");
 
-  // Параметры БПЛА (из диалога)
   const [angle, setAngle] = React.useState<string>("77");
-  const [formatX, setFormatX] = React.useState<string>("10");
-  const [formatY, setFormatY] = React.useState<string>("10");
-
-  const [openUavParams, setOpenUavParams] = React.useState(false);
 
   const [imageUrl, setImageUrl] = React.useState<string>(imageData.imageUrl);
 
@@ -65,80 +62,31 @@ const BuildTrajectoryStep: React.FC<{
     rows: 0,
   });
 
-  const handleEditTrajectory = () => {
-    // stub for editing trajectory
-  };
+  const handleEditTrajectory = () => {};
 
   React.useEffect(() => {
     setImageUrl(imageData.imageUrl);
   }, [imageData.imageUrl]);
 
-  const handleUavParamsOpen = () => {
-    setOpenUavParams(true);
-  };
-
-  const handleUavParamsClose = () => {
-    setOpenUavParams(false);
-  };
-
-  const handleUavParamsSave = () => {
-    alert("Параметры БПЛА сохранены!");
-    handleUavParamsClose();
-  };
-
-  const handleBuildTrajectory = () => {
-    alert("Траектория построена!");
-    // Здесь логика построения траектории
-  };
-
-  const handleGenerateGrid = () => {
-    alert("Сетка сформирована!");
-    // Здесь логика генерации сетки
-  };
-
   const handleViewScheme = React.useCallback(() => {
-    // Открыть полноэкранный просмотр схемы
+    setShowView(true);
   }, []);
 
   const handleEditScheme = React.useCallback(() => {
-    // Открыть полноэкранный просмотр схемы
     setShowEditor(true);
   }, []);
 
-  const handleClearScheme = React.useCallback(() => {
-    // Очистить сетку, траекторию, препятствия и т.д.
-  }, []);
-
-  const handleClear = () => {
-    setFormatX("10");
-    setFormatY("10");
-    alert("Сетка очищена!");
+  const handleClearScheme = () => {
+    setPoints([]);
+    setObstacles([]);
+    setTrajectoryData(null);
   };
 
-  const handleDownload = () => {
-    alert("Схема скачана!");
-    // Здесь логика скачивания
-  };
-
-  const [selectedCell, setSelectedCell] = React.useState<{
-    row: number;
-    col: number;
-  } | null>(null);
-
-  const handleCellClick = (row: number, col: number) => {
-    console.log("Клик по ячейке:", row, col);
-    setSelectedCell({ row, col });
-  };
-
-  // Предположим, ширина и высота кадра вычисляются из других параметров
-  const frameWidth = "100"; // пример
-  const frameHeight = "75"; // пример
+  const handleDownload = () => {};
 
   return (
     <Box sx={{ p: 2 }}>
-      {/* {imageUrl && <SceneEditor imageUrl={imageUrl} />} */}
       <Grid container spacing={3}>
-        {/* Левая колонка — изображение */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Paper
             elevation={0}
@@ -148,55 +96,89 @@ const BuildTrajectoryStep: React.FC<{
               borderRadius: 1,
               display: "flex",
               flexDirection: "column",
-              // alignItems: "center",
               width: "100%",
             }}
           >
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              Базовый слой
-            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 1,
+                mb: 1,
+              }}
+            >
+              <Typography variant="h6">Схема полёта</Typography>
 
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Tooltip title="Редактировать схему" enterDelay={500}>
+                  <IconButton
+                    color="primary"
+                    onClick={handleEditScheme}
+                    aria-label="Редактор схемы"
+                  >
+                    <ModeEditIcon />
+                  </IconButton>
+                </Tooltip>
+
+                <Tooltip title="Просмотр схемы" enterDelay={500}>
+                  <IconButton
+                    color="primary"
+                    onClick={handleViewScheme}
+                    aria-label="Просмотр схемы"
+                  >
+                    <VisibilityIcon />
+                  </IconButton>
+                </Tooltip>
+
+                <Tooltip title="Очистить схему" enterDelay={500}>
+                  <IconButton
+                    color="error"
+                    onClick={handleClearScheme}
+                    aria-label="Очистить схему"
+                    disabled={points.length === 0 && obstacles.length === 0}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
+
+                <Tooltip title="Скачать схему" enterDelay={500}>
+                  <IconButton
+                    onClick={handleDownload}
+                    color="primary"
+                    aria-label="Скачать схему"
+                    disabled={points.length === 0}
+                  >
+                    <DownloadIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
+
+            <Divider />
             <Box
               sx={{
                 width: "100%",
                 maxHeight: "400px",
                 display: "flex",
                 justifyContent: "center",
-                mb: 1,
+                mt: 2,
                 position: "relative",
                 overflow: "hidden",
               }}
             >
-              {imageUrl && gridConfig.columns == 0 && gridConfig.rows == 0 && (
-                <>
-                  <img
-                    src={imageUrl}
-                    alt="Компонент"
-                    style={{
-                      maxWidth: "100%",
-                      objectFit: "contain",
-                      borderRadius: "4px",
-                    }}
-                  />
-                </>
-              )}
-
-              {imageUrl && gridConfig.columns > 0 && gridConfig.rows > 0 && (
-                <ImageWithSvgOverlay imageUrl={imageUrl} />
-                // <GridCanvas
-                //   imageUrl={imageUrl}
-                //   originalWidth={imageData.width!} // ширина оригинала в px
-                //   originalHeight={imageData.height!} // высота оригинала в px
-                //   gridColumns={gridConfig.columns}
-                //   gridRows={gridConfig.rows}
-                //   onCellClick={handleCellClick}
-                // />
-              )}
+              <SceneShower
+                imageData={imageData}
+                sceneTitle="Просмотр сцены"
+                points={points}
+                obstacles={obstacles}
+                trajectoryData={trajectoryData}
+                showView={() => setShowView(true)}
+              />
             </Box>
           </Paper>
 
-          {/* Новая карточка с действиями */}
-          <Paper
+          {/* <Paper
             elevation={0}
             sx={{
               p: 2,
@@ -208,60 +190,8 @@ const BuildTrajectoryStep: React.FC<{
               gap: 1,
             }}
           >
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between", // распределяет элементы по краям
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              {/* Левая группа: иконки действий */}
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <Tooltip title="Просмотр схемы" enterDelay={500}>
-                  <IconButton
-                    color="primary"
-                    onClick={handleViewScheme} // убедитесь, что эта функция определена
-                    aria-label="Просмотр схемы"
-                  >
-                    <VisibilityIcon />
-                  </IconButton>
-                </Tooltip>
-
-                <Tooltip title="Редактировать схему" enterDelay={500}>
-                  <IconButton
-                    color="primary"
-                    onClick={handleEditScheme} // убедитесь, что эта функция определена
-                    aria-label="Редактор схемы"
-                  >
-                    <ModeEditIcon />
-                  </IconButton>
-                </Tooltip>
-
-                <Tooltip title="Очистить схему" enterDelay={500}>
-                  <IconButton
-                    color="error"
-                    onClick={handleClearScheme} // убедитесь, что эта функция определена
-                    aria-label="Очистить схему"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-
-              {/* Правая часть: кнопка скачивания */}
-              <Button
-                variant="contained"
-                startIcon={<DownloadIcon />}
-                onClick={handleDownload}
-                color="primary"
-              >
-                Скачать схему
-              </Button>
-            </Box>
-          </Paper>
+          </Paper> */}
         </Grid>
-        {/* Правая колонка — всё остальное */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Typography variant="h6" sx={{ mb: 1, textAlign: "left" }}>
             Порядок построения траектории
@@ -273,70 +203,49 @@ const BuildTrajectoryStep: React.FC<{
                 setGridConfig({ columns: cols, rows: rows })
               }
               onEditTrajectory={handleEditTrajectory}
-              onEditObstacles={() => { setShowEditor(true); setMode("polygons"); }}
-              onEditUserTrajectory={() => { setShowEditor(true); setMode("points"); }}
+              onEditObstacles={() => {
+                setShowEditor(true);
+                setMode("polygons");
+              }}
+              onEditUserTrajectory={() => {
+                setShowEditor(true);
+                setMode("points");
+              }}
             />
           </Box>
         </Grid>
       </Grid>
 
-      {/* Диалог: Параметры БПЛА */}
-      <Dialog
-        open={openUavParams}
-        onClose={handleUavParamsClose}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Параметры БПЛА</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            label="Угол раскрытия, градусов"
-            variant="outlined"
-            value={angle}
-            onChange={(e) => setAngle(e.target.value)}
-            inputProps={{ type: "number", min: 1, max: 180 }}
-            sx={{ mb: 2, mt: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="Эквивалент формата X"
-            variant="outlined"
-            value={formatX}
-            onChange={(e) => setFormatX(e.target.value)}
-            inputProps={{ type: "number", min: 1, max: 100 }}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="Эквивалент формата Y"
-            variant="outlined"
-            value={formatY}
-            onChange={(e) => setFormatY(e.target.value)}
-            inputProps={{ type: "number", min: 1, max: 100 }}
+      <Dialog open={showEditor} onClose={() => setShowEditor(false)} fullScreen>
+        <DialogContent sx={{ p: 0 }}>
+          <SceneEditor
+            onClose={() => setShowEditor(false)}
+            mode={mode}
+            imageData={imageData}
+            sceneTitle="Редактор схемы полётов"
+            points={points}
+            setPoints={setPoints}
+            obstacles={obstacles}
+            setObstacles={setObstacles}
+            trajectoryData={trajectoryData}
+            setTrajectoryData={setTrajectoryData}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleUavParamsClose} color="secondary">
-            Отмена
-          </Button>
-          <Button
-            onClick={handleUavParamsSave}
-            variant="contained"
-            color="primary"
-          >
-            Сохранить
-          </Button>
-        </DialogActions>
       </Dialog>
 
-      <Dialog
-        open={showEditor}
-        onClose={() => setShowEditor(false)}
-        fullScreen
-      >
-        <DialogContent sx={{ p: 0}}>
-          <SceneEditor onClose={() => setShowEditor(false)} mode={mode} imageData={imageData} />
+      <Dialog open={showView} onClose={() => setShowView(false)} fullScreen>
+        <DialogContent sx={{ p: 0 }}>
+          <SceneEditor
+            onClose={() => setShowView(false)}
+            imageData={imageData}
+            sceneTitle="Просмотр схемы полётов"
+            points={points}
+            setPoints={setPoints}
+            obstacles={obstacles}
+            setObstacles={setObstacles}
+            trajectoryData={trajectoryData}
+            setTrajectoryData={setTrajectoryData}
+          />
         </DialogContent>
       </Dialog>
     </Box>

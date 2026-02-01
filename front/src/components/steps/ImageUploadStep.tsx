@@ -93,7 +93,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     const file = validFiles[0];
 
     setFiles([file]);
-    setError(null); // сбрасываем ошибку
+    setError(null);
 
     notifications.show("Изображение загружено", {
       severity: "success",
@@ -124,8 +124,8 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
 
       img.onload = () => {
         resolve({ width: img.naturalWidth, height: img.naturalHeight });
-        URL.revokeObjectURL(url); // очищаем URL
-      };
+        URL.revokeObjectURL(url);
+      }
 
       img.onerror = () => {
         reject(new Error("Не удалось загрузить изображение"));
@@ -141,8 +141,6 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
       const exifr = await import("exifr");
       const tags = await exifr.parse(file);
 
-      console.log(tags);
-      // Получаем размеры изображения
       let width: number | undefined;
       let height: number | undefined;
 
@@ -150,7 +148,6 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         width = tags.ImageWidth;
         height = tags.ImageHeight;
       } else {
-        // Если EXIF не содержит размеры — читаем из файла
         const dimensions = await readImageDimensions(file);
         width = dimensions.width;
         height = dimensions.height;
@@ -276,7 +273,6 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     );
   };
 
-  // Разбиваем ключи на 3 группы по 6
   const keysGroup1: (keyof ExifData)[] = [
     "fileName",
     "fileSize",
@@ -454,7 +450,6 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           )}
         </Box>
       ) : (
-        /* Иначе — показываем drag & drop */
         <>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -560,7 +555,6 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             m: 2,
           }}
         >
-          {/* Внутренний контейнер — column */}
           <Box
             sx={{
               display: "flex",
@@ -569,10 +563,9 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
               justifyContent: "space-between",
               height: "100%",
               width: "100%",
-              overflow: "hidden", // чтобы не было скролла внутри
+              overflow: "hidden",
             }}
           >
-            {/* Изображение — растягивается по высоте, но не выходит за границы */}
             <Box
               sx={{
                 flex: 1,
@@ -608,7 +601,6 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
               )}
             </Box>
 
-            {/* Подпись снизу */}
             {originalSize ? (
               <Typography
                 variant="caption"
@@ -627,7 +619,6 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             )}
           </Box>
         </DialogContent>
-        {/* Убираем DialogActions */}
       </Dialog>
     </Box>
   );
