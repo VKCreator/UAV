@@ -179,7 +179,7 @@ export default function DashboardSidebar({
 
           {!disableCollapsibleSidebar && (
             <Tooltip
-              title={expanded ? "Скрыть меню" : "Показать меню"}
+              title={expanded ? "Свернуть меню" : "Показать меню"}
               enterDelay={1000}
             >
               <IconButton
@@ -262,7 +262,7 @@ export default function DashboardSidebar({
               gap: 0.5,
             }}
           >
-            v30.01.2026
+            v02.02.2026
           </Box>
         </Box>
       </React.Fragment>

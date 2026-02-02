@@ -168,8 +168,8 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         software: tags?.Software,
         focalLength: tags?.FocalLength,
         focalLengthIn35mmFormat: tags?.FocalLengthIn35mmFormat,
-        latitude: tags?.latitude,
-        longitude: tags?.longitude,
+        latitude: tags?.latitude && !isNaN(tags.latitude) ? String(tags.latitude) : "",
+        longitude: tags?.longitude && !isNaN(tags.longitude) ? String(tags.longitude) : "",
       };
 
       setExifData([newExifData]);
@@ -259,7 +259,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
                     key.slice(1).replace(/([A-Z])/g, " $1")}
                 </TableCell>
                 <TableCell>
-                  {value === undefined || value === null
+                  {value === undefined || value === null || value === ""
                     ? "—"
                     : key === "width" || key === "height"
                     ? `${value} px`

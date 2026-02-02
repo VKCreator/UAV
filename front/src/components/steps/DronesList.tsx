@@ -91,7 +91,7 @@ export default function DronesList() {
       {
         field: "model",
         headerName: "Модель",
-        minWidth: 180,
+        minWidth: 150,
         flex: 0.5,
         sortable: true,
       },
@@ -99,7 +99,7 @@ export default function DronesList() {
         field: "fov_vertical",
         headerName: "Угол обзора (°)",
         type: "number",
-        minWidth: 140,
+        minWidth: 120,
         flex: 0.2,
         sortable: true,
         valueFormatter: (value) => `${Number(value).toFixed(1)}°`,
@@ -108,7 +108,9 @@ export default function DronesList() {
         field: "resolution",
         headerName: "Разрешение",
         minWidth: 140,
-        flex: 0.8,
+        type: "number",
+
+        flex: 0.6,
         sortable: false,
         valueGetter: (_, row: Drone) =>
           row.resolution_width && row.resolution_height
@@ -119,8 +121,8 @@ export default function DronesList() {
         field: "max_wind_resistance",
         headerName: "Сопротивляемость ветру (м/с)",
         type: "number",
-        minWidth: 180,
-        flex: 0.3,
+        minWidth: 250,
+        flex: 0.5,
         sortable: true,
         valueFormatter: (value) =>
           value != null ? Number(value).toFixed(1) : "—",
@@ -128,6 +130,7 @@ export default function DronesList() {
       {
         field: "speedRange",
         headerName: "Диапазон скорости (м/с)",
+        type: "number",
         minWidth: 160,
         flex: 0.9,
         sortable: false,
@@ -148,38 +151,38 @@ export default function DronesList() {
         valueFormatter: (value) =>
           value != null ? Number(value).toFixed(0) : "—",
       },
-      {
-        field: "actions",
-        headerName: "",
-        minWidth: 50,
-        flex: 0.2,
-        sortable: false,
-        filterable: false,
-        disableColumnMenu: true,
-        renderCell: (params) => {
-          return (
-            <Box sx={{ display: "flex", gap: 0.5 }}>
-              {/* <Tooltip title="Редактировать" placement="top">
-                <IconButton size="small" color="primary">
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Удалить" placement="top">
-                <IconButton size="small" color="error">
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Просмотреть" placement="top">
-                <IconButton size="small" color="info">
-                  <VisibilityIcon fontSize="small" />
-                </IconButton>
-              </Tooltip> */}
-            </Box>
-          );
-        },
-      },
+      // {
+      //   field: "actions",
+      //   headerName: "",
+      //   minWidth: 50,
+      //   flex: 0.2,
+      //   sortable: false,
+      //   filterable: false,
+      //   disableColumnMenu: true,
+      //   renderCell: (params) => {
+      //     return (
+      //       <Box sx={{ display: "flex", gap: 0.5 }}>
+      //         {/* <Tooltip title="Редактировать" placement="top">
+      //           <IconButton size="small" color="primary">
+      //             <EditIcon fontSize="small" />
+      //           </IconButton>
+      //         </Tooltip>
+      //         <Tooltip title="Удалить" placement="top">
+      //           <IconButton size="small" color="error">
+      //             <DeleteIcon fontSize="small" />
+      //           </IconButton>
+      //         </Tooltip>
+      //         <Tooltip title="Просмотреть" placement="top">
+      //           <IconButton size="small" color="info">
+      //             <VisibilityIcon fontSize="small" />
+      //           </IconButton>
+      //         </Tooltip> */}
+      //       </Box>
+      //     );
+      //   },
+      // },
     ],
-    []
+    [],
   );
 
   const pageTitle = "Квадрокоптеры";
@@ -218,13 +221,16 @@ export default function DronesList() {
             variant="contained"
             onClick={handleCreateClick}
             startIcon={<AddIcon />}
+            disabled
           >
             Добавить
           </Button>
         </Stack>
       }
     >
-      <Box sx={{ width: "100%", overflow: "auto", height: "calc(100vh - 200px)" }}>
+      <Box
+        sx={{ width: "100%", overflow: "auto", height: "calc(100vh - 200px)" }}
+      >
         {error ? (
           <Box sx={{ flexGrow: 1 }}>
             <Alert severity="error">{error.message}</Alert>
@@ -273,7 +279,6 @@ export default function DronesList() {
                 wordBreak: "break-word",
                 lineHeight: "1.4",
                 padding: "8px",
-
               },
             }}
             slotProps={{

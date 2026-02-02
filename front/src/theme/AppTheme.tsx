@@ -11,6 +11,9 @@ import { dataGridCustomizations } from "./customizations/dataGrid";
 import { datePickersCustomizations } from "./customizations/datePickers";
 import { checkboxCustomizations } from "./customizations/checkBox";
 import { selectCustomizations } from "./customizations/select";
+import { radioCustomizations } from "./customizations/radio";
+import { spinnerCustomizations } from "./customizations/spinner";
+import { tabCustomizations } from './customizations/tab';
 
 import { colorSchemes, typography, shadows, shape } from "./themePrimitives";
 
@@ -48,7 +51,10 @@ export default function AppTheme(props: AppThemeProps) {
             ...dataGridCustomizations,
             ...datePickersCustomizations,
             ...checkboxCustomizations,
-            ...selectCustomizations
+            ...selectCustomizations,
+            ...radioCustomizations,
+            ...spinnerCustomizations,
+            ...tabCustomizations
             // ...themeComponents,
           },
         });

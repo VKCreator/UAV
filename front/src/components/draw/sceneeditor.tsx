@@ -36,6 +36,8 @@ import CheckIcon from "@mui/icons-material/Check";
 
 import type { Point, Polygon, ImageData, TrajectoryPoint } from "./scene.types";
 
+import { useLocalStorage } from "../../hooks/useLocalStorage/useLocalStorage";
+
 const STAGE_WIDTH = 1100;
 const STAGE_HEIGHT = 700;
 
@@ -57,6 +59,8 @@ interface SceneEditorProps {
 
 const GRID_COLS = 6.67;
 const GRID_ROWS = 6.75;
+const TAXON_POINT_RADIUS = 10;
+const BASE_RADIUS = 4;
 
 const SceneEditor: FC<SceneEditorProps> = ({
   onClose,
@@ -70,6 +74,18 @@ const SceneEditor: FC<SceneEditorProps> = ({
   trajectoryData,
   setTrajectoryData,
 }) => {
+  const [showGrid, setShowGrid] = useLocalStorage<boolean>("isShowGrid", true);
+  const [showUserTrajectory, setShowUserTrajectory] = useLocalStorage<boolean>(
+    "isShowUserTrajectory",
+    true,
+  );
+  const [showObstacles, setShowObstacles] = useLocalStorage<boolean>(
+    "isShowObstacles",
+    true,
+  );
+  const [showTaxonTrajectory, setShowTaxonTrajectory] =
+    useLocalStorage<boolean>("isShowTaxonTrajectory", true);
+
   const handleClose = () => {
     onClose();
   };
@@ -78,31 +94,28 @@ const SceneEditor: FC<SceneEditorProps> = ({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [image] = useImage(imageData.imageUrl);
-  // const [points, setPoints] = useState<Point[]>([]); // список точек
-  // const [obstacles, setObstacles] = useState<Polygon[]>([]); // список препятствий
   const [currentPolygon, setCurrentPolygon] = useState<Point[]>([]);
 
-  const [trajectoryPoints, setTrajectoryPoints] = useState<TrajectoryPoint[]>(
-    [],
-  );
   const [loading, setLoading] = useState(false);
-  // const [trajectoryData, setTrajectoryData] = useState<any>(null);
-  const [showGrid, setShowGrid] = useState(true);
-  const [showUserTrajectory, setShowUserTrajectory] = useState(true);
-  const [showTaxonTrajectory, setShowTaxonTrajectory] = useState(true);
-  const [showObstacles, setShowObstacles] = useState(true);
 
   const stageRef = useRef<any>(null);
 
   const colors = [
-    "#ff0000", // red
-    "#0000ff", // blue
-    "#008000", // green
-    "#ffa500", // orange
-    "#800080", // purple
-    "#00ffff", // cyan
-    "#ff00ff", // magenta
-    "#ffff00", // yellow
+    "#d3a4a4", // приглушённый красный
+    "#a7c6ed", // светлый синий
+    "#f4d06f", // тёплый желто-оранжевый
+    "#7ab8d6", // пастельный голубой
+    "#7cb98c", // мягкий зелёный
+    "#c8a2d1", // серо-фиолетовый
+    "#a9d8d7", // мягкий циановый
+    "#e1a7d3", // лавандовый
+    "#d6d17a", // нежно-жёлтый
+    "#b28a69", // тёмно-бежевый
+    "#6f5f50", // тёмно-коричневый
+    "#809f7b", // зелёно-коричневый
+    "#9caeb9", // серо-голубой
+    "#c5bdb2", // светло-серый
+    "#9b8a6b", // грязно-жёлтый
   ];
 
   const getNextPolygonColor = () => colors[obstacles.length % colors.length];
@@ -473,7 +486,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
             new Konva.Circle({
               x: p.x,
               y: p.y,
-              radius: 8,
+              radius: 15,
               fill: color,
             }),
           );
@@ -502,6 +515,31 @@ const SceneEditor: FC<SceneEditorProps> = ({
     downloadStage.destroy();
 
     setLoading(false);
+  };
+
+  const getArrowPoints = (
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    fromRadius: number,
+    toRadius: number,
+  ) => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+
+    if (length === 0) {
+      return [from.x, from.y, to.x, to.y];
+    }
+
+    const ux = dx / length;
+    const uy = dy / length;
+
+    return [
+      from.x + ux * fromRadius,
+      from.y + uy * fromRadius,
+      to.x - ux * toRadius,
+      to.y - uy * toRadius,
+    ];
   };
 
   return (
@@ -683,7 +721,9 @@ const SceneEditor: FC<SceneEditorProps> = ({
                 <Tooltip title="Показывать пользовательскую траекторию" arrow>
                   <Checkbox
                     checked={showUserTrajectory}
-                    onChange={(e) => setShowUserTrajectory(e.target.checked)}
+                    onChange={(e) => {
+                      setShowUserTrajectory(e.target.checked);
+                    }}
                     size="small"
                     disabled={points.length === 0}
                   />
@@ -860,16 +900,30 @@ const SceneEditor: FC<SceneEditorProps> = ({
                   points.length > 1 &&
                   points.map((point, i) => {
                     if (i === 0) return null;
+
                     const prev = points[i - 1];
+
+                    const from = {
+                      x: prev.x * scaleToFit + imageX,
+                      y: prev.y * scaleToFit + imageY,
+                    };
+
+                    const to = {
+                      x: point.x * scaleToFit + imageX,
+                      y: point.y * scaleToFit + imageY,
+                    };
+
+                    const arrowPoints = getArrowPoints(
+                      from,
+                      to,
+                      TAXON_POINT_RADIUS,
+                      TAXON_POINT_RADIUS,
+                    ); // 10 = radius circle
+
                     return (
                       <Arrow
                         key={`arrow-${i}`}
-                        points={[
-                          prev.x * scaleToFit + imageX,
-                          prev.y * scaleToFit + imageY,
-                          point.x * scaleToFit + imageX,
-                          point.y * scaleToFit + imageY,
-                        ]}
+                        points={arrowPoints}
                         pointerLength={10}
                         pointerWidth={10}
                         fill="red"
@@ -893,8 +947,8 @@ const SceneEditor: FC<SceneEditorProps> = ({
                         }}
                       />
                       <Text
-                        x={point.x * scaleToFit + imageX - 5}
-                        y={point.y * scaleToFit + imageY - 7}
+                        x={point.x * scaleToFit + imageX - 6} // Смещение по X на половину размера текста
+                        y={point.y * scaleToFit + imageY - 6} // Смещение по Y на половину размера текста
                         text={(i + 1).toString()}
                         fontSize={12}
                         fill="white"
@@ -905,6 +959,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                       />
                     </Fragment>
                   ))}
+
                 {showTaxonTrajectory &&
                   image &&
                   trajectoryData?.B?.map((taxon: any, idx: number) => {
@@ -943,12 +998,18 @@ const SceneEditor: FC<SceneEditorProps> = ({
                         {taxonPoints.length > 0 && (
                           <>
                             <Arrow
-                              points={[
-                                baseX * scaleToFit + imageX,
-                                baseY * scaleToFit + imageY,
-                                taxonPoints[0].x * scaleToFit + imageX,
-                                taxonPoints[0].y * scaleToFit + imageY,
-                              ]}
+                              points={getArrowPoints(
+                                {
+                                  x: baseX * scaleToFit + imageX,
+                                  y: baseY * scaleToFit + imageY,
+                                },
+                                {
+                                  x: taxonPoints[0].x * scaleToFit + imageX,
+                                  y: taxonPoints[0].y * scaleToFit + imageY,
+                                },
+                                BASE_RADIUS,
+                                TAXON_POINT_RADIUS,
+                              )}
                               pointerLength={10}
                               pointerWidth={10}
                               fill={color}
@@ -956,16 +1017,24 @@ const SceneEditor: FC<SceneEditorProps> = ({
                               strokeWidth={2}
                             />
                             <Arrow
-                              points={[
-                                taxonPoints[taxonPoints.length - 1].x *
-                                  scaleToFit +
-                                  imageX,
-                                taxonPoints[taxonPoints.length - 1].y *
-                                  scaleToFit +
-                                  imageY,
-                                baseX * scaleToFit + imageX,
-                                baseY * scaleToFit + imageY,
-                              ]}
+                              points={getArrowPoints(
+                                {
+                                  x:
+                                    taxonPoints[taxonPoints.length - 1].x *
+                                      scaleToFit +
+                                    imageX,
+                                  y:
+                                    taxonPoints[taxonPoints.length - 1].y *
+                                      scaleToFit +
+                                    imageY,
+                                },
+                                {
+                                  x: baseX * scaleToFit + imageX,
+                                  y: baseY * scaleToFit + imageY,
+                                },
+                                TAXON_POINT_RADIUS,
+                                BASE_RADIUS,
+                              )}
                               pointerLength={10}
                               pointerWidth={10}
                               fill={color}
@@ -975,36 +1044,58 @@ const SceneEditor: FC<SceneEditorProps> = ({
                           </>
                         )}
 
+                        {taxonPoints.map((point, i) => {
+                          if (i === 0) return null;
+
+                          const prev = taxonPoints[i - 1];
+
+                          const from = {
+                            x: prev.x * scaleToFit + imageX,
+                            y: prev.y * scaleToFit + imageY,
+                          };
+
+                          const to = {
+                            x: point.x * scaleToFit + imageX,
+                            y: point.y * scaleToFit + imageY,
+                          };
+
+                          const arrowPoints = getArrowPoints(
+                            from,
+                            to,
+                            TAXON_POINT_RADIUS,
+                            TAXON_POINT_RADIUS,
+                          );
+
+                          return (
+                            <Arrow
+                              key={`taxon-arrow-${i}`}
+                              points={arrowPoints}
+                              pointerLength={10}
+                              pointerWidth={10}
+                              fill={color}
+                              stroke={color}
+                              strokeWidth={2}
+                            />
+                          );
+                        })}
+
                         {/* Точки таксона и номера */}
                         {taxonPoints.map((p, i) => (
                           <Fragment key={`taxon-point-${idx}-${i}`}>
-                            {i > 0 && (
-                              <Arrow
-                                points={[
-                                  taxonPoints[i - 1].x * scaleToFit + imageX,
-                                  taxonPoints[i - 1].y * scaleToFit + imageY,
-                                  p.x * scaleToFit + imageX,
-                                  p.y * scaleToFit + imageY,
-                                ]}
-                                pointerLength={10}
-                                pointerWidth={10}
-                                fill={color}
-                                stroke={color}
-                                strokeWidth={2}
-                              />
-                            )}
                             <Circle
                               x={p.x * scaleToFit + imageX}
                               y={p.y * scaleToFit + imageY}
-                              radius={8}
+                              radius={10}
                               fill={p.color}
+                              stroke="black"
+                              strokeWidth={0.5}
                             />
                             <Text
                               x={p.x * scaleToFit + imageX - 5}
                               y={p.y * scaleToFit + imageY - 7}
                               text={`${i + 1}`}
                               fontSize={12}
-                              fill="white"
+                              fill="black"
                             />
                           </Fragment>
                         ))}
@@ -1074,6 +1165,24 @@ const SceneEditor: FC<SceneEditorProps> = ({
               </Layer>
             </Stage>
           </Box>
+          {toolMode === "pan" && (
+            <Box
+              position="absolute"
+              bottom="20px"
+              sx={{
+                bgcolor: "rgba(0,0,0,0.6)",
+                color: "white",
+                p: 1.5,
+                borderRadius: 1,
+                fontSize: 14,
+                textAlign: "center",
+                pointerEvents: "none",
+              }}
+            >
+              Используйте колесо мыши для масштабирования изображения
+            </Box>
+          )}
+
           {toolMode === "polygons" && (
             <Box
               position="absolute"

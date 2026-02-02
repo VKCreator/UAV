@@ -85,7 +85,7 @@ export default function UavParamsDialog({
       maxWidth="sm"
       fullWidth
     >
-      <DialogTitle>Параметры БПЛА</DialogTitle>
+      <DialogTitle>Настройки камеры БПЛА</DialogTitle>
       <Divider />
       <DialogContent>
         <TextField

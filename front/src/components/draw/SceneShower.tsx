@@ -120,9 +120,33 @@ const SceneShower: FC<SceneShowerProps> = ({
     return lines;
   };
 
+  const getArrowPoints = (
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    radius: number,
+  ) => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+
+    if (length === 0) {
+      return [from.x, from.y, to.x, to.y];
+    }
+
+    const ux = dx / length;
+    const uy = dy / length;
+
+    return [
+      from.x + ux * radius,
+      from.y + uy * radius,
+      to.x - ux * radius,
+      to.y - uy * radius,
+    ];
+  };
+
   return (
     <Tooltip
-      title="Просмотр схемы"
+      title="Нажмите для просмотра"
       enterDelay={500}
       followCursor
       arrow
@@ -191,17 +215,24 @@ const SceneShower: FC<SceneShowerProps> = ({
                 points.map((point, i) => {
                   if (i === 0) return null;
                   const prev = points[i - 1];
+                  const from = {
+                    x: prev.x * scaleToFit + imageX,
+                    y: prev.y * scaleToFit + imageY,
+                  };
+
+                  const to = {
+                    x: point.x * scaleToFit + imageX,
+                    y: point.y * scaleToFit + imageY,
+                  };
+
+                  const arrowPoints = getArrowPoints(from, to, 10); // 10 = radius circle
+
                   return (
                     <Arrow
                       key={`arrow-${i}`}
-                      points={[
-                        prev.x * scaleToFit + imageX,
-                        prev.y * scaleToFit + imageY,
-                        point.x * scaleToFit + imageX,
-                        point.y * scaleToFit + imageY,
-                      ]}
-                      pointerLength={10}
-                      pointerWidth={10}
+                      points={arrowPoints}
+                      pointerLength={5}
+                      pointerWidth={5}
                       fill="red"
                       stroke="red"
                       strokeWidth={2}

@@ -20,8 +20,12 @@ import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import { useNavigate } from "react-router";
 import Tooltip from "@mui/material/Tooltip";
 
+import { useDialogs } from "../../hooks/useDialogs/useDialogs";
+
 import ImageUploadStep from "./ImageUploadStep";
 import BuildTrajectoryStep from "./BuildTrajectoryStep";
+import OptimizationTrajectoryStep from "./OptimizationTrajectoryStep";
+import CompareOptimizationMethodsStep from "./CompareOptimizationMethodsStep";
 
 import ExifData from "./ImageUploadStep";
 
@@ -51,6 +55,7 @@ const TrajectoryStepper: React.FC<{
   onReset: () => void;
 }> = ({ onSubmit, onReset }) => {
   const navigate = useNavigate();
+  const { confirm } = useDialogs();
 
   const [activeStep, setActiveStep] = React.useState(0);
   const [schemaName, setSchemaName] = React.useState("Схема 1"); // начальное название
@@ -97,8 +102,25 @@ const TrajectoryStepper: React.FC<{
   const handleBack = () => {
     if (activeStep > 0) {
       setActiveStep(activeStep - 1);
-    } else navigate("/trajectories");
+    } else {
+      handleBackClick();
+    }
   };
+
+  const handleBackClick = React.useCallback(async () => {
+    const shouldNavigate = await confirm(
+      "Вы хотите прервать создание карты полетов?",
+      {
+        title: "Подтверждение", // Заголовок окна
+        okText: "Да", // Кнопка подтверждения
+        cancelText: "Нет", // Кнопка отмены
+      },
+    );
+
+    if (shouldNavigate) {
+      navigate("/trajectories");
+    }
+  }, [navigate, confirm]);
 
   const handleOpenDialog = () => {
     setDialogValue(schemaName);
@@ -137,6 +159,57 @@ const TrajectoryStepper: React.FC<{
       };
     }
   }, [files]);
+
+  const renderStepContent = () => {
+    switch (activeStep) {
+      case 0:
+        return (
+          <ImageUploadStep
+            onUpload={handleImageUpload}
+            onDelete={handleImageDelete}
+            initialFiles={files}
+            initialExifData={exifData}
+            initialImageUrl={imageUrl}
+          />
+        );
+
+      case 1:
+        return (
+          <BuildTrajectoryStep
+            imageData={{
+              imageUrl,
+              fileName: files[0]?.name || "",
+              width: exifData[0]?.width,
+              height: exifData[0]?.height,
+            }}
+          />
+        );
+
+      case 2:
+        return (
+          <OptimizationTrajectoryStep
+            imageData={{
+              imageUrl,
+              fileName: files[0]?.name || "",
+              width: exifData[0]?.width,
+              height: exifData[0]?.height,
+            }}
+          />
+        );
+      case 3:
+        return (<CompareOptimizationMethodsStep/>)
+
+      default:
+        return (
+          <Paper sx={{ p: 3, height: "2000px" }}>
+            <Typography variant="h6" gutterBottom>
+              {steps[activeStep]}
+            </Typography>
+            <Typography>Содержимое шага {activeStep + 1}</Typography>
+          </Paper>
+        );
+    }
+  };
 
   return (
     <Box
@@ -203,33 +276,7 @@ const TrajectoryStepper: React.FC<{
           p: 1,
         }}
       >
-        {activeStep === 0 ? (
-          <ImageUploadStep
-            onUpload={handleImageUpload}
-            onDelete={handleImageDelete}
-            initialFiles={files}
-            initialExifData={exifData}
-            initialImageUrl={imageUrl}
-          />
-        ) : activeStep === 1 ? (
-          <BuildTrajectoryStep
-            imageData={{
-              imageUrl,
-              fileName: files[0]?.name || "",
-              width: exifData[0]?.width,
-              height: exifData[0]?.height,
-            }}
-          />
-        ) : (
-          <Paper sx={{ p: 3, height: "2000px" }}>
-            <Typography variant="h6" gutterBottom>
-              {steps[activeStep]}
-            </Typography>
-            <Typography variant="body1">
-              Содержимое шага {activeStep + 1}.
-            </Typography>
-          </Paper>
-        )}
+        {renderStepContent()}
       </Box>
 
       <Box

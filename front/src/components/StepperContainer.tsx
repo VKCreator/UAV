@@ -1,11 +1,12 @@
 "use client";
-import * as React from "react";
+import React, { useCallback } from 'react';
 import { styled } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Container, { ContainerProps } from "@mui/material/Container";
 import { useNavigate } from "react-router";
 import { Stack, Typography, IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useDialogs } from '../hooks/useDialogs/useDialogs'; 
 
 const StepperContentHeader = styled("div")(({ theme }) => ({
   display: "flex",
@@ -31,6 +32,22 @@ export interface StepperContainerProps extends ContainerProps {
 export default function StepperContainer(props: StepperContainerProps) {
   const { children, title, actions = null, centerContent = false } = props;
   const navigate = useNavigate();
+  const { confirm } = useDialogs();
+
+  const handleBackClick = React.useCallback(async () => {
+    const shouldNavigate = await confirm(
+      "Вы хотите прервать создание карты полетов?",
+      {
+        title: "Подтверждение", // Заголовок окна
+        okText: "Да", // Кнопка подтверждения
+        cancelText: "Нет", // Кнопка отмены
+      }
+    );
+
+    if (shouldNavigate) {
+      navigate('/');
+    }
+  }, [navigate, confirm]);
 
   return (
     <Container
@@ -67,7 +84,7 @@ export default function StepperContainer(props: StepperContainerProps) {
               {title ? (
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <IconButton
-                    onClick={() => navigate("/")}
+                    onClick={handleBackClick}
                     sx={{
                       color: "text.secondary",
                       "&:hover": {
@@ -76,7 +93,7 @@ export default function StepperContainer(props: StepperContainerProps) {
                     }}
                     aria-label="Назад на главную"
                   >
-                    <ArrowBackIcon fontSize="medium" />
+                    <ArrowBackIcon fontSize="medium"  />
                   </IconButton>
                   <Typography variant="h4" fontWeight={600} component="h1">
                     {title}

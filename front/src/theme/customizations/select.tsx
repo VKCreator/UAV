@@ -19,16 +19,30 @@ export const selectCustomizations: Components<Theme> = {
       },
     },
   },
+  MuiInputLabel: {
+    styleOverrides: {
+      root: {
+        color: "#6b7280", // обычный цвет
 
+        "&.Mui-focused": {
+          color: "#004e9e", // при фокусе
+        },
+
+        "&.Mui-disabled": {
+          color: "#b0bec5", // disabled
+        },
+      },
+    },
+  },
   MuiOutlinedInput: {
     styleOverrides: {
       root: {
-        borderRadius: 8,
-        transition: "all 0.3s ease",
+        // borderRadius: 8,
+        // transition: "all 0.3s ease",
 
-        "& .MuiOutlinedInput-notchedOutline": {
-          borderColor: "#004e9e",
-        },
+        // "& .MuiOutlinedInput-notchedOutline": {
+        //   borderColor: "#004e9e",
+        // },
 
         "&:hover .MuiOutlinedInput-notchedOutline": {
           borderColor: "#014488ff",
@@ -47,9 +61,9 @@ export const selectCustomizations: Components<Theme> = {
           color: "#b0bec5",
         },
       },
-      input: {
-        padding: "10px 14px",
-      },
+      // input: {
+      //   padding: "10px 14px",
+      // },
     },
   },
 

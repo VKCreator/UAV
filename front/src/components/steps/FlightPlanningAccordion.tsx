@@ -35,6 +35,7 @@ import { api, Drone } from "../../api/client";
 
 import UavSelector from "../ui-widgets/UavSelector";
 import UavParamsDialog, { UavParams } from "../ui-widgets/UavParamsDialog";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 export default function FlightPlanningAccordion({
   onGridGenerated,
@@ -196,9 +197,21 @@ export default function FlightPlanningAccordion({
           id="panel1-header"
           sx={{ flexDirection: "row-reverse", gap: 1 }}
         >
-          <Typography fontWeight={600}>
-            1. Формирование масштабной сетки
-          </Typography>
+          <Box display="flex" alignItems="center">
+            <Typography fontWeight={600}>
+              1. Формирование масштабной сетки
+            </Typography>
+
+            <Tooltip
+              title="Масштабная сетка используется для визуальной привязки объектов и расчёта расстояний. На данном этапе вы выбираете БПЛА и параметры съёмки, на основе которых строится сетка."
+              arrow
+              enterDelay={400}
+            >
+              <IconButton size="small" sx={{ m: 0, p: 0, ml: 1 }}>
+                <HelpOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </AccordionSummary>
         <AccordionDetails>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -273,9 +286,21 @@ export default function FlightPlanningAccordion({
           id="panel2-header"
           sx={{ flexDirection: "row-reverse", gap: 1 }}
         >
-          <Typography fontWeight={600}>
-            2. Установка препятствий (опционально)
-          </Typography>
+          <Box display="flex" alignItems="center">
+            <Typography fontWeight={600}>
+              2. Установка препятствий (опционально)
+            </Typography>
+
+            <Tooltip
+              title="Установка препятствий позволяет учитывать объекты на местности, которые необходимо облететь при построении траектории полёта."
+              arrow
+              enterDelay={400}
+            >
+              <IconButton size="small" sx={{ m: 0, p: 0, ml: 1 }}>
+                <HelpOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </AccordionSummary>
         <AccordionDetails>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
@@ -283,7 +308,7 @@ export default function FlightPlanningAccordion({
               Количество установленных препятствий:{" "}
               <Box
                 component="span"
-                sx={{ color: "primary.main", fontWeight: 600 }}
+                sx={{ color: "text.secondary", fontWeight: 600 }}
               >
                 {obstaclesCount}
               </Box>{" "}
@@ -323,7 +348,21 @@ export default function FlightPlanningAccordion({
           id="panel3-header"
           sx={{ flexDirection: "row-reverse", gap: 1 }}
         >
-          <Typography fontWeight={600}>3. Определение точек съёмки</Typography>
+          <Box display="flex" alignItems="center">
+            <Typography fontWeight={600}>
+              3. Определение точек съёмки
+            </Typography>
+
+            <Tooltip
+              title="Установка точек съёмки позволяет задать точки для построения пользовательской траектории полёта."
+              arrow
+              enterDelay={400}
+            >
+              <IconButton size="small" sx={{ m: 0, p: 0, ml: 1 }}>
+                <HelpOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </AccordionSummary>
         <AccordionDetails>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
@@ -331,7 +370,7 @@ export default function FlightPlanningAccordion({
               Количество установленных точек съёмки:{" "}
               <Box
                 component="span"
-                sx={{ color: "primary.main", fontWeight: 600 }}
+                sx={{ color: "text.secondary", fontWeight: 600 }}
               >
                 {trajectoryPointsCount}
               </Box>{" "}
