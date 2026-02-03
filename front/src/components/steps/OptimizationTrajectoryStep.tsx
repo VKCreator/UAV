@@ -18,6 +18,9 @@ import {
   Button,
   Tabs,
   Tab,
+  Chip,
+  Dialog,
+  DialogContent
 } from "@mui/material";
 
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -25,10 +28,16 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import DownloadIcon from "@mui/icons-material/Download";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import DeleteIcon from "@mui/icons-material/Delete";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import SceneShower from "../draw/SceneShower";
 
 import type { Point, Polygon, ImageData } from "../draw/scene.types";
+
+import { DeleteButton } from "../ui-widgets/DeleteButton";
+import useImage from "use-image";
+import SceneEditor from "../draw/SceneEditor";
 
 interface OptimizationTrajectoryStepProps {
   imageData: ImageData;
@@ -41,6 +50,9 @@ interface OptimizationTrajectoryStepProps {
 
   droneParams: any;
   setDroneParams: (params: any) => void;
+
+  trajectoryData: any;
+  setTrajectoryData: (data: any) => void;
 }
 
 const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
@@ -48,8 +60,13 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   points,
   obstacles,
   droneParams,
+  trajectoryData,
+  setTrajectoryData,
 }) => {
   const [activeImage, setActiveImage] = React.useState(0);
+  const [image] = useImage(imageData.imageUrl);
+  const [isLoadingOptimization, setLoadingOptimization] = React.useState(false);
+  const [showView, setShowView] = React.useState(false);
 
   const [optimizationMethod, setOptimizationMethod] = React.useState<
     "small" | "large"
@@ -63,9 +80,70 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     null,
   );
 
-  const handleRunOptimization = () => {
-    console.log("Оптимизация запущена");
+  const width_m = droneParams.frameWidthBase; // длина изображения в метрах
+  const height_m = droneParams.frameHeightBase; // высота изображения в метрах
+
+  const getPoints = () => {
+    if (activeImage == 0)
+      return points;
+    
+    return [];
+  }
+
+  const getTrajectoryData = () => {
+    if (activeImage == 1)
+      return trajectoryData;
+
+    return null;
+  }
+  const handleClearTrajectoryData = () => {
+    setTrajectoryData(null);
   };
+
+  const handleRunOptimization = async () => {
+    if (!image || points.length === 0) return;
+    setActiveImage(1);
+    setLoadingOptimization(true);
+
+    // setLoading(true);
+
+    const meterPerPixelX = width_m / image.width;
+    const meterPerPixelY = height_m / image.height;
+
+    const pointsInMeters = points.map((p) => ({
+      x: p.x * meterPerPixelX,
+      y: (image.height - p.y) * meterPerPixelY,
+    }));
+
+    const payload = {
+      width_m,
+      height_m,
+      points: pointsInMeters,
+    };
+
+    try {
+      const response = await fetch(
+        "http://nmstuvtip.ddns.net:5000/api/calculate-trajectory",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const data = await response.json();
+      console.log("Ответ API:", data);
+      setTrajectoryData(data);
+    } catch (err) {
+      console.error("Ошибка запроса:", err);
+    } finally {
+      // setLoading(false);
+      setLoadingOptimization(false);
+    }
+  };
+
+  // const handleRunOptimization = () => {
+  //   console.log("Оптимизация запущена");
+  // };
 
   const handleStoryboard = () => {
     console.log("Раскадровка");
@@ -91,15 +169,51 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
           <SceneShower
             imageData={imageData}
             droneParams={droneParams}
-            sceneTitle="Просмотр сцены"
             points={points}
             obstacles={obstacles}
             trajectoryData={null}
             showView={() => {}}
             ref={sceneUserTrajectoryShower}
+            showGrid={true}
+            showUserTrajectory={true}
+            showObstacles={true}
+            showTaxonTrajectory={false}
           />
         );
-
+      case 2:
+        return (
+          <SceneShower
+            imageData={imageData}
+            droneParams={droneParams}
+            points={points}
+            obstacles={obstacles}
+            trajectoryData={trajectoryData}
+            showView={() => {}}
+            ref={sceneUserTrajectoryShower}
+            showGrid={true}
+            showUserTrajectory={false}
+            showObstacles={true}
+            showTaxonTrajectory={true}
+            isLoadingOptimization={isLoadingOptimization}
+          />
+        );
+      case 3:
+        return (
+          <SceneShower
+            imageData={imageData}
+            droneParams={droneParams}
+            points={points}
+            obstacles={obstacles}
+            trajectoryData={trajectoryData}
+            showView={() => {}}
+            ref={sceneUserTrajectoryShower}
+            showGrid={true}
+            showUserTrajectory={false}
+            showObstacles={true}
+            showTaxonTrajectory={false}
+            isLoadingOptimization={isLoadingOptimization}
+          />
+        );
       default:
         return <Typography>Контент для изображения {index}</Typography>;
     }
@@ -135,7 +249,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
               <Box sx={{ display: "flex", alignItems: "center", gap: 0 }}>
                 <Tooltip title="Просмотр" enterDelay={500}>
-                  <IconButton color="primary">
+                  <IconButton color="primary" onClick={() => setShowView(true)}>
                     <VisibilityIcon />
                   </IconButton>
                 </Tooltip>
@@ -206,10 +320,45 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
           {/* 1. Оптимизация */}
           <Accordion defaultExpanded>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography fontWeight={600}>
-                1. Оптимизация пользовательской траектории
-              </Typography>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              sx={{ flexDirection: "row-reverse", gap: 1 }}
+            >
+              <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="space-between"
+                width="100%"
+              >
+                {/* Левая часть: заголовок + help */}
+                <Box display="flex" alignItems="center">
+                  <Typography fontWeight={600}>
+                    1. Оптимизация пользовательской траектории
+                  </Typography>
+
+                  <Tooltip
+                    title="На этом этапе выполняется оптимизация траектории, заданной пользователем, двумя методами."
+                    arrow
+                    enterDelay={400}
+                  >
+                    <IconButton
+                      size="small"
+                      component="span"
+                      sx={{ m: 0, p: 0, ml: 1 }}
+                    >
+                      <HelpOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+
+                {/* Правая часть: статус */}
+                <Chip
+                  label={trajectoryData != null ? "Выполнено" : "Не запущено"}
+                  size="small"
+                  color={trajectoryData != null ? "success" : "error"}
+                  variant="outlined"
+                />
+              </Box>
             </AccordionSummary>
 
             <AccordionDetails>
@@ -243,7 +392,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                   borderRadius: 1,
                 }}
               >
-                <Typography variant="subtitle2" gutterBottom>
+                <Typography fontWeight={600} sx={{ pb: 2 }}>
                   Погодные условия
                 </Typography>
 
@@ -276,23 +425,41 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                 />
               </Paper>
 
-              <Box display="flex" justifyContent="flex-end">
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+                mt={2}
+              >
+                {/* Левая кнопка: Запустить */}
                 <Button
                   variant="contained"
-                  sx={{ mt: 2 }}
                   startIcon={<PlayArrowIcon />}
                   onClick={handleRunOptimization}
                   size="small"
+                  sx={{
+                    minWidth: 120,
+                    textTransform: "none",
+                  }}
                 >
                   Запустить
                 </Button>
+
+                <DeleteButton
+                  onClick={handleClearTrajectoryData}
+                  disabled={trajectoryData == null}
+                  tooltip="Очистить оптимизированные траектории"
+                />
               </Box>
             </AccordionDetails>
           </Accordion>
 
           {/* 2. Раскадровка */}
           <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              sx={{ flexDirection: "row-reverse", gap: 1 }}
+            >
               <Typography fontWeight={600}>2. Раскадровка</Typography>
             </AccordionSummary>
 
@@ -320,6 +487,23 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
           </Accordion>
         </Grid>
       </Grid>
+
+      <Dialog open={showView} onClose={() => setShowView(false)} fullScreen>
+        <DialogContent sx={{ p: 0 }}>
+          <SceneEditor
+            onClose={() => setShowView(false)}
+            imageData={imageData}
+            droneParams={droneParams}
+            sceneTitle="Просмотр схемы полётов"
+            points={getPoints()}
+            setPoints={() => {}}
+            obstacles={obstacles}
+            setObstacles={() => {}}
+            trajectoryData={getTrajectoryData()}
+            setTrajectoryData={setTrajectoryData}
+          />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

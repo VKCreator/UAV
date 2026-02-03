@@ -33,6 +33,7 @@ import PanToolIcon from "@mui/icons-material/PanTool";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import ChangeHistoryIcon from "@mui/icons-material/ChangeHistory";
 import Tooltip from "@mui/material/Tooltip";
+import { DeleteButton } from "../ui-widgets/DeleteButton";
 
 import { AppBar, Toolbar, IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -229,6 +230,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
     const newPoint = { x: xOnImage, y: yOnImage };
     if (toolMode === "points") {
       setPoints([...points, newPoint]);
+      setTrajectoryData(null);
     }
 
     if (toolMode === "polygons") {
@@ -335,207 +337,6 @@ const SceneEditor: FC<SceneEditorProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDownload = () => {
-    if (!image) return;
-    setLoading(true);
-
-    const container = document.createElement("div");
-    const downloadStage = new Konva.Stage({
-      container,
-      width: image.width,
-      height: image.height,
-    });
-
-    const layer = new Konva.Layer();
-    downloadStage.add(layer);
-
-    const konvaImage = new Konva.Image({
-      image: image,
-      x: 0,
-      y: 0,
-      width: image.width,
-      height: image.height,
-    });
-    layer.add(konvaImage);
-
-    // Добавляем сетку
-    if (showGrid) {
-      const cellWidth = image.width / GRID_COLS;
-      const cellHeight = image.height / GRID_ROWS;
-
-      for (let i = 1; i < GRID_COLS; i++) {
-        const x = cellWidth * i;
-        layer.add(
-          new Konva.Line({
-            points: [x, 0, x, image.height],
-            stroke: "rgba(255,255,255,0.9)",
-            strokeWidth: 1,
-          }),
-        );
-      }
-
-      for (let i = 1; i < GRID_ROWS; i++) {
-        const y = image.height - cellHeight * i;
-        layer.add(
-          new Konva.Line({
-            points: [0, y, image.width, y],
-            stroke: "rgba(255,255,255,0.9)",
-            strokeWidth: 1,
-          }),
-        );
-      }
-    }
-
-    // Добавляем пользовательские точки и стрелки
-    if (showUserTrajectory) {
-      points.forEach((point, i) => {
-        if (i > 0) {
-          const prev = points[i - 1];
-          layer.add(
-            new Konva.Arrow({
-              points: [prev.x, prev.y, point.x, point.y],
-              pointerLength: 10,
-              pointerWidth: 10,
-              fill: "red",
-              stroke: "red",
-              strokeWidth: 2,
-            }),
-          );
-        }
-        layer.add(
-          new Konva.Circle({
-            x: point.x,
-            y: point.y,
-            radius: 10,
-            fill: "blue",
-          }),
-        );
-        layer.add(
-          new Konva.Text({
-            x: point.x - 5,
-            y: point.y - 7,
-            text: (i + 1).toString(),
-            fontSize: 12,
-            fill: "white",
-          }),
-        );
-      });
-    }
-
-    // Добавляем траектории таксонов
-    if (showTaxonTrajectory && trajectoryData?.B) {
-      const meterPerPixelX = width_m / image.width;
-      const meterPerPixelY = height_m / image.height;
-
-      trajectoryData.B.forEach((taxon: any, idx: number) => {
-        const color = colors[idx % colors.length];
-
-        const baseX = taxon.base[0] / meterPerPixelX;
-        const baseY = image.height - taxon.base[1] / meterPerPixelY;
-
-        const taxonPoints = taxon.points.map((p: [number, number]) => ({
-          x: p[0] / meterPerPixelX,
-          y: image.height - p[1] / meterPerPixelY,
-        }));
-
-        // База
-        layer.add(
-          new Konva.Line({
-            points: [
-              baseX - 8,
-              baseY - 8,
-              baseX + 8,
-              baseY,
-              baseX - 8,
-              baseY + 8,
-            ],
-            fill: color,
-            closed: true,
-          }),
-        );
-
-        // Стрелки между базой и точками
-        if (taxonPoints.length > 0) {
-          layer.add(
-            new Konva.Arrow({
-              points: [baseX, baseY, taxonPoints[0].x, taxonPoints[0].y],
-              pointerLength: 10,
-              pointerWidth: 10,
-              fill: color,
-              stroke: color,
-              strokeWidth: 2,
-            }),
-          );
-          layer.add(
-            new Konva.Arrow({
-              points: [
-                taxonPoints[taxonPoints.length - 1].x,
-                taxonPoints[taxonPoints.length - 1].y,
-                baseX,
-                baseY,
-              ],
-              pointerLength: 10,
-              pointerWidth: 10,
-              fill: color,
-              stroke: color,
-              strokeWidth: 2,
-            }),
-          );
-        }
-
-        // Стрелки между точками таксона и кружки
-        taxonPoints.forEach((p: any, i: any) => {
-          if (i > 0) {
-            const prev = taxonPoints[i - 1];
-            layer.add(
-              new Konva.Arrow({
-                points: [prev.x, prev.y, p.x, p.y],
-                pointerLength: 10,
-                pointerWidth: 10,
-                fill: color,
-                stroke: color,
-                strokeWidth: 2,
-              }),
-            );
-          }
-          layer.add(
-            new Konva.Circle({
-              x: p.x,
-              y: p.y,
-              radius: 15,
-              fill: color,
-            }),
-          );
-          layer.add(
-            new Konva.Text({
-              x: p.x - 5,
-              y: p.y - 7,
-              text: (i + 1).toString(),
-              fontSize: 12,
-              fill: "white",
-            }),
-          );
-        });
-      });
-    }
-
-    layer.batchDraw();
-
-    downloadStage.toCanvas().toBlob((blob) => {
-      if (!blob) return;
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "trajectory_map.png";
-      link.click();
-
-      URL.revokeObjectURL(url);
-      downloadStage.destroy();
-      setLoading(false);
-    });
   };
 
   const getArrowPoints = (
@@ -700,21 +501,23 @@ const SceneEditor: FC<SceneEditorProps> = ({
                         pl: 1,
                         borderLeft: `4px solid ${obstacle.color}`,
                       }}
+                      secondaryAction={
+                        <DeleteButton
+                          onClick={() => handleDeleteObstacle(obstacle.id)}
+                          tooltip="Удалить препятствие"
+                        />
+                      }
                     >
                       <ListItemText
                         primary={`Препятствие ${index + 1}`}
                         secondary={`Точек: ${obstacle.points.length}`}
                       />
-                      <ListItemSecondaryAction>
-                        <IconButton
-                          edge="end"
-                          size="small"
-                          color="error"
+                      {/* <ListItemSecondaryAction>
+                        <DeleteButton
                           onClick={() => handleDeleteObstacle(obstacle.id)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </ListItemSecondaryAction>
+                          tooltip="Удалить препятствие"
+                        />
+                      </ListItemSecondaryAction> */}
                     </ListItem>
                   ))}
                 </List>
@@ -813,7 +616,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
 
             <Divider />
 
-            <Box>
+            {/* <Box>
               <Box
                 display="flex"
                 alignItems="center"
@@ -869,7 +672,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
               >
                 Оптимизировать траекторию
               </Button>
-            </Box>
+            </Box> */}
 
             {/* <Divider /> */}
 

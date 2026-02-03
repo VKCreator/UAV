@@ -43,6 +43,8 @@ import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import Chip from "@mui/material/Chip";
 
+const DRONES_CACHE_KEY = "drones-cache-v1";
+
 export default function FlightPlanningAccordion({
   imageData,
   obstacles,
@@ -53,6 +55,7 @@ export default function FlightPlanningAccordion({
   onEditUserTrajectory,
   onUpdateDroneParams,
   droneParams,
+  setDroneParams,
 }: {
   imageData: ImageData;
   obstacles: Polygon[];
@@ -63,8 +66,10 @@ export default function FlightPlanningAccordion({
   onClearUserTrajectory: () => void;
   onUpdateDroneParams: (params: any) => void; // Тип пропса
   droneParams: any;
+  setDroneParams: (params: any) => void;
 }) {
   const notifications = useNotifications();
+  const updateSource = React.useRef<"init" | "props" | "user">("init");
 
   const [expanded, setExpanded] = React.useState<Set<string>>(
     new Set(["panel1"]),
@@ -130,11 +135,15 @@ export default function FlightPlanningAccordion({
   };
 
   const handleUavParamsSave = (params: UavParams) => {
+    updateSource.current = "user";
+
     setUavParams(params);
     setOpenUavParams(false);
   };
 
   const handleDroneChange = (drone: Drone) => {
+    updateSource.current = "user";
+
     setSelectedDroneId(String(drone.id));
 
     setUavParams({
@@ -162,8 +171,18 @@ export default function FlightPlanningAccordion({
   React.useEffect(() => {
     const fetchDrones = async () => {
       try {
-        const data = await api.drones.getAll();
-        setDrones(data);
+        const cached = sessionStorage.getItem(DRONES_CACHE_KEY);
+        let data: Drone[] = [];
+
+        if (cached) {
+          data = JSON.parse(cached);
+          setDrones(JSON.parse(cached));
+        } else {
+          data = await api.drones.getAll();
+          sessionStorage.setItem(DRONES_CACHE_KEY, JSON.stringify(data));
+          setDrones(data);
+        }
+
         if (data.length > 0) {
           const id = Number(droneParams?.selectedDroneId);
           if (Number.isFinite(id)) {
@@ -180,6 +199,16 @@ export default function FlightPlanningAccordion({
             });
             setSelectedDroneId(String(first.id));
           }
+          setDroneParams({
+            selectedDroneId,
+            frameHeightBase,
+            frameWidthBase,
+            frameHeightPlanned,
+            frameWidthPlanned,
+            distance,
+            plannedDistance,
+            uavParams,
+          });
         }
       } catch (error) {
         notifications.show("Не удалось загрузить список БПЛА", {
@@ -195,6 +224,8 @@ export default function FlightPlanningAccordion({
   }, []);
 
   React.useEffect(() => {
+    if (updateSource.current !== "user") return;
+
     // Отправляем данные обратно в родительский компонент каждый раз, когда изменяются параметры
     if (onUpdateDroneParams) {
       onUpdateDroneParams({
@@ -231,7 +262,7 @@ export default function FlightPlanningAccordion({
             {/* Левая часть: заголовок + помощь */}
             <Box display="flex" alignItems="center">
               <Typography fontWeight={600}>
-                1. Формирование масштабной сетки
+                1. Создание масштабной сетки
               </Typography>
 
               <Tooltip
@@ -263,7 +294,7 @@ export default function FlightPlanningAccordion({
             >
               <Chip
                 size="small"
-                label={isResolutionMatch ? "OK" : "Несовпадение"}
+                label={isResolutionMatch ? "OK" : "Несовпадение форматов"}
                 color={isResolutionMatch ? "success" : "error"}
                 variant="outlined"
               />
@@ -296,7 +327,10 @@ export default function FlightPlanningAccordion({
                 type="number"
                 size="small"
                 value={distance}
-                onChange={(e) => setDistance(Number(e.target.value) || 0)}
+                onChange={(e) => {
+                  updateSource.current = "user";
+                  setDistance(Number(e.target.value) || 0);
+                }}
                 inputProps={{ step: 0.1, min: 0.1 }}
                 sx={{ mb: 1.5 }}
               />
@@ -316,9 +350,10 @@ export default function FlightPlanningAccordion({
                 type="number"
                 size="small"
                 value={plannedDistance}
-                onChange={(e) =>
-                  setPlannedDistance(Number(e.target.value) || 0)
-                }
+                onChange={(e) => {
+                  updateSource.current = "user";
+                  setPlannedDistance(Number(e.target.value) || 0);
+                }}
                 slotProps={{
                   htmlInput: { step: 0.1, min: 0.1, max: distance },
                 }}

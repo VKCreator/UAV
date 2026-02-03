@@ -17,7 +17,7 @@ import type {
 } from "./useNotifications";
 
 const RootPropsContext = React.createContext<NotificationsProviderProps | null>(
-  null
+  null,
 );
 
 interface NotificationProps {
@@ -50,7 +50,7 @@ function Notification({
       }
       close(notificationKey);
     },
-    [notificationKey, close]
+    [notificationKey, close],
   );
 
   const action = (
@@ -94,6 +94,7 @@ function Notification({
       <Badge badgeContent={badge} color="primary" sx={{ width: "100%" }}>
         {severity ? (
           <Alert
+            variant="filled"
             severity={severity}
             sx={{ width: "100%" }}
             action={action}
@@ -150,7 +151,7 @@ const generateId = () => {
  * access the notifications API. The notifications are shown in the same order they are requested.
  */
 export default function NotificationsProvider(
-  props: NotificationsProviderProps
+  props: NotificationsProviderProps,
 ) {
   const { children } = props;
   const [state, setState] = React.useState<NotificationsState>({ queue: [] });

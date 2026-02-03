@@ -5,8 +5,9 @@ import {
   type JSX,
   forwardRef,
   useImperativeHandle,
+  useState,
 } from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, CircularProgress } from "@mui/material";
 import {
   Stage,
   Layer,
@@ -26,13 +27,15 @@ import type { Point, Polygon, ImageData, TrajectoryPoint } from "./scene.types";
 
 const STAGE_WIDTH = 500;
 const STAGE_HEIGHT = 400;
+const TAXON_POINT_RADIUS = 10;
+const BASE_RADIUS = 4;
 
 const colors = [
+  "#65b9f7", // яркий голубой
   "#ff6b6b", // яркий красный
   "#66a9ff", // яркий синий
   "#ffdd57", // ярко-жёлто-оранжевый
   "#65b9f7", // яркий голубой
-  "#63d291", // яркий зелёный
   "#9e69c4", // ярко-фиолетовый
   "#64f3f1", // яркий циановый
   "#f59fe1", // яркий лавандовый
@@ -45,21 +48,9 @@ const colors = [
   "#b8a25b", // жёлто-коричневый
 ];
 
-// const colors = [
-//   "#ff0000",
-//   "#0000ff",
-//   "#008000",
-//   "#ffa500",
-//   "#800080",
-//   "#00ffff",
-//   "#ff00ff",
-//   "#ffff00",
-// ];
-
 interface SceneShowerProps {
   imageData: ImageData;
   droneParams: any;
-  sceneTitle?: string;
 
   points: Point[];
   obstacles: Polygon[];
@@ -69,18 +60,18 @@ interface SceneShowerProps {
   showUserTrajectory?: boolean;
   showTaxonTrajectory?: boolean;
   showObstacles?: boolean;
+  isLoadingOptimization?: boolean;
 
   showView: () => void;
 }
 
 const SceneShower = forwardRef<
-  { handleDownload: () => void }, // тип методов, которые хотим "экспонировать"
+  { handleDownload: () => void },
   SceneShowerProps
 >(
   (
     {
       imageData,
-      sceneTitle,
       droneParams,
 
       points,
@@ -91,6 +82,7 @@ const SceneShower = forwardRef<
       showUserTrajectory = true,
       showTaxonTrajectory = true,
       showObstacles = true,
+      isLoadingOptimization = false,
 
       showView,
     },
@@ -98,19 +90,15 @@ const SceneShower = forwardRef<
   ) => {
     const stageRef = useRef<any>(null);
     const [image] = useImage(imageData.imageUrl);
+    const [loading, setLoading] = useState(false);
 
     const GRID_COLS =
       droneParams.frameWidthBase / droneParams.frameWidthPlanned;
     const GRID_ROWS =
       droneParams.frameHeightBase / droneParams.frameHeightPlanned;
 
-    console.info(GRID_COLS, GRID_ROWS);
-
     const width_m = droneParams.frameWidthBase; // длина изображения в метрах
     const height_m = droneParams.frameHeightBase; // высота изображения в метрах
-
-    // const meterPerPixelX = width_m / 5472;
-    // const meterPerPixelY = height_m / 3648;
 
     const scaleToFit = image
       ? Math.min(
@@ -131,8 +119,6 @@ const SceneShower = forwardRef<
       if (!image || !showGrid) return null;
 
       const lines: JSX.Element[] = [];
-      // const imgWidth = droneParams.uavParams.resolutionWidth * scaleToFit;
-      // const imgHeight = droneParams.uavParams.resolutionHeight * scaleToFit;
 
       const imgWidth = image.width * scaleToFit;
       const imgHeight = image.height * scaleToFit;
@@ -167,7 +153,8 @@ const SceneShower = forwardRef<
     const getArrowPoints = (
       from: { x: number; y: number },
       to: { x: number; y: number },
-      radius: number,
+      fromRadius: number,
+      toRadius: number,
     ) => {
       const dx = to.x - from.x;
       const dy = to.y - from.y;
@@ -181,16 +168,16 @@ const SceneShower = forwardRef<
       const uy = dy / length;
 
       return [
-        from.x + ux * radius,
-        from.y + uy * radius,
-        to.x - ux * radius,
-        to.y - uy * radius,
+        from.x + ux * fromRadius,
+        from.y + uy * fromRadius,
+        to.x - ux * toRadius,
+        to.y - uy * toRadius,
       ];
     };
 
     const handleDownload = () => {
       if (!image) return;
-      // setLoading(true);
+      setLoading(true);
 
       const container = document.createElement("div");
       const downloadStage = new Konva.Stage({
@@ -385,7 +372,7 @@ const SceneShower = forwardRef<
 
         URL.revokeObjectURL(url);
         downloadStage.destroy();
-        // setLoading(false);
+        setLoading(false);
       });
     };
 
@@ -450,8 +437,14 @@ const SceneShower = forwardRef<
                       x={STAGE_WIDTH / 2}
                       y={STAGE_HEIGHT / 2}
                       text="Загрузка..."
+                      fontSize={18} // чуть больше
+                      fontStyle="bold" // полужирный
+                      fill="#004E9E" // красивый синий
                       align="center"
-                      fontSize={18}
+                      verticalAlign="middle"
+                      fontFamily="Inter"
+                      offsetX={50} // смещение по центру (половина ширины текста, пример)
+                      offsetY={10} // смещение по центру
                     />
                   </>
                 )}
@@ -474,7 +467,7 @@ const SceneShower = forwardRef<
                       y: point.y * scaleToFit + imageY,
                     };
 
-                    const arrowPoints = getArrowPoints(from, to, 8); // 10 = radius circle
+                    const arrowPoints = getArrowPoints(from, to, 8, 8); // 10 = radius circle
 
                     return (
                       <Arrow
@@ -523,6 +516,177 @@ const SceneShower = forwardRef<
                       strokeWidth={2}
                     />
                   ))}
+
+                {showTaxonTrajectory &&
+                  image &&
+                  trajectoryData?.B?.map((taxon: any, idx: number) => {
+                    const color = colors[idx % colors.length];
+
+                    const meterPerPixelX = width_m / image.width;
+                    const meterPerPixelY = height_m / image.height;
+
+                    // База
+                    const baseX = taxon.base[0] / meterPerPixelX;
+                    const baseY = image.height - taxon.base[1] / meterPerPixelY;
+
+                    // Точки таксона
+                    const taxonPoints: TrajectoryPoint[] = taxon.points.map(
+                      (p: [number, number], i: number) => ({
+                        x: p[0] / meterPerPixelX,
+                        y: image.height - p[1] / meterPerPixelY,
+                        color,
+                        number: i + 1,
+                      }),
+                    );
+
+                    return (
+                      <Fragment key={`taxon-${idx}`}>
+                        {/* База */}
+                        <Line
+                          points={[
+                            baseX * scaleToFit + imageX - 8,
+                            baseY * scaleToFit + imageY - 8,
+                            baseX * scaleToFit + imageX + 8,
+                            baseY * scaleToFit + imageY,
+                            baseX * scaleToFit + imageX - 8,
+                            baseY * scaleToFit + imageY + 8,
+                          ]}
+                          fill={color}
+                          closed
+                        />
+
+                        {taxonPoints.length > 0 && (
+                          <>
+                            <Arrow
+                              points={getArrowPoints(
+                                {
+                                  x: baseX * scaleToFit + imageX,
+                                  y: baseY * scaleToFit + imageY,
+                                },
+                                {
+                                  x: taxonPoints[0].x * scaleToFit + imageX,
+                                  y: taxonPoints[0].y * scaleToFit + imageY,
+                                },
+                                BASE_RADIUS,
+                                TAXON_POINT_RADIUS,
+                              )}
+                              pointerLength={10}
+                              pointerWidth={7}
+                              fill={color}
+                              stroke={color}
+                              strokeWidth={2}
+                            />
+                            <Arrow
+                              points={getArrowPoints(
+                                {
+                                  x:
+                                    taxonPoints[taxonPoints.length - 1].x *
+                                      scaleToFit +
+                                    imageX,
+                                  y:
+                                    taxonPoints[taxonPoints.length - 1].y *
+                                      scaleToFit +
+                                    imageY,
+                                },
+                                {
+                                  x: baseX * scaleToFit + imageX,
+                                  y: baseY * scaleToFit + imageY,
+                                },
+                                TAXON_POINT_RADIUS,
+                                BASE_RADIUS,
+                              )}
+                              pointerLength={10}
+                              pointerWidth={7}
+                              fill={color}
+                              stroke={color}
+                              strokeWidth={2}
+                            />
+                          </>
+                        )}
+
+                        {taxonPoints.map((point, i) => {
+                          if (i === 0) return null;
+
+                          const prev = taxonPoints[i - 1];
+
+                          const from = {
+                            x: prev.x * scaleToFit + imageX,
+                            y: prev.y * scaleToFit + imageY,
+                          };
+
+                          const to = {
+                            x: point.x * scaleToFit + imageX,
+                            y: point.y * scaleToFit + imageY,
+                          };
+
+                          const arrowPoints = getArrowPoints(
+                            from,
+                            to,
+                            TAXON_POINT_RADIUS,
+                            TAXON_POINT_RADIUS,
+                          );
+
+                          return (
+                            <Arrow
+                              key={`taxon-arrow-${i}`}
+                              points={arrowPoints}
+                              pointerLength={10}
+                              pointerWidth={7}
+                              fill={color}
+                              stroke={color}
+                              strokeWidth={2}
+                            />
+                          );
+                        })}
+
+                        {/* Точки таксона и номера */}
+                        {taxonPoints.map((p, i) => (
+                          <Fragment key={`taxon-point-${idx}-${i}`}>
+                            <Circle
+                              x={p.x * scaleToFit + imageX}
+                              y={p.y * scaleToFit + imageY}
+                              radius={10}
+                              fill={p.color}
+                              // stroke="black"
+                              // strokeWidth={0.1}
+                            />
+                            <Text
+                              x={p.x * scaleToFit + imageX - 5}
+                              y={p.y * scaleToFit + imageY - 7}
+                              text={`${i + 1}`}
+                              fontSize={12}
+                              fill="black"
+                            />
+                          </Fragment>
+                        ))}
+                      </Fragment>
+                    );
+                  })}
+
+                {(loading || isLoadingOptimization) && (
+                  <>
+                    <Rect
+                      x={0}
+                      y={0}
+                      width={STAGE_WIDTH}
+                      height={STAGE_HEIGHT}
+                      fill="rgba(255,255,255,0.7)"
+                    />
+                    <Text
+                      x={STAGE_WIDTH / 2}
+                      y={STAGE_HEIGHT / 2}
+                      text="Загрузка..."
+                      fontSize={18} // чуть больше
+                      fontStyle="bold" // полужирный
+                      fill="#004E9E" // красивый синий
+                      align="center"
+                      verticalAlign="middle"
+                      fontFamily="Inter"
+                      offsetX={50} // смещение по центру (половина ширины текста, пример)
+                      offsetY={10} // смещение по центру
+                    />
+                  </>
+                )}
               </Layer>
             </Stage>
           </Box>

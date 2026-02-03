@@ -230,6 +230,8 @@ const TrajectoryStepper: React.FC<{
             setObstacles={setObstacles}
             droneParams={droneParams}
             setDroneParams={setDroneParams}
+            trajectoryData={trajectoryData}
+            setTrajectoryData={setTrajectoryData}
           />
         );
       case 3:

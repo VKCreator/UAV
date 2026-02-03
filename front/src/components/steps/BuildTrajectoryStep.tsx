@@ -29,6 +29,7 @@ import ModeEditIcon from "@mui/icons-material/ModeEdit";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import type { Point, Polygon, ImageData } from "../draw/scene.types";
+import useNotifications from "../../hooks/useNotifications/useNotifications";
 
 interface BuildTrajectoryStepProps {
   imageData: ImageData;
@@ -62,6 +63,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   const [mode, setMode] = React.useState<string>("pan");
 
   const [imageUrl, setImageUrl] = React.useState<string>(imageData.imageUrl);
+  const notifications = useNotifications();
 
   React.useEffect(() => {
     setImageUrl(imageData.imageUrl);
@@ -92,7 +94,14 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   const handleUpdateDroneParams = (params: any) => {
     console.info(params);
     setDroneParams(params);
-    setTrajectoryData(null);
+
+    if (trajectoryData != null) {
+      notifications.show("Изменены параметры съёмки. Результаты оптимизации очищены.", {
+        severity: "info",
+        autoHideDuration: 5000,
+      });
+      setTrajectoryData(null);
+    }
   };
 
   return (
@@ -186,12 +195,15 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
               <SceneShower
                 imageData={imageData}
                 droneParams={droneParams}
-                sceneTitle="Просмотр сцены"
                 points={points}
                 obstacles={obstacles}
                 trajectoryData={trajectoryData}
                 showView={() => setShowView(true)}
                 ref={sceneUserTrajectoryShower}
+                showGrid={true}
+                showUserTrajectory={true}
+                showObstacles={true}
+                showTaxonTrajectory={false}
               />
             </Box>
             <Box display="flex" alignItems="center" sx={{ mt: 2, ml: 1 }}>
@@ -251,6 +263,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                 setMode("points");
               }}
               onUpdateDroneParams={handleUpdateDroneParams}
+              setDroneParams={setDroneParams}
               droneParams={droneParams}
             />
           </Box>
@@ -274,7 +287,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
             setPoints={setPoints}
             obstacles={obstacles}
             setObstacles={setObstacles}
-            trajectoryData={trajectoryData}
+            trajectoryData={null}
             setTrajectoryData={setTrajectoryData}
           />
         </DialogContent>
@@ -291,7 +304,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
             setPoints={setPoints}
             obstacles={obstacles}
             setObstacles={setObstacles}
-            trajectoryData={trajectoryData}
+            trajectoryData={null}
             setTrajectoryData={setTrajectoryData}
           />
         </DialogContent>
