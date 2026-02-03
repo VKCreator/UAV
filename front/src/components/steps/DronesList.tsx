@@ -97,7 +97,7 @@ export default function DronesList() {
       },
       {
         field: "fov_vertical",
-        headerName: "Угол обзора (°)",
+        headerName: "Вертикальный угол обзора (°)",
         type: "number",
         minWidth: 120,
         flex: 0.2,
@@ -110,7 +110,7 @@ export default function DronesList() {
         minWidth: 140,
         type: "number",
 
-        flex: 0.6,
+        flex: 0.3,
         sortable: false,
         valueGetter: (_, row: Drone) =>
           row.resolution_width && row.resolution_height
@@ -121,7 +121,7 @@ export default function DronesList() {
         field: "max_wind_resistance",
         headerName: "Сопротивляемость ветру (м/с)",
         type: "number",
-        minWidth: 250,
+        minWidth: 120,
         flex: 0.5,
         sortable: true,
         valueFormatter: (value) =>
@@ -132,7 +132,7 @@ export default function DronesList() {
         headerName: "Диапазон скорости (м/с)",
         type: "number",
         minWidth: 160,
-        flex: 0.9,
+        flex: 0.5,
         sortable: false,
         valueGetter: (_, row: Drone) => {
           if (row.min_speed != null && row.max_speed != null) {
@@ -145,8 +145,8 @@ export default function DronesList() {
         field: "battery_life",
         headerName: "Время полёта (мин)",
         type: "number",
-        minWidth: 140,
-        flex: 0.7,
+        minWidth: 100,
+        flex: 0.4,
         sortable: true,
         valueFormatter: (value) =>
           value != null ? Number(value).toFixed(0) : "—",
@@ -247,6 +247,7 @@ export default function DronesList() {
             loading={isLoading}
             pageSizeOptions={[5, 10, 25]}
             getRowHeight={() => "auto"}
+            // columnHeaderHeight={80}
             localeText={russianLocale}
             sx={{
               [`& .${gridClasses.columnHeader}, & .${gridClasses.cell}`]: {
@@ -277,8 +278,14 @@ export default function DronesList() {
               [`& .${gridClasses.columnHeader}`]: {
                 whiteSpace: "normal",
                 wordBreak: "break-word",
-                lineHeight: "1.4",
+                lineHeight: "1.3",
                 padding: "8px",
+              },
+              [`& .MuiDataGrid-columnHeaderTitle`]: {
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                // textAlign: "center",
+                lineHeight: "1.3",
               },
             }}
             slotProps={{

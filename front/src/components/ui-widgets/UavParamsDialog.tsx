@@ -123,7 +123,7 @@ export default function UavParamsDialog({
           disabled={useFromReference}
         />
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Разрешения должны совпадать с разрешениями базового слоя.
+          Базовый слой не должен быть обрезанным изображением или после преобразований. Разрешения фотокамеры должны совпадать с разрешениями базового слоя.
         </Typography>
         <Box>
           <FormControlLabel

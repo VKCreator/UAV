@@ -21,40 +21,23 @@ import {
   TableRow,
   Grid,
   Divider,
+  CircularProgress,
 } from "@mui/material";
 import { useDropzone, FileRejection } from "react-dropzone";
+
 import FileUploadOutlinedIcon from "@mui/icons-material/FileUploadOutlined";
 import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CloseIcon from "@mui/icons-material/Close";
 import FindReplaceOutlinedIcon from "@mui/icons-material/FindReplaceOutlined";
+
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 
-// Тип для EXIF данных
-interface ExifData {
-  fileName: string;
-  fileSize: string;
-  width?: number;
-  height?: number;
-  dateTime?: string;
-  make?: string;
-  model?: string;
-  orientation?: number;
-  xResolution?: number;
-  yResolution?: number;
-  resolutionUnit?: number;
-  software?: string;
-  artist?: string;
-  copyright?: string;
-  focalLength: number;
-  focalLengthIn35mmFormat: number;
-  latitude: string;
-  longitude: string;
-}
+import type { ExifData } from "./common.types";
 
 interface ImageUploadStepProps {
   onUpload: (files: File[], exifData: ExifData[]) => void;
-  onDelete: ()=> void,
+  onDelete: () => void;
   initialFiles?: File[];
   initialExifData?: ExifData[];
   initialImageUrl?: string;
@@ -70,8 +53,10 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   const notifications = useNotifications();
   const [files, setFiles] = React.useState<File[]>(initialFiles || []);
   const [exifData, setExifData] = React.useState<ExifData[]>(
-    initialExifData || []
+    initialExifData || [],
   );
+  const [loading, setLoading] = React.useState(false);
+
   const [error, setError] = React.useState<string | null>(null);
   const [openPreview, setOpenPreview] = React.useState(false);
   const [originalSize, setOriginalSize] = React.useState(false);
@@ -86,7 +71,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     }
 
     const validFiles = acceptedFiles.filter((file) =>
-      file.type.startsWith("image/")
+      file.type.startsWith("image/"),
     );
     if (validFiles.length === 0) return;
 
@@ -103,6 +88,9 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     readExif(file);
   };
 
+  const delay = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) {
       return `${bytes} B`;
@@ -116,7 +104,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   };
 
   const readImageDimensions = (
-    file: File
+    file: File,
   ): Promise<{ width: number; height: number }> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -125,19 +113,24 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
       img.onload = () => {
         resolve({ width: img.naturalWidth, height: img.naturalHeight });
         URL.revokeObjectURL(url);
-      }
+      };
 
       img.onerror = () => {
         reject(new Error("Не удалось загрузить изображение"));
         URL.revokeObjectURL(url);
       };
 
+      img.crossOrigin = "anonymous";
       img.src = url;
     });
   };
 
   const readExif = async (file: File) => {
+    setLoading(true);
+
     try {
+      // await delay(1500);
+
       const exifr = await import("exifr");
       const tags = await exifr.parse(file);
 
@@ -168,8 +161,12 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         software: tags?.Software,
         focalLength: tags?.FocalLength,
         focalLengthIn35mmFormat: tags?.FocalLengthIn35mmFormat,
-        latitude: tags?.latitude && !isNaN(tags.latitude) ? String(tags.latitude) : "",
-        longitude: tags?.longitude && !isNaN(tags.longitude) ? String(tags.longitude) : "",
+        latitude:
+          tags?.latitude && !isNaN(tags.latitude) ? String(tags.latitude) : "",
+        longitude:
+          tags?.longitude && !isNaN(tags.longitude)
+            ? String(tags.longitude)
+            : "",
       };
 
       setExifData([newExifData]);
@@ -177,6 +174,8 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     } catch (err) {
       console.error("Ошибка при чтении EXIF или размеров:", err);
       setError("Не удалось прочитать метаданные изображения");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -221,10 +220,10 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   const renderTable = (
     data: ExifData,
     keys: (keyof ExifData)[],
-    title: string
+    title: string,
   ) => {
     const filteredData = Object.entries(data).filter(([key]) =>
-      keys.includes(key as keyof ExifData)
+      keys.includes(key as keyof ExifData),
     );
 
     if (filteredData.length === 0) return null;
@@ -237,11 +236,11 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           display: "flex",
           flexDirection: "column",
           border: "1px solid #e0e0e0",
-          overflowY: "auto"
+          overflowY: "auto",
         }}
       >
         <Table>
-          <TableHead sx={{borderBottom: "1px solid"}}>
+          <TableHead sx={{ borderBottom: "1px solid" }}>
             <TableRow>
               <TableCell sx={{ fontWeight: "bold", width: "50%" }}>
                 {title}
@@ -262,8 +261,8 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
                   {value === undefined || value === null || value === ""
                     ? "—"
                     : key === "width" || key === "height"
-                    ? `${value} px`
-                    : String(value)}
+                      ? `${value} px`
+                      : String(value)}
                 </TableCell>
               </TableRow>
             ))}
@@ -422,31 +421,48 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           )}
 
           {/* Таблицы в один ряд, одинаковой высоты и ширины */}
-          {exifData.length > 0 && (
-            <Grid container spacing={2} sx={{ height: 500, pb: 2 }}>
-              <Grid
-                size={{ xs: 12, md: 4 }}
-                sx={{ height: "100%", display: "flex" }}
-              >
-                {renderTable(exifData[0], keysGroup1, "Основная информация")}
+          {loading ? (
+            <Box
+              sx={{
+                height: 500,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <CircularProgress />
+            </Box>
+          ) : (
+            exifData.length > 0 && (
+              <Grid container spacing={2} sx={{ height: 500, pb: 2 }}>
+                <Grid
+                  size={{ xs: 12, md: 4 }}
+                  sx={{ height: "100%", display: "flex" }}
+                >
+                  {renderTable(exifData[0], keysGroup1, "Основная информация")}
+                </Grid>
+                <Grid
+                  size={{ xs: 12, md: 4 }}
+                  sx={{ height: "100%", display: "flex" }}
+                >
+                  {renderTable(
+                    exifData[0],
+                    keysGroup2,
+                    "Параметры изображения",
+                  )}
+                </Grid>
+                <Grid
+                  size={{ xs: 12, md: 4 }}
+                  sx={{ height: "100%", display: "flex" }}
+                >
+                  {renderTable(
+                    exifData[0],
+                    keysGroup3,
+                    "Гео- и оптические данные",
+                  )}
+                </Grid>
               </Grid>
-              <Grid
-                size={{ xs: 12, md: 4 }}
-                sx={{ height: "100%", display: "flex" }}
-              >
-                {renderTable(exifData[0], keysGroup2, "Параметры изображения")}
-              </Grid>
-              <Grid
-                size={{ xs: 12, md: 4 }}
-                sx={{ height: "100%", display: "flex" }}
-              >
-                {renderTable(
-                  exifData[0],
-                  keysGroup3,
-                  "Гео- и оптические данные"
-                )}
-              </Grid>
-            </Grid>
+            )
           )}
         </Box>
       ) : (

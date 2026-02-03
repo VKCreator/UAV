@@ -1,4 +1,4 @@
-import * as React from "react";
+import React, { useRef } from "react";
 import {
   Box,
   Typography,
@@ -26,43 +26,42 @@ import SceneEditor from "../draw/SceneEditor";
 import SceneShower from "../draw/SceneShower";
 
 import ModeEditIcon from "@mui/icons-material/ModeEdit";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
-import type {
-  Point,
-  Polygon,
-  ImageData,
-  TrajectoryPoint,
-} from "../draw/scene.types";
+import type { Point, Polygon, ImageData } from "../draw/scene.types";
 
-const BuildTrajectoryStep: React.FC<{
+interface BuildTrajectoryStepProps {
   imageData: ImageData;
-}> = ({ imageData }) => {
-  const [points, setPoints] = React.useState<Point[]>([]);
-  const [obstacles, setObstacles] = React.useState<Polygon[]>([]);
-  const [trajectoryData, setTrajectoryData] = React.useState<any>(null);
 
-  const [uavTypeBase, setUavTypeBase] = React.useState<string>("DJI Mavic 2"); // для базового изображения
-  const [uavTypePlanned, setUavTypePlanned] =
-    React.useState<string>("DJI Mavic 2");
-  const [distance, setDistance] = React.useState<string>("50");
-  const [plannedDistance, setPlannedDistance] = React.useState<string>("");
+  points: Point[];
+  setPoints: React.Dispatch<React.SetStateAction<Point[]>>;
+
+  obstacles: Polygon[];
+  setObstacles: React.Dispatch<React.SetStateAction<Polygon[]>>;
+
+  trajectoryData: any;
+  setTrajectoryData: (data: any) => void;
+
+  droneParams: any;
+  setDroneParams: (params: any) => void;
+}
+
+const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
+  imageData,
+  points,
+  setPoints,
+  obstacles,
+  setObstacles,
+  trajectoryData,
+  setTrajectoryData,
+  droneParams,
+  setDroneParams,
+}) => {
   const [showEditor, setShowEditor] = React.useState(false);
   const [showView, setShowView] = React.useState(false);
   const [mode, setMode] = React.useState<string>("pan");
 
-  const [angle, setAngle] = React.useState<string>("77");
-
   const [imageUrl, setImageUrl] = React.useState<string>(imageData.imageUrl);
-
-  const [gridConfig, setGridConfig] = React.useState<{
-    columns: number;
-    rows: number;
-  }>({
-    columns: 0,
-    rows: 0,
-  });
-
-  const handleEditTrajectory = () => {};
 
   React.useEffect(() => {
     setImageUrl(imageData.imageUrl);
@@ -82,7 +81,19 @@ const BuildTrajectoryStep: React.FC<{
     setTrajectoryData(null);
   };
 
-  const handleDownload = () => {};
+  const sceneUserTrajectoryShower = useRef<{ handleDownload: () => void }>(
+    null,
+  );
+
+  const handleDownload = () => {
+    sceneUserTrajectoryShower.current?.handleDownload();
+  };
+
+  const handleUpdateDroneParams = (params: any) => {
+    console.info(params);
+    setDroneParams(params);
+    setTrajectoryData(null);
+  };
 
   return (
     <Box sx={{ p: 2 }}>
@@ -132,25 +143,29 @@ const BuildTrajectoryStep: React.FC<{
                 </Tooltip>
 
                 <Tooltip title="Очистить схему" enterDelay={500}>
-                  <IconButton
-                    color="error"
-                    onClick={handleClearScheme}
-                    aria-label="Очистить схему"
-                    disabled={points.length === 0 && obstacles.length === 0}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+                  <span>
+                    <IconButton
+                      color="error"
+                      onClick={handleClearScheme}
+                      aria-label="Очистить схему"
+                      disabled={points.length === 0 && obstacles.length === 0}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </span>
                 </Tooltip>
 
                 <Tooltip title="Скачать схему" enterDelay={500}>
-                  <IconButton
-                    onClick={handleDownload}
-                    color="primary"
-                    aria-label="Скачать схему"
-                    disabled={points.length === 0}
-                  >
-                    <DownloadIcon />
-                  </IconButton>
+                  <span>
+                    <IconButton
+                      onClick={handleDownload}
+                      color="primary"
+                      aria-label="Скачать схему"
+                      disabled={points.length === 0}
+                    >
+                      <DownloadIcon />
+                    </IconButton>
+                  </span>
                 </Tooltip>
               </Box>
             </Box>
@@ -162,6 +177,7 @@ const BuildTrajectoryStep: React.FC<{
                 maxHeight: "400px",
                 display: "flex",
                 justifyContent: "center",
+                alignItems: "center",
                 mt: 2,
                 position: "relative",
                 overflow: "hidden",
@@ -169,12 +185,30 @@ const BuildTrajectoryStep: React.FC<{
             >
               <SceneShower
                 imageData={imageData}
+                droneParams={droneParams}
                 sceneTitle="Просмотр сцены"
                 points={points}
                 obstacles={obstacles}
                 trajectoryData={trajectoryData}
                 showView={() => setShowView(true)}
+                ref={sceneUserTrajectoryShower}
               />
+            </Box>
+            <Box display="flex" alignItems="center" sx={{ mt: 2, ml: 1 }}>
+              <Typography color="text.secondary">
+                Разрешение базового слоя: {imageData?.width} x{" "}
+                {imageData?.height} px
+              </Typography>
+
+              <Tooltip
+                title="Базовый слой не должен быть обрезанным изображением или после преобразований. Разрешения фотокамеры должны совпадать с разрешениями базового слоя."
+                arrow
+                enterDelay={400}
+              >
+                <IconButton size="small" sx={{ m: 0, p: 0, ml: 1 }}>
+                  <HelpOutlineIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Box>
           </Paper>
 
@@ -199,10 +233,15 @@ const BuildTrajectoryStep: React.FC<{
 
           <Box sx={{ mt: 1 }}>
             <FlightPlanningAccordion
-              onGridGenerated={(cols, rows) =>
-                setGridConfig({ columns: cols, rows: rows })
-              }
-              onEditTrajectory={handleEditTrajectory}
+              imageData={imageData}
+              points={points}
+              obstacles={obstacles}
+              onClearObstacles={() => {
+                setObstacles([]);
+              }}
+              onClearUserTrajectory={() => {
+                setPoints([]);
+              }}
               onEditObstacles={() => {
                 setShowEditor(true);
                 setMode("polygons");
@@ -211,17 +250,25 @@ const BuildTrajectoryStep: React.FC<{
                 setShowEditor(true);
                 setMode("points");
               }}
+              onUpdateDroneParams={handleUpdateDroneParams}
+              droneParams={droneParams}
             />
           </Box>
         </Grid>
       </Grid>
 
-      <Dialog open={showEditor} onClose={() => setShowEditor(false)} fullScreen>
+      <Dialog
+        open={showEditor}
+        onClose={() => setShowEditor(false)}
+        fullScreen
+        disableEscapeKeyDown
+      >
         <DialogContent sx={{ p: 0 }}>
           <SceneEditor
             onClose={() => setShowEditor(false)}
             mode={mode}
             imageData={imageData}
+            droneParams={droneParams}
             sceneTitle="Редактор схемы полётов"
             points={points}
             setPoints={setPoints}
@@ -238,6 +285,7 @@ const BuildTrajectoryStep: React.FC<{
           <SceneEditor
             onClose={() => setShowView(false)}
             imageData={imageData}
+            droneParams={droneParams}
             sceneTitle="Просмотр схемы полётов"
             points={points}
             setPoints={setPoints}

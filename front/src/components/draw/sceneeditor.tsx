@@ -10,6 +10,13 @@ import {
   ToggleButtonGroup,
 } from "@mui/material";
 import {
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+} from "@mui/material";
+
+import {
   Stage,
   Layer,
   Image as KonvaImage,
@@ -45,6 +52,7 @@ interface SceneEditorProps {
   onClose: () => void;
   mode?: string;
   imageData: ImageData;
+  droneParams: any;
   sceneTitle: string;
 
   points: Point[];
@@ -57,8 +65,6 @@ interface SceneEditorProps {
   setTrajectoryData: (data: any) => void;
 }
 
-const GRID_COLS = 6.67;
-const GRID_ROWS = 6.75;
 const TAXON_POINT_RADIUS = 10;
 const BASE_RADIUS = 4;
 
@@ -73,6 +79,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
   setObstacles,
   trajectoryData,
   setTrajectoryData,
+  droneParams,
 }) => {
   const [showGrid, setShowGrid] = useLocalStorage<boolean>("isShowGrid", true);
   const [showUserTrajectory, setShowUserTrajectory] = useLocalStorage<boolean>(
@@ -97,25 +104,28 @@ const SceneEditor: FC<SceneEditorProps> = ({
   const [currentPolygon, setCurrentPolygon] = useState<Point[]>([]);
 
   const [loading, setLoading] = useState(false);
+  const [hoveredObstacleId, setHoveredObstacleId] = useState<string | null>(
+    null,
+  );
 
   const stageRef = useRef<any>(null);
 
   const colors = [
-    "#d3a4a4", // приглушённый красный
-    "#a7c6ed", // светлый синий
-    "#f4d06f", // тёплый желто-оранжевый
-    "#7ab8d6", // пастельный голубой
-    "#7cb98c", // мягкий зелёный
-    "#c8a2d1", // серо-фиолетовый
-    "#a9d8d7", // мягкий циановый
-    "#e1a7d3", // лавандовый
-    "#d6d17a", // нежно-жёлтый
-    "#b28a69", // тёмно-бежевый
-    "#6f5f50", // тёмно-коричневый
-    "#809f7b", // зелёно-коричневый
-    "#9caeb9", // серо-голубой
-    "#c5bdb2", // светло-серый
-    "#9b8a6b", // грязно-жёлтый
+    "#65b9f7", // яркий голубой
+    "#ff6b6b", // яркий красный
+    "#66a9ff", // яркий синий
+    "#ffdd57", // ярко-жёлто-оранжевый
+    "#65b9f7", // яркий голубой
+    "#9e69c4", // ярко-фиолетовый
+    "#64f3f1", // яркий циановый
+    "#f59fe1", // яркий лавандовый
+    "#f4e24d", // ярко-жёлтый
+    "#e38b5a", // тёплый бежевый
+    "#5e4a3a", // насыщенный коричневый
+    "#7a9f60", // ярко-зелёно-коричневый
+    "#a2b9d1", // светло-голубой
+    "#d1d1d1", // светло-серый
+    "#b8a25b", // жёлто-коричневый
   ];
 
   const getNextPolygonColor = () => colors[obstacles.length % colors.length];
@@ -138,10 +148,12 @@ const SceneEditor: FC<SceneEditorProps> = ({
     }
   };
 
-  const width_m = 238.63; // длина изображения в метрах
-  const height_m = 159.09; // высота изображения в метрах
-  const meterPerPixelX = width_m / 5472;
-  const meterPerPixelY = height_m / 3648;
+  const GRID_COLS = droneParams.frameWidthBase / droneParams.frameWidthPlanned;
+  const GRID_ROWS =
+    droneParams.frameHeightBase / droneParams.frameHeightPlanned;
+
+  const width_m = droneParams.frameWidthBase; // длина изображения в метрах
+  const height_m = droneParams.frameHeightBase; // высота изображения в метрах
 
   const cellWidth_m = width_m / GRID_COLS;
   const cellHeight_m = height_m / GRID_ROWS;
@@ -238,6 +250,10 @@ const SceneEditor: FC<SceneEditorProps> = ({
     setCurrentPolygon([]);
   };
 
+  const handleDeleteObstacle = (id: string) => {
+    setObstacles((prev) => prev.filter((o) => o.id !== id));
+  };
+
   const handleDragMove = (e: any) => {
     const stage = e.target;
     setPosition({
@@ -252,7 +268,8 @@ const SceneEditor: FC<SceneEditorProps> = ({
     const lines: JSX.Element[] = [];
     const imgWidth = image.width * scaleToFit;
     const imgHeight = image.height * scaleToFit;
-
+    // const imgWidth = droneParams.uavParams.resolutionWidth * scaleToFit;
+    // const imgHeight = droneParams.uavParams.resolutionHeight * scaleToFit;
     // Вертикальные линии
     for (let i = 1; i < GRID_COLS; i++) {
       const x = imageX + (imgWidth / GRID_COLS) * i;
@@ -286,8 +303,6 @@ const SceneEditor: FC<SceneEditorProps> = ({
     if (!image || points.length === 0) return;
     setLoading(true);
 
-    const width_m = 238.63;
-    const height_m = 159.09;
     const meterPerPixelX = width_m / image.width;
     const meterPerPixelY = height_m / image.height;
 
@@ -411,6 +426,9 @@ const SceneEditor: FC<SceneEditorProps> = ({
 
     // Добавляем траектории таксонов
     if (showTaxonTrajectory && trajectoryData?.B) {
+      const meterPerPixelX = width_m / image.width;
+      const meterPerPixelY = height_m / image.height;
+
       trajectoryData.B.forEach((taxon: any, idx: number) => {
         const color = colors[idx % colors.length];
 
@@ -503,18 +521,21 @@ const SceneEditor: FC<SceneEditorProps> = ({
       });
     }
 
-    layer.draw();
+    layer.batchDraw();
 
-    const dataURL = downloadStage.toDataURL({ pixelRatio: 1 });
+    downloadStage.toCanvas().toBlob((blob) => {
+      if (!blob) return;
 
-    const link = document.createElement("a");
-    link.href = dataURL;
-    link.download = "trajectory_map.png";
-    link.click();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "trajectory_map.png";
+      link.click();
 
-    downloadStage.destroy();
-
-    setLoading(false);
+      URL.revokeObjectURL(url);
+      downloadStage.destroy();
+      setLoading(false);
+    });
   };
 
   const getArrowPoints = (
@@ -567,9 +588,10 @@ const SceneEditor: FC<SceneEditorProps> = ({
         </Box>
         <Box />
       </Box>
-      <Box display="flex" flex={1}>
+      <Box display="flex" flex={1} overflow="auto">
         {/* Левая панель */}
         <Box
+          overflow="auto"
           width={350}
           borderRight="1px solid"
           borderColor="divider"
@@ -657,7 +679,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                 display="flex"
                 alignItems="center"
                 justifyContent="space-between"
-                mb={1}
+                mb={0}
               >
                 <Typography variant="subtitle1">Препятствия</Typography>
                 <Checkbox
@@ -668,9 +690,39 @@ const SceneEditor: FC<SceneEditorProps> = ({
                 />
               </Box>
 
+              {/* Список препятствий */}
+              {obstacles.length > 0 && (
+                <List dense sx={{ maxHeight: 200, overflowY: "auto", mb: 2 }}>
+                  {obstacles.map((obstacle, index) => (
+                    <ListItem
+                      key={obstacle.id}
+                      sx={{
+                        pl: 1,
+                        borderLeft: `4px solid ${obstacle.color}`,
+                      }}
+                    >
+                      <ListItemText
+                        primary={`Препятствие ${index + 1}`}
+                        secondary={`Точек: ${obstacle.points.length}`}
+                      />
+                      <ListItemSecondaryAction>
+                        <IconButton
+                          edge="end"
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteObstacle(obstacle.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+
               <Typography variant="body2" mb={1} color="text.secondary">
                 Всего:{" "}
-                <Box component="span" color="text.secondary" fontWeight="bold">
+                <Box component="span" fontWeight="bold">
                   {obstacles.length}
                 </Box>{" "}
                 шт.
@@ -696,6 +748,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                 >
                   Замкнуть
                 </Button>
+
                 <IconButton
                   size="small"
                   color="error"
@@ -818,9 +871,9 @@ const SceneEditor: FC<SceneEditorProps> = ({
               </Button>
             </Box>
 
-            <Divider />
+            {/* <Divider /> */}
 
-            <Stack spacing={1}>
+            {/* <Stack spacing={1}>
               <Button
                 variant="contained"
                 color="success"
@@ -829,7 +882,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
               >
                 Скачать схему
               </Button>
-            </Stack>
+            </Stack> */}
           </Stack>
         </Box>
 
@@ -870,6 +923,9 @@ const SceneEditor: FC<SceneEditorProps> = ({
                     scaleX={scaleToFit}
                     scaleY={scaleToFit}
                     onClick={handleClick}
+                    onContextMenu={(e) => {
+                      e.evt.preventDefault();
+                    }}
                   />
                 )}
 
@@ -925,7 +981,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                         key={`arrow-${i}`}
                         points={arrowPoints}
                         pointerLength={10}
-                        pointerWidth={10}
+                        pointerWidth={7}
                         fill="red"
                         stroke="red"
                         strokeWidth={2}
@@ -943,7 +999,17 @@ const SceneEditor: FC<SceneEditorProps> = ({
                         fill="blue"
                         onContextMenu={(e) => {
                           e.evt.preventDefault();
-                          setPoints(points.filter((_, idx) => idx !== i));
+
+                          if (toolMode === "points")
+                            setPoints(points.filter((_, idx) => idx !== i));
+                        }}
+                        onMouseEnter={(e) => {
+                          const stage = e.target.getStage();
+                          stage!.container().style.cursor = "pointer";
+                        }}
+                        onMouseLeave={(e) => {
+                          const stage = e.target.getStage();
+                          stage!.container().style.cursor = getCursor();
                         }}
                       />
                       <Text
@@ -954,7 +1020,17 @@ const SceneEditor: FC<SceneEditorProps> = ({
                         fill="white"
                         onContextMenu={(e) => {
                           e.evt.preventDefault();
-                          setPoints(points.filter((_, idx) => idx !== i));
+
+                          if (toolMode === "points")
+                            setPoints(points.filter((_, idx) => idx !== i));
+                        }}
+                        onMouseEnter={(e) => {
+                          const stage = e.target.getStage();
+                          stage!.container().style.cursor = "pointer";
+                        }}
+                        onMouseLeave={(e) => {
+                          const stage = e.target.getStage();
+                          stage!.container().style.cursor = getCursor();
                         }}
                       />
                     </Fragment>
@@ -964,6 +1040,9 @@ const SceneEditor: FC<SceneEditorProps> = ({
                   image &&
                   trajectoryData?.B?.map((taxon: any, idx: number) => {
                     const color = colors[idx % colors.length];
+
+                    const meterPerPixelX = width_m / image.width;
+                    const meterPerPixelY = height_m / image.height;
 
                     // База
                     const baseX = taxon.base[0] / meterPerPixelX;
@@ -1011,7 +1090,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                                 TAXON_POINT_RADIUS,
                               )}
                               pointerLength={10}
-                              pointerWidth={10}
+                              pointerWidth={7}
                               fill={color}
                               stroke={color}
                               strokeWidth={2}
@@ -1036,7 +1115,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                                 BASE_RADIUS,
                               )}
                               pointerLength={10}
-                              pointerWidth={10}
+                              pointerWidth={7}
                               fill={color}
                               stroke={color}
                               strokeWidth={2}
@@ -1071,7 +1150,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                               key={`taxon-arrow-${i}`}
                               points={arrowPoints}
                               pointerLength={10}
-                              pointerWidth={10}
+                              pointerWidth={7}
                               fill={color}
                               stroke={color}
                               strokeWidth={2}
@@ -1087,8 +1166,8 @@ const SceneEditor: FC<SceneEditorProps> = ({
                               y={p.y * scaleToFit + imageY}
                               radius={10}
                               fill={p.color}
-                              stroke="black"
-                              strokeWidth={0.5}
+                              // stroke="black"
+                              // strokeWidth={0.1}
                             />
                             <Text
                               x={p.x * scaleToFit + imageX - 5}
@@ -1104,19 +1183,36 @@ const SceneEditor: FC<SceneEditorProps> = ({
                   })}
 
                 {showObstacles &&
-                  obstacles.map((poly) => (
-                    <Line
-                      key={poly.id}
-                      points={poly.points.flatMap((p) => [
-                        p.x * scaleToFit + imageX,
-                        p.y * scaleToFit + imageY,
-                      ])}
-                      closed
-                      fill={`${poly.color}20`}
-                      stroke={poly.color}
-                      strokeWidth={2}
-                    />
-                  ))}
+                  obstacles.map((poly) => {
+                    const isHovered = hoveredObstacleId === poly.id;
+
+                    return (
+                      <Line
+                        key={poly.id}
+                        points={poly.points.flatMap((p) => [
+                          p.x * scaleToFit + imageX,
+                          p.y * scaleToFit + imageY,
+                        ])}
+                        closed
+                        fill={isHovered ? `${poly.color}55` : `${poly.color}20`}
+                        stroke={poly.color}
+                        strokeWidth={isHovered ? 3 : 2}
+                        onMouseEnter={(e) => {
+                          const stage = e.target.getStage();
+                          stage!.container().style.cursor = "pointer";
+                          setHoveredObstacleId(poly.id);
+                        }}
+                        onMouseLeave={(e) => {
+                          const stage = e.target.getStage();
+                          stage!.container().style.cursor = getCursor();
+                          setHoveredObstacleId(null);
+                        }}
+                        onContextMenu={(e) => {
+                          e.evt.preventDefault();
+                        }}
+                      />
+                    );
+                  })}
 
                 {toolMode === "polygons" && currentPolygon.length > 0 && (
                   <>

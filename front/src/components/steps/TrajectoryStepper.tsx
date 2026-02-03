@@ -13,42 +13,24 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tooltip,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
-import { useNavigate } from "react-router";
-import Tooltip from "@mui/material/Tooltip";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 
 import { useDialogs } from "../../hooks/useDialogs/useDialogs";
+import { useNavigate } from "react-router";
 
 import ImageUploadStep from "./ImageUploadStep";
 import BuildTrajectoryStep from "./BuildTrajectoryStep";
 import OptimizationTrajectoryStep from "./OptimizationTrajectoryStep";
 import CompareOptimizationMethodsStep from "./CompareOptimizationMethodsStep";
 
-import ExifData from "./ImageUploadStep";
+import type { ExifData } from "./common.types";
 
-interface ExifData {
-  fileName: string;
-  fileSize: string;
-  width?: number;
-  height?: number;
-  dateTime?: string;
-  make?: string;
-  model?: string;
-  orientation?: number;
-  xResolution?: number;
-  yResolution?: number;
-  resolutionUnit?: number;
-  software?: string;
-  artist?: string;
-  copyright?: string;
-  focalLength: number;
-  focalLengthIn35mmFormat: number;
-  latitude: string;
-  longitude: string;
-}
+import type { Point, Polygon } from "../draw/scene.types";
 
 const TrajectoryStepper: React.FC<{
   onSubmit: () => void;
@@ -58,18 +40,51 @@ const TrajectoryStepper: React.FC<{
   const { confirm } = useDialogs();
 
   const [activeStep, setActiveStep] = React.useState(0);
-  const [schemaName, setSchemaName] = React.useState("Схема 1"); // начальное название
+  const [schemaName, setSchemaName] = React.useState("Схема 1");
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [dialogValue, setDialogValue] = React.useState("");
   const [error, setError] = React.useState("");
 
+  // Step 1
   const [files, setFiles] = React.useState<File[]>([]);
   const [exifData, setExifData] = React.useState<ExifData[]>([]);
   const [imageUrl, setImageUrl] = React.useState<string>("");
 
+  const imageData = {
+    imageUrl,
+    fileName: files[0]?.name || "",
+    width: exifData[0]?.width,
+    height: exifData[0]?.height,
+  };
+
+  // Step 2
+  const [points, setPoints] = React.useState<Point[]>([]);
+  const [obstacles, setObstacles] = React.useState<Polygon[]>([]);
+  const [trajectoryData, setTrajectoryData] = React.useState<any>(null);
+
+  const [droneParams, setDroneParams] = React.useState({
+    selectedDroneId: undefined,
+    frameHeightBase: 0,
+    frameWidthBase: 0,
+    frameHeightPlanned: 0,
+    frameWidthPlanned: 0,
+    distance: 100,
+    plannedDistance: 15,
+    uavParams: {
+      fov: 77,
+      resolutionWidth: 5472,
+      resolutionHeight: 3648,
+      useFromReference: true,
+    },
+  });
+
   const handleImageUpload = (newFiles: File[], newExif: ExifData[]) => {
     setFiles(newFiles);
     setExifData(newExif);
+    setPoints([]);
+    setObstacles([]);
+    setTrajectoryData(null);
+
     if (imageUrl) {
       URL.revokeObjectURL(imageUrl);
       setImageUrl(String());
@@ -79,6 +94,9 @@ const TrajectoryStepper: React.FC<{
   const handleImageDelete = () => {
     setFiles([]);
     setExifData([]);
+    setPoints([]);
+    setObstacles([]);
+    setTrajectoryData(null);
 
     if (imageUrl) {
       URL.revokeObjectURL(imageUrl);
@@ -160,6 +178,20 @@ const TrajectoryStepper: React.FC<{
     }
   }, [files]);
 
+  const isDisabled =
+    (activeStep === 0 && imageUrl === "") ||
+    (activeStep === 1 && points.length === 0) ||
+    (activeStep == 2 && trajectoryData == null);
+
+  const tooltipTitle =
+    activeStep === 0 && imageUrl === ""
+      ? "Для шага 2 нужно загрузить базовый слой"
+      : activeStep === 1 && points.length === 0
+        ? "Для шага 3 требуется построение пользовательской траектории"
+        : activeStep === 2 && trajectoryData === null
+          ? "Для шага 4 требуется оптимизация пользовательской траектории"
+          : "";
+
   const renderStepContent = () => {
     switch (activeStep) {
       case 0:
@@ -176,28 +208,32 @@ const TrajectoryStepper: React.FC<{
       case 1:
         return (
           <BuildTrajectoryStep
-            imageData={{
-              imageUrl,
-              fileName: files[0]?.name || "",
-              width: exifData[0]?.width,
-              height: exifData[0]?.height,
-            }}
+            imageData={imageData}
+            points={points}
+            setPoints={setPoints}
+            obstacles={obstacles}
+            setObstacles={setObstacles}
+            trajectoryData={trajectoryData}
+            setTrajectoryData={setTrajectoryData}
+            droneParams={droneParams}
+            setDroneParams={setDroneParams}
           />
         );
 
       case 2:
         return (
           <OptimizationTrajectoryStep
-            imageData={{
-              imageUrl,
-              fileName: files[0]?.name || "",
-              width: exifData[0]?.width,
-              height: exifData[0]?.height,
-            }}
+            imageData={imageData}
+            points={points}
+            setPoints={setPoints}
+            obstacles={obstacles}
+            setObstacles={setObstacles}
+            droneParams={droneParams}
+            setDroneParams={setDroneParams}
           />
         );
       case 3:
-        return (<CompareOptimizationMethodsStep/>)
+        return <CompareOptimizationMethodsStep />;
 
       default:
         return (
@@ -297,15 +333,45 @@ const TrajectoryStepper: React.FC<{
           Назад
         </Button>
 
-        <Button
-          onClick={activeStep === steps.length - 1 ? onSubmit : handleNext}
-          variant="contained"
-          color="primary"
-          endIcon={<KeyboardArrowRightIcon />}
-          disabled={activeStep === 0 && imageUrl == ""}
+        <Box
+          display="flex"
+          alignItems="center"
+          justifyContent="space-between"
+          gap={1.5}
         >
-          {activeStep === steps.length - 1 ? "Создать" : "Далее"}
-        </Button>
+          {/* Левая кнопка: Просмотр схемы */}
+          {activeStep === 3 && (
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => {}} // функция для открытия полной схемы
+              startIcon={<VisibilityIcon />}
+            >
+              Просмотр схемы
+            </Button>
+          )}
+
+          {/* Правая кнопка: Далее/Создать */}
+          <Tooltip
+            title={isDisabled ? tooltipTitle : ""}
+            arrow
+            disableHoverListener={!isDisabled}
+          >
+            <span>
+              <Button
+                onClick={
+                  activeStep === steps.length - 1 ? onSubmit : handleNext
+                }
+                variant="contained"
+                color="primary"
+                endIcon={<KeyboardArrowRightIcon />}
+                disabled={isDisabled}
+              >
+                {activeStep === steps.length - 1 ? "Создать" : "Далее"}
+              </Button>
+            </span>
+          </Tooltip>
+        </Box>
       </Box>
 
       <Dialog

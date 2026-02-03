@@ -1,4 +1,4 @@
-import * as React from "react";
+import React, { useRef } from "react";
 import {
   Box,
   Typography,
@@ -24,11 +24,30 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DownloadIcon from "@mui/icons-material/Download";
 import ViewListIcon from "@mui/icons-material/ViewList";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 
-import type { ImageData } from "../draw/scene.types";
+import SceneShower from "../draw/SceneShower";
 
-const OptimizationTrajectoryStep: React.FC<{ imageData: ImageData }> = ({
+import type { Point, Polygon, ImageData } from "../draw/scene.types";
+
+interface OptimizationTrajectoryStepProps {
+  imageData: ImageData;
+
+  points: Point[];
+  setPoints: React.Dispatch<React.SetStateAction<Point[]>>;
+
+  obstacles: Polygon[];
+  setObstacles: React.Dispatch<React.SetStateAction<Polygon[]>>;
+
+  droneParams: any;
+  setDroneParams: (params: any) => void;
+}
+
+const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   imageData,
+  points,
+  obstacles,
+  droneParams,
 }) => {
   const [activeImage, setActiveImage] = React.useState(0);
 
@@ -39,6 +58,10 @@ const OptimizationTrajectoryStep: React.FC<{ imageData: ImageData }> = ({
   const [windSpeed, setWindSpeed] = React.useState("");
   const [windDirection, setWindDirection] = React.useState("");
   const [useWeatherApi, setUseWeatherApi] = React.useState(false);
+
+  const sceneUserTrajectoryShower = useRef<{ handleDownload: () => void }>(
+    null,
+  );
 
   const handleRunOptimization = () => {
     console.log("Оптимизация запущена");
@@ -56,6 +79,30 @@ const OptimizationTrajectoryStep: React.FC<{ imageData: ImageData }> = ({
 
   const handleNext = () => {
     setActiveImage((prev) => (prev + 1) % trajectoryTitles.length);
+  };
+
+  const handleDownloadScene = () => {
+    sceneUserTrajectoryShower.current?.handleDownload();
+  };
+  const renderImage = (index: number) => {
+    switch (index) {
+      case 1:
+        return (
+          <SceneShower
+            imageData={imageData}
+            droneParams={droneParams}
+            sceneTitle="Просмотр сцены"
+            points={points}
+            obstacles={obstacles}
+            trajectoryData={null}
+            showView={() => {}}
+            ref={sceneUserTrajectoryShower}
+          />
+        );
+
+      default:
+        return <Typography>Контент для изображения {index}</Typography>;
+    }
   };
 
   return (
@@ -94,13 +141,17 @@ const OptimizationTrajectoryStep: React.FC<{ imageData: ImageData }> = ({
                 </Tooltip>
 
                 <Tooltip title="Скачать" enterDelay={500}>
-                  <IconButton color="primary">
+                  <IconButton color="primary" onClick={handleDownloadScene}>
                     <DownloadIcon />
                   </IconButton>
                 </Tooltip>
 
                 {/* Вертикальная палочка */}
-                <Divider orientation="vertical" flexItem sx={{ mr: 2, ml: 1 }} />
+                <Divider
+                  orientation="vertical"
+                  flexItem
+                  sx={{ mr: 2, ml: 1 }}
+                />
 
                 {/* Счётчик */}
                 <Typography
@@ -123,23 +174,26 @@ const OptimizationTrajectoryStep: React.FC<{ imageData: ImageData }> = ({
               </Box>
             </Box>
 
-            <Divider sx={{ mb: 1 }} />
+            <Divider />
 
             {/* Контент */}
             <Box
               sx={{
                 mt: 2,
-                height: 300,
-                bgcolor: "#f4f6f8",
+                width: "100%",
+                maxHeight: "400px",
+                // bgcolor: "#f4f6f8",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                borderRadius: 1,
+                overflow: "hidden",
+                // borderRadius: 1,
               }}
             >
-              <Typography color="text.secondary">
+              {renderImage(activeImage + 1)}
+              {/* <Typography color="text.secondary">
                 Изображение #{activeImage + 1}
-              </Typography>
+              </Typography> */}
             </Box>
           </Paper>
         </Grid>
@@ -222,13 +276,17 @@ const OptimizationTrajectoryStep: React.FC<{ imageData: ImageData }> = ({
                 />
               </Paper>
 
-              <Button
-                variant="contained"
-                sx={{ mt: 2 }}
-                onClick={handleRunOptimization}
-              >
-                Запустить
-              </Button>
+              <Box display="flex" justifyContent="flex-end">
+                <Button
+                  variant="contained"
+                  sx={{ mt: 2 }}
+                  startIcon={<PlayArrowIcon />}
+                  onClick={handleRunOptimization}
+                  size="small"
+                >
+                  Запустить
+                </Button>
+              </Box>
             </AccordionDetails>
           </Accordion>
 

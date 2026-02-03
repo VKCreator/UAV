@@ -35,18 +35,34 @@ import { api, Drone } from "../../api/client";
 
 import UavSelector from "../ui-widgets/UavSelector";
 import UavParamsDialog, { UavParams } from "../ui-widgets/UavParamsDialog";
+import type { Polygon, Point, ImageData } from "../draw/scene.types";
+
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
+import Chip from "@mui/material/Chip";
+
 export default function FlightPlanningAccordion({
-  onGridGenerated,
-  onEditTrajectory,
+  imageData,
+  obstacles,
+  points,
+  onClearObstacles,
+  onClearUserTrajectory,
   onEditObstacles,
   onEditUserTrajectory,
+  onUpdateDroneParams,
+  droneParams,
 }: {
-  onGridGenerated?: (cols: number, rows: number) => void;
-  onEditTrajectory?: () => void;
-  onEditObstacles?: () => void;
-  onEditUserTrajectory?: () => void;
+  imageData: ImageData;
+  obstacles: Polygon[];
+  points: Point[];
+  onEditObstacles: () => void;
+  onEditUserTrajectory: () => void;
+  onClearObstacles: () => void;
+  onClearUserTrajectory: () => void;
+  onUpdateDroneParams: (params: any) => void; // Тип пропса
+  droneParams: any;
 }) {
   const notifications = useNotifications();
 
@@ -56,12 +72,10 @@ export default function FlightPlanningAccordion({
 
   // Раскадровка и параметры БПЛА
   const [drones, setDrones] = React.useState<Drone[]>([]);
-  const [selectedDroneId, setSelectedDroneId] = React.useState<string>("");
+  const [selectedDroneId, setSelectedDroneId] = React.useState<string>(
+    droneParams.selectedDroneId,
+  );
   const [loading, setLoading] = React.useState(true);
-
-  // const [fov, setFov] = React.useState<number>(77);
-  // const [resolutionWidth, setResolutionWidth] = React.useState<number>(5472);
-  // const [resolutionHeight, setResolutionHeight] = React.useState<number>(3648);
 
   const [openUavParams, setOpenUavParams] = React.useState(false);
   const [initialUavParams, setInitialUavParams] = React.useState<UavParams>({
@@ -71,12 +85,14 @@ export default function FlightPlanningAccordion({
     useFromReference: true,
   });
 
-  const [uavParams, setUavParams] = React.useState<UavParams>(initialUavParams);
+  const [uavParams, setUavParams] = React.useState<UavParams>(
+    droneParams.uavParams,
+  );
 
-  const [distance, setDistance] = React.useState<number>(100);
-  const [plannedDistance, setPlannedDistance] = React.useState<number>(15);
-
-  const [isGridGenerated, setIsGridGenerated] = React.useState(false);
+  const [distance, setDistance] = React.useState<number>(droneParams.distance);
+  const [plannedDistance, setPlannedDistance] = React.useState<number>(
+    droneParams.plannedDistance,
+  );
 
   const calculateFrameSize = (d: number, f: number) => {
     const fovRad = (f * Math.PI) / 180;
@@ -84,12 +100,16 @@ export default function FlightPlanningAccordion({
   };
 
   const frameHeightBase = calculateFrameSize(distance, uavParams.fov);
-  const frameWidthBase = frameHeightBase * (3 / 2);
+  const frameWidthBase =
+    frameHeightBase * (uavParams.resolutionWidth / uavParams.resolutionHeight);
   const frameHeightPlanned = calculateFrameSize(plannedDistance, uavParams.fov);
-  const frameWidthPlanned = frameHeightPlanned * (3 / 2);
+  const frameWidthPlanned =
+    frameHeightPlanned *
+    (uavParams.resolutionWidth / uavParams.resolutionHeight);
 
-  const [obstaclesCount, setObstaclesCount] = React.useState(0);
-  const [trajectoryPointsCount, setTrajectoryPointsCount] = React.useState(0);
+  const isResolutionMatch =
+    uavParams.resolutionWidth === imageData.width &&
+    uavParams.resolutionHeight === imageData.height;
 
   const togglePanel = (panel: string) => () => {
     setExpanded((prev) => {
@@ -102,24 +122,17 @@ export default function FlightPlanningAccordion({
   const handleUavParamsOpen = () => {
     setOpenUavParams(true);
     setInitialUavParams(uavParams);
-    console.info(initialUavParams);
   };
 
   const handleUavParamsClose = () => {
-    console.info(initialUavParams);
     setOpenUavParams(false);
     setUavParams(initialUavParams);
   };
 
   const handleUavParamsSave = (params: UavParams) => {
-    console.log(params);
     setUavParams(params);
     setOpenUavParams(false);
   };
-
-  const handleClearObstacles = () => {};
-
-  const handleClearTrajectory = () => {};
 
   const handleDroneChange = (drone: Drone) => {
     setSelectedDroneId(String(drone.id));
@@ -133,10 +146,6 @@ export default function FlightPlanningAccordion({
   };
 
   const handleUseFromReferenceChange = (checked: boolean) => {
-    // let params = uavParams;
-    // params.useFromReference = checked;
-    // setUavParams(params)
-    console.error(checked);
     if (checked) {
       const drone = drones.find((d) => String(d.id) === selectedDroneId);
       if (drone) {
@@ -153,19 +162,24 @@ export default function FlightPlanningAccordion({
   React.useEffect(() => {
     const fetchDrones = async () => {
       try {
-        console.info("Fetching drones...");
         const data = await api.drones.getAll();
         setDrones(data);
         if (data.length > 0) {
-          const first = data[0];
-          setSelectedDroneId(String(first.id));
+          const id = Number(droneParams?.selectedDroneId);
+          if (Number.isFinite(id)) {
+            setUavParams(droneParams.uavParams);
+            setSelectedDroneId(String(droneParams.selectedDroneId));
+          } else {
+            let first = data[0];
 
-          setUavParams({
-            fov: first.fov_vertical || 77,
-            resolutionWidth: first.resolution_width || 5472,
-            resolutionHeight: first.resolution_height || 3648,
-            useFromReference: true,
-          });
+            setUavParams({
+              fov: first.fov_vertical || 77,
+              resolutionWidth: first.resolution_width || 5472,
+              resolutionHeight: first.resolution_height || 3648,
+              useFromReference: true,
+            });
+            setSelectedDroneId(String(first.id));
+          }
         }
       } catch (error) {
         notifications.show("Не удалось загрузить список БПЛА", {
@@ -178,12 +192,23 @@ export default function FlightPlanningAccordion({
     };
 
     fetchDrones();
-
-    // if (openUavParams) {
-    //   setInitialUavParams(uavParams);
-    //   console.info(initialUavParams);
-    // }
   }, []);
+
+  React.useEffect(() => {
+    // Отправляем данные обратно в родительский компонент каждый раз, когда изменяются параметры
+    if (onUpdateDroneParams) {
+      onUpdateDroneParams({
+        selectedDroneId,
+        frameHeightBase,
+        frameWidthBase,
+        frameHeightPlanned,
+        frameWidthPlanned,
+        distance,
+        plannedDistance,
+        uavParams,
+      });
+    }
+  }, [selectedDroneId, distance, plannedDistance, uavParams]);
 
   return (
     <Box sx={{ width: "100%" }}>
@@ -197,19 +222,51 @@ export default function FlightPlanningAccordion({
           id="panel1-header"
           sx={{ flexDirection: "row-reverse", gap: 1 }}
         >
-          <Box display="flex" alignItems="center">
-            <Typography fontWeight={600}>
-              1. Формирование масштабной сетки
-            </Typography>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+            width="100%"
+          >
+            {/* Левая часть: заголовок + помощь */}
+            <Box display="flex" alignItems="center">
+              <Typography fontWeight={600}>
+                1. Формирование масштабной сетки
+              </Typography>
 
+              <Tooltip
+                title="Масштабная сетка используется для визуальной привязки объектов и расчёта расстояний. На данном этапе вы выбираете БПЛА и параметры съёмки, на основе которых строится сетка."
+                arrow
+                enterDelay={400}
+              >
+                <IconButton
+                  size="small"
+                  component="span"
+                  sx={{ m: 0, p: 0, ml: 1 }}
+                >
+                  <HelpOutlineIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+
+            {/* Статус */}
             <Tooltip
-              title="Масштабная сетка используется для визуальной привязки объектов и расчёта расстояний. На данном этапе вы выбираете БПЛА и параметры съёмки, на основе которых строится сетка."
+              title={
+                isResolutionMatch
+                  ? "Разрешение базового слоя совпадает с параметрами камеры"
+                  : `Несовпадение разрешений:
+           изображение ${imageData.width}×${imageData.height} px,
+           камера ${uavParams.resolutionWidth}×${uavParams.resolutionHeight} px`
+              }
               arrow
               enterDelay={400}
             >
-              <IconButton size="small" sx={{ m: 0, p: 0, ml: 1 }}>
-                <HelpOutlineIcon fontSize="small" />
-              </IconButton>
+              <Chip
+                size="small"
+                label={isResolutionMatch ? "OK" : "Несовпадение"}
+                color={isResolutionMatch ? "success" : "error"}
+                variant="outlined"
+              />
             </Tooltip>
           </Box>
         </AccordionSummary>
@@ -286,19 +343,47 @@ export default function FlightPlanningAccordion({
           id="panel2-header"
           sx={{ flexDirection: "row-reverse", gap: 1 }}
         >
-          <Box display="flex" alignItems="center">
-            <Typography fontWeight={600}>
-              2. Установка препятствий (опционально)
-            </Typography>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+            width="100%"
+          >
+            {/* Заголовок + подсказка */}
+            <Box display="flex" alignItems="center">
+              <Typography fontWeight={600}>2. Установка препятствий</Typography>
 
+              <Tooltip
+                title="Установка препятствий позволяет учитывать объекты на местности, которые необходимо облететь при построении траектории полёта."
+                arrow
+                enterDelay={400}
+              >
+                <IconButton
+                  size="small"
+                  component="span"
+                  sx={{ m: 0, p: 0, ml: 1 }}
+                >
+                  <HelpOutlineIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+
+            {/* Chip статуса */}
             <Tooltip
-              title="Установка препятствий позволяет учитывать объекты на местности, которые необходимо облететь при построении траектории полёта."
+              title={
+                obstacles.length > 0
+                  ? `Добавлено препятствий: ${obstacles.length} шт.`
+                  : "Шаг можно пропустить, препятствия не заданы"
+              }
               arrow
               enterDelay={400}
             >
-              <IconButton size="small" sx={{ m: 0, p: 0, ml: 1 }}>
-                <HelpOutlineIcon fontSize="small" />
-              </IconButton>
+              <Chip
+                size="small"
+                label={obstacles.length > 0 ? "Добавлено" : "Опционально"}
+                color={obstacles.length > 0 ? "success" : "default"}
+                variant="outlined"
+              />
             </Tooltip>
           </Box>
         </AccordionSummary>
@@ -310,7 +395,7 @@ export default function FlightPlanningAccordion({
                 component="span"
                 sx={{ color: "text.secondary", fontWeight: 600 }}
               >
-                {obstaclesCount}
+                {obstacles.length}
               </Box>{" "}
               шт.
             </Typography>
@@ -324,14 +409,17 @@ export default function FlightPlanningAccordion({
                 Редактировать
               </Button>
               <Tooltip title="Очистить все препятствия" enterDelay={500}>
-                <IconButton
-                  color="error"
-                  onClick={handleClearObstacles}
-                  aria-label="Очистить препятствия"
-                  size="small"
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
+                <span>
+                  <IconButton
+                    color="error"
+                    onClick={onClearObstacles}
+                    aria-label="Очистить препятствия"
+                    size="small"
+                    disabled={obstacles.length === 0}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </span>
               </Tooltip>
             </Box>
           </Box>
@@ -348,19 +436,49 @@ export default function FlightPlanningAccordion({
           id="panel3-header"
           sx={{ flexDirection: "row-reverse", gap: 1 }}
         >
-          <Box display="flex" alignItems="center">
-            <Typography fontWeight={600}>
-              3. Определение точек съёмки
-            </Typography>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+            width="100%"
+          >
+            {/* Левая часть */}
+            <Box display="flex" alignItems="center">
+              <Typography fontWeight={600}>
+                3. Определение точек съёмки
+              </Typography>
 
+              <Tooltip
+                title="Установка точек съёмки позволяет задать точки для построения пользовательской траектории полёта."
+                arrow
+                enterDelay={400}
+              >
+                <IconButton
+                  size="small"
+                  component="span"
+                  sx={{ m: 0, p: 0, ml: 1 }}
+                >
+                  <HelpOutlineIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+
+            {/* Статус */}
             <Tooltip
-              title="Установка точек съёмки позволяет задать точки для построения пользовательской траектории полёта."
+              title={
+                points.length > 0
+                  ? "Точки съёмки заданы"
+                  : "Нужно установить точки съёмки"
+              }
               arrow
               enterDelay={400}
             >
-              <IconButton size="small" sx={{ m: 0, p: 0, ml: 1 }}>
-                <HelpOutlineIcon fontSize="small" />
-              </IconButton>
+              <Chip
+                size="small"
+                label={points.length > 0 ? `Выполнено` : "Не задано"}
+                color={points.length > 0 ? "success" : "error"}
+                variant="outlined"
+              />
             </Tooltip>
           </Box>
         </AccordionSummary>
@@ -372,7 +490,7 @@ export default function FlightPlanningAccordion({
                 component="span"
                 sx={{ color: "text.secondary", fontWeight: 600 }}
               >
-                {trajectoryPointsCount}
+                {points.length}
               </Box>{" "}
               шт.
             </Typography>
@@ -386,14 +504,17 @@ export default function FlightPlanningAccordion({
                 Редактировать
               </Button>
               <Tooltip title="Очистить траекторию" enterDelay={500}>
-                <IconButton
-                  color="error"
-                  onClick={handleClearTrajectory}
-                  aria-label="Очистить траекторию"
-                  size="small"
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
+                <span>
+                  <IconButton
+                    color="error"
+                    onClick={onClearUserTrajectory}
+                    aria-label="Очистить траекторию"
+                    size="small"
+                    disabled={points.length === 0}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </span>
               </Tooltip>
             </Box>
           </Box>
