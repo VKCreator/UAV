@@ -20,7 +20,7 @@ import {
   Tab,
   Chip,
   Dialog,
-  DialogContent
+  DialogContent,
 } from "@mui/material";
 
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -30,14 +30,30 @@ import ViewListIcon from "@mui/icons-material/ViewList";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import DeleteIcon from "@mui/icons-material/Delete";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import SettingsIcon from "@mui/icons-material/Settings";
+import ManageSearchIcon from "@mui/icons-material/ManageSearch";
 
 import SceneShower from "../draw/SceneShower";
 
 import type { Point, Polygon, ImageData } from "../draw/scene.types";
 
 import { DeleteButton } from "../ui-widgets/DeleteButton";
+import FlightSettingsDialog from "../ui-widgets/FlightSettingsDialog";
+import OptimizationDialog from "../ui-widgets/OptimizationDialog";
+
 import useImage from "use-image";
 import SceneEditor from "../draw/SceneEditor";
+import StoryboardEditor from "../draw/StoryboardEditor";
+export interface FlightSettings {
+  flightSpeed: number;
+  batteryTime: number;
+  hoverTime: number;
+  windResistance: number;
+  considerObstacles: boolean;
+  windSpeed: number;
+  windDirection: number;
+  useWeatherApi: boolean;
+}
 
 interface OptimizationTrajectoryStepProps {
   imageData: ImageData;
@@ -67,14 +83,25 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   const [image] = useImage(imageData.imageUrl);
   const [isLoadingOptimization, setLoadingOptimization] = React.useState(false);
   const [showView, setShowView] = React.useState(false);
+  const [showStoryboardEditor, setShowStoryboardEditor] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
+  const [openOptimizationDetailDialog, setOpenOptimizationDetailDialog] =
+    React.useState(false);
 
   const [optimizationMethod, setOptimizationMethod] = React.useState<
     "small" | "large"
   >("small");
 
-  const [windSpeed, setWindSpeed] = React.useState("");
-  const [windDirection, setWindDirection] = React.useState("");
-  const [useWeatherApi, setUseWeatherApi] = React.useState(false);
+  const [flightSettings, setFlightSettings] = React.useState<FlightSettings>({
+    flightSpeed: 5,
+    batteryTime: 35,
+    hoverTime: 5,
+    windResistance: 15,
+    considerObstacles: true,
+    windSpeed: 15,
+    windDirection: 20,
+    useWeatherApi: true,
+  });
 
   const sceneUserTrajectoryShower = useRef<{ handleDownload: () => void }>(
     null,
@@ -84,18 +111,16 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   const height_m = droneParams.frameHeightBase; // высота изображения в метрах
 
   const getPoints = () => {
-    if (activeImage == 0)
-      return points;
-    
+    if (activeImage == 0) return points;
+
     return [];
-  }
+  };
 
   const getTrajectoryData = () => {
-    if (activeImage == 1)
-      return trajectoryData;
+    if (activeImage == 1) return trajectoryData;
 
     return null;
-  }
+  };
   const handleClearTrajectoryData = () => {
     setTrajectoryData(null);
   };
@@ -146,7 +171,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   // };
 
   const handleStoryboard = () => {
-    console.log("Раскадровка");
+    setShowStoryboardEditor(true);
   };
 
   const trajectoryTitles = [
@@ -172,7 +197,9 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             points={points}
             obstacles={obstacles}
             trajectoryData={null}
-            showView={() => {}}
+            showView={() => {
+              setShowView(true);
+            }}
             ref={sceneUserTrajectoryShower}
             showGrid={true}
             showUserTrajectory={true}
@@ -188,7 +215,9 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             points={points}
             obstacles={obstacles}
             trajectoryData={trajectoryData}
-            showView={() => {}}
+            showView={() => {
+              setShowView(true);
+            }}
             ref={sceneUserTrajectoryShower}
             showGrid={true}
             showUserTrajectory={false}
@@ -205,7 +234,9 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             points={points}
             obstacles={obstacles}
             trajectoryData={trajectoryData}
-            showView={() => {}}
+            showView={() => {
+              setShowView(true);
+            }}
             ref={sceneUserTrajectoryShower}
             showGrid={true}
             showUserTrajectory={false}
@@ -248,13 +279,13 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
               </Typography>
 
               <Box sx={{ display: "flex", alignItems: "center", gap: 0 }}>
-                <Tooltip title="Просмотр" enterDelay={500}>
+                <Tooltip title="Просмотр схемы" enterDelay={500}>
                   <IconButton color="primary" onClick={() => setShowView(true)}>
                     <VisibilityIcon />
                   </IconButton>
                 </Tooltip>
 
-                <Tooltip title="Скачать" enterDelay={500}>
+                <Tooltip title="Скачать схему" enterDelay={500}>
                   <IconButton color="primary" onClick={handleDownloadScene}>
                     <DownloadIcon />
                   </IconButton>
@@ -383,79 +414,63 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                 />
               </RadioGroup>
 
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 2,
-                  mt: 2,
-                  border: "1px solid #e0e0e0",
-                  borderRadius: 1,
-                }}
-              >
-                <Typography fontWeight={600} sx={{ pb: 2 }}>
-                  Погодные условия
-                </Typography>
-
-                <TextField
-                  label="Скорость ветра, м/с"
-                  fullWidth
-                  size="small"
-                  value={windSpeed}
-                  onChange={(e) => setWindSpeed(e.target.value)}
-                  sx={{ mb: 1.5 }}
-                />
-
-                <TextField
-                  label="Направление ветра, °"
-                  fullWidth
-                  size="small"
-                  value={windDirection}
-                  onChange={(e) => setWindDirection(e.target.value)}
-                  sx={{ mb: 1.5 }}
-                />
-
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={useWeatherApi}
-                      onChange={(e) => setUseWeatherApi(e.target.checked)}
-                    />
-                  }
-                  label="Получать данные о погоде со стороннего ресурса"
-                />
-              </Paper>
-
+              <Typography variant="body2" color="text.secondary" mt={1} mb={2}>
+                Перед запуском оптимизации настройте параметры полёта.
+              </Typography>
               <Box
                 display="flex"
                 justifyContent="space-between"
                 alignItems="center"
-                mt={2}
+                mt={1}
               >
-                {/* Левая кнопка: Запустить */}
-                <Button
-                  variant="contained"
-                  startIcon={<PlayArrowIcon />}
-                  onClick={handleRunOptimization}
-                  size="small"
-                  sx={{
-                    minWidth: 120,
-                    textTransform: "none",
-                  }}
-                >
-                  Запустить
-                </Button>
+                <Box display="flex" gap={1}>
+                  {/* Левая кнопка: Запустить */}
+                  <Button
+                    variant="contained"
+                    startIcon={<PlayArrowIcon />}
+                    onClick={handleRunOptimization}
+                    size="small"
+                    sx={{
+                      minWidth: 120,
+                      textTransform: "none",
+                    }}
+                  >
+                    Запустить
+                  </Button>
 
-                <DeleteButton
-                  onClick={handleClearTrajectoryData}
-                  disabled={trajectoryData == null}
-                  tooltip="Очистить оптимизированные траектории"
-                />
+                  <Button
+                    variant="outlined"
+                    startIcon={<ManageSearchIcon />}
+                    onClick={() => setOpenOptimizationDetailDialog(true)}
+                    size="small"
+                    sx={{
+                      textTransform: "none",
+                    }}
+                    disabled={trajectoryData == null}
+                  >
+                    Детали оптимизации
+                  </Button>
+                </Box>
+
+                <Box>
+                  <Tooltip title="Параметры полёта">
+                    <IconButton onClick={() => setOpen(true)} size="small">
+                      <SettingsIcon />
+                    </IconButton>
+                  </Tooltip>
+
+                  <DeleteButton
+                    onClick={handleClearTrajectoryData}
+                    disabled={trajectoryData == null}
+                    tooltip="Очистить оптимизированные траектории"
+                  />
+                </Box>
               </Box>
             </AccordionDetails>
           </Accordion>
 
           {/* 2. Раскадровка */}
-          <Accordion>
+          <Accordion expanded={true}>
             <AccordionSummary
               expandIcon={<ExpandMoreIcon />}
               sx={{ flexDirection: "row-reverse", gap: 1 }}
@@ -504,6 +519,39 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
           />
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={showStoryboardEditor}
+        onClose={() => setShowStoryboardEditor(false)}
+        fullScreen
+      >
+        <DialogContent sx={{ p: 0 }}>
+          <StoryboardEditor
+            onClose={() => setShowStoryboardEditor(false)}
+            imageData={imageData}
+            points={points}
+            obstacles={obstacles}
+            trajectoryData={trajectoryData}
+            framesCount={15}
+            memoryMb={10}
+            flightTimeSec={100}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <FlightSettingsDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        data={flightSettings}
+        onSave={(form) => {
+          setFlightSettings(form);
+        }}
+      />
+      <OptimizationDialog
+        open={openOptimizationDetailDialog}
+        onClose={() => setOpenOptimizationDetailDialog(false)}
+        trajectoryData={trajectoryData}
+      />
     </Box>
   );
 };

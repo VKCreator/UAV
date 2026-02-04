@@ -4,7 +4,7 @@ const API_BASE_URL = "http://nmstuvtip.ddns.net:5000";
 // Универсальная функция для HTTP-запросов
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const config: RequestInit = {
@@ -21,8 +21,19 @@ async function request<T>(
     const errorData = await response.json().catch(() => ({}));
 
     throw new Error(
-      errorData.error + "." || `HTTP ${response.status}: ${response.statusText}`
+      errorData.error + "." ||
+        `HTTP ${response.status}: ${response.statusText}`,
     );
+  }
+
+  return await response.json();
+}
+
+async function externalRequest<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`External API error: ${response.statusText}`);
   }
 
   return await response.json();
@@ -47,24 +58,47 @@ export const api = {
       }),
     // ... update, delete
   },
+
+  // Погода
+  weather: {
+    getCurrent: (latitude: number, longitude: number) =>
+      externalRequest<WeatherResponse>(
+        `https://api.open-meteo.com/v1/forecast` +
+          `?latitude=${latitude}` +
+          `&longitude=${longitude}` +
+          `&current_weather=true`,
+      ),
+  },
 };
 
 // Экспортируем типы
 export interface Drone {
   id: number;
   model: string;
-  fov_vertical: number;        // угол обзора (градусы)
+  fov_vertical: number; // угол обзора (градусы)
   resolution_width?: number;
   resolution_height?: number;
-  max_wind_resistance?: number;  // м/с
-  max_speed?: number;            // м/с
-  min_speed?: number;            // м/с
-  battery_life?: number;         // минуты
+  max_wind_resistance?: number; // м/с
+  max_speed?: number; // м/с
+  min_speed?: number; // м/с
+  battery_life?: number; // минуты
 }
 
-export interface TrajectorySchema {
-  
+export interface CurrentWeather {
+  temperature: number; // °C
+  windspeed: number; // м/с
+  winddirection: number; // °
+  weathercode: number;
+  time: string;
 }
+
+export interface WeatherResponse {
+  latitude: number;
+  longitude: number;
+  current_weather: CurrentWeather;
+}
+
+export interface TrajectorySchema {}
 
 // Типы для создания
 export interface CreateDroneInput {

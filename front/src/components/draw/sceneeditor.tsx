@@ -394,6 +394,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
         <Box
           overflow="auto"
           width={350}
+          minWidth={350}
           borderRight="1px solid"
           borderColor="divider"
           p={2}
