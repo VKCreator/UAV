@@ -4,7 +4,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 interface DeleteButtonProps {
   onClick: () => void;
   disabled?: boolean;
-  tooltip?: string; // текст тултипа
+  tooltip?: string; 
   sx?: SxProps;     // можно добавить кастомный стиль сверху
 }
 
@@ -15,9 +15,9 @@ export const DeleteButton: React.FC<DeleteButtonProps> = ({
   sx = {},
 }) => {
   const defaultSx: SxProps = {
-    "&:hover": {
-      backgroundColor: "rgba(255,0,0,0.1)",
-    },
+    // "&:hover": {
+    //   backgroundColor: "rgba(255,0,0,0.1)",
+    // },
     ...sx,
   };
 
@@ -32,7 +32,7 @@ export const DeleteButton: React.FC<DeleteButtonProps> = ({
           disabled={disabled}
           sx={defaultSx}
         >
-          <DeleteIcon />
+          <DeleteIcon fontSize="small" />
         </IconButton>
       </span>
     </Tooltip>

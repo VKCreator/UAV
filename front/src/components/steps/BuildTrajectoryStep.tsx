@@ -30,6 +30,7 @@ import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import type { Point, Polygon, ImageData } from "../draw/scene.types";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
+import { useDialogs } from "../../hooks/useDialogs/useDialogs";
 
 interface BuildTrajectoryStepProps {
   imageData: ImageData;
@@ -58,37 +59,40 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   droneParams,
   setDroneParams,
 }) => {
-  const [showEditor, setShowEditor] = React.useState(false);
-  const [showView, setShowView] = React.useState(false);
-  const [mode, setMode] = React.useState<string>("pan");
-
-  const [imageUrl, setImageUrl] = React.useState<string>(imageData.imageUrl);
+  const { confirm } = useDialogs();
   const notifications = useNotifications();
 
-  React.useEffect(() => {
-    setImageUrl(imageData.imageUrl);
-  }, [imageData.imageUrl]);
+  const [isEditorOpen, setEditorOpen] = React.useState(false);
+  const [isViewerOpen, setViewerOpen] = React.useState(false);
+  const [editorMode, setEditorMode] = React.useState<string>("pan");
 
-  const handleViewScheme = React.useCallback(() => {
-    setShowView(true);
-  }, []);
+  const scenePreviewRef = useRef<{ handleDownload: () => void }>(null);
 
-  const handleEditScheme = React.useCallback(() => {
-    setShowEditor(true);
-  }, []);
+  const openEditor = (mode: string = "pan") => {
+    setEditorMode(mode);
+    setEditorOpen(true);
+  };
+  const closeEditor = () => setEditorOpen(false);
 
-  const handleClearScheme = () => {
+  const openViewer = () => setViewerOpen(true);
+  const closeViewer = () => setViewerOpen(false);
+
+  const clearScene = async () => {
+    const confirmed = await confirm("Вы действительно хотите очистить схему?", {
+      title: "Подтверждение",
+      okText: "Да",
+      cancelText: "Нет",
+    });
+
+    if (!confirmed) return;
+
     setPoints([]);
     setObstacles([]);
     setTrajectoryData(null);
   };
 
-  const sceneUserTrajectoryShower = useRef<{ handleDownload: () => void }>(
-    null,
-  );
-
-  const handleDownload = () => {
-    sceneUserTrajectoryShower.current?.handleDownload();
+  const downloadScene = () => {
+    scenePreviewRef.current?.handleDownload();
   };
 
   const handleUpdateDroneParams = (params: any) => {
@@ -96,10 +100,13 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
     setDroneParams(params);
 
     if (trajectoryData != null) {
-      notifications.show("Изменены параметры съёмки. Результаты оптимизации очищены.", {
-        severity: "info",
-        autoHideDuration: 5000,
-      });
+      notifications.show(
+        "Изменены параметры съёмки. Результаты оптимизации очищены.",
+        {
+          severity: "info",
+          autoHideDuration: 5000,
+        },
+      );
       setTrajectoryData(null);
     }
   };
@@ -134,7 +141,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                 <Tooltip title="Редактировать схему" enterDelay={500}>
                   <IconButton
                     color="primary"
-                    onClick={handleEditScheme}
+                    onClick={() => openEditor()}
                     aria-label="Редактор схемы"
                   >
                     <ModeEditIcon />
@@ -144,7 +151,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                 <Tooltip title="Просмотр схемы" enterDelay={500}>
                   <IconButton
                     color="primary"
-                    onClick={handleViewScheme}
+                    onClick={openViewer}
                     aria-label="Просмотр схемы"
                   >
                     <VisibilityIcon />
@@ -155,7 +162,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                   <span>
                     <IconButton
                       color="error"
-                      onClick={handleClearScheme}
+                      onClick={clearScene}
                       aria-label="Очистить схему"
                       disabled={points.length === 0 && obstacles.length === 0}
                     >
@@ -167,7 +174,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                 <Tooltip title="Скачать схему" enterDelay={500}>
                   <span>
                     <IconButton
-                      onClick={handleDownload}
+                      onClick={downloadScene}
                       color="primary"
                       aria-label="Скачать схему"
                       disabled={points.length === 0}
@@ -198,8 +205,8 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                 points={points}
                 obstacles={obstacles}
                 trajectoryData={trajectoryData}
-                showView={() => setShowView(true)}
-                ref={sceneUserTrajectoryShower}
+                showView={() => setViewerOpen(true)}
+                ref={scenePreviewRef}
                 showGrid={true}
                 showUserTrajectory={true}
                 showObstacles={true}
@@ -223,20 +230,6 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
               </Tooltip>
             </Box>
           </Paper>
-
-          {/* <Paper
-            elevation={0}
-            sx={{
-              p: 2,
-              border: "1px solid #e0e0e0",
-              borderRadius: 1,
-              mt: 2,
-              display: "flex",
-              flexDirection: "column",
-              gap: 1,
-            }}
-          >
-          </Paper> */}
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
           <Typography variant="h6" sx={{ mb: 1, textAlign: "left" }}>
@@ -255,12 +248,12 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                 setPoints([]);
               }}
               onEditObstacles={() => {
-                setShowEditor(true);
-                setMode("polygons");
+                setEditorOpen(true);
+                setEditorMode("polygons");
               }}
               onEditUserTrajectory={() => {
-                setShowEditor(true);
-                setMode("points");
+                setEditorOpen(true);
+                setEditorMode("points");
               }}
               onUpdateDroneParams={handleUpdateDroneParams}
               setDroneParams={setDroneParams}
@@ -271,15 +264,15 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
       </Grid>
 
       <Dialog
-        open={showEditor}
-        onClose={() => setShowEditor(false)}
+        open={isEditorOpen}
+        onClose={closeEditor}
         fullScreen
         disableEscapeKeyDown
       >
         <DialogContent sx={{ p: 0 }}>
           <SceneEditor
-            onClose={() => setShowEditor(false)}
-            mode={mode}
+            onClose={closeEditor}
+            mode={editorMode}
             imageData={imageData}
             droneParams={droneParams}
             sceneTitle="Редактор схемы полётов"
@@ -293,10 +286,10 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showView} onClose={() => setShowView(false)} fullScreen>
+      <Dialog open={isViewerOpen} onClose={closeViewer} fullScreen>
         <DialogContent sx={{ p: 0 }}>
           <SceneEditor
-            onClose={() => setShowView(false)}
+            onClose={closeViewer}
             imageData={imageData}
             droneParams={droneParams}
             sceneTitle="Просмотр схемы полётов"

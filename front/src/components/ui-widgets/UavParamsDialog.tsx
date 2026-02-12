@@ -71,8 +71,8 @@ export default function UavParamsDialog({
     // onClose();
   };
 
-  const handleClose = (_: object, reason: "backdropClick") => {
-    if (reason === "backdropClick") {
+  const handleClose = (_: object, reason: "backdropClick" | "escapeKeyDown") => {
+    if (reason === "escapeKeyDown" || reason === "backdropClick") {
       return; // игнорируем
     }
     onClose();
@@ -139,7 +139,7 @@ export default function UavParamsDialog({
       </DialogContent>
       <Divider />
       <DialogActions>
-        <Button onClick={onClose} color="secondary">
+        <Button onClick={onClose} variant="outlined" color="secondary">
           Отмена
         </Button>
         <Button onClick={handleSave} variant="contained" color="primary">

@@ -13,7 +13,9 @@ import {
   Button,
   Divider,
   InputAdornment,
-  Tooltip
+  Tooltip,
+  Typography,
+  Link,
 } from "@mui/material";
 
 import SpeedIcon from "@mui/icons-material/Speed";
@@ -23,22 +25,15 @@ import ExploreIcon from "@mui/icons-material/Explore";
 import HourglassBottomIcon from "@mui/icons-material/HourglassBottom";
 import ShieldIcon from "@mui/icons-material/Shield";
 import PlaceIcon from "@mui/icons-material/Place";
+import CloseIcon from "@mui/icons-material/Close";
+
 import IconButton from "@mui/material/IconButton";
 
 import { api } from "../../api/client";
 import { LocationPickerDialog } from "./LocationPickerDialog";
-import { useOnlineStatus } from "../../hooks/useOnlineStatus/useOnlineStatus";
+import type { FlightSettings } from "../../types/uav.types";
 
-export interface FlightSettings {
-  flightSpeed: number;
-  batteryTime: number;
-  hoverTime: number;
-  windResistance: number;
-  considerObstacles: boolean;
-  windSpeed: number;
-  windDirection: number;
-  useWeatherApi: boolean;
-}
+import useNotifications from "../../hooks/useNotifications/useNotifications";
 
 interface Props {
   open: boolean;
@@ -48,17 +43,16 @@ interface Props {
 }
 
 const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
-  const isOnline = useOnlineStatus();
+  const notifications = useNotifications();
 
   const [tab, setTab] = useState(0);
   const [form, setForm] = useState(data);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [mapOpen, setMapOpen] = useState(false);
-  const [lat, setLat] = useState(53.4260327);
-  const [lon, setLon] = useState(59.0531761);
 
   useEffect(() => {
+    console.info(data);
     setForm(data);
     setErrors({});
   }, [data, open]);
@@ -106,25 +100,49 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
     (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm({ ...form, [field]: Number(e.target.value) });
 
-  const loadWeather = async () => {
-    console.log("loadWeather");
+  const loadWeather = async (lat: number, lon: number) => {
     try {
       const data = await api.weather.getCurrent(lat, lon);
 
-      setForm({
-        ...form,
+      setForm((prev) => ({
+        ...prev,
         windSpeed: data.current_weather.windspeed,
         windDirection: data.current_weather.winddirection,
         useWeatherApi: true,
+        lat,
+        lon,
+      }));
+
+      notifications.show("Данные о погоде обновлены", {
+        severity: "success",
+        autoHideDuration: 2000,
       });
     } catch (e) {
       console.error(e);
+      notifications.show("Не удалось получить данные о погоде", {
+        severity: "error",
+        autoHideDuration: 3000,
+      });
     }
   };
 
   return (
     <Dialog open={open} onClose={handleDialogClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Параметры и условия полёта БПЛА</DialogTitle>
+      <DialogTitle sx={{ pr: 5 }}>
+        Параметры и условия полёта БПЛА
+        <IconButton
+          aria-label="Закрыть"
+          onClick={onClose}
+          sx={{
+            position: "absolute",
+            right: 8,
+            top: 8,
+            color: (theme) => theme.palette.grey[500],
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
       <Divider />
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2 }}>
@@ -135,6 +153,16 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
       <DialogContent dividers>
         {tab === 0 && (
           <Box>
+            <Typography
+              // variant="h6"
+              sx={{
+                // fontWeight: "bold",
+                mb: 3,
+                color: "text.secondary", // Цвет по умолчанию
+              }}
+            >
+              Выбран БПЛА: {form.model}
+            </Typography>{" "}
             <TextField
               label="Рабочая скорость, м/с"
               fullWidth
@@ -153,7 +181,6 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
                 ),
               }}
             />
-
             <TextField
               label="Время работы аккумулятора, мин"
               fullWidth
@@ -208,7 +235,6 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
                 ),
               }}
             />
-
             <FormControlLabel
               control={
                 <Checkbox
@@ -271,17 +297,15 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
               label="Местоположение"
               fullWidth
               size="small"
-              value={`${lat.toFixed(5)}, ${lon.toFixed(5)}`}
+              value={`${form.lat.toFixed(5)}, ${form.lon.toFixed(5)}`}
               InputProps={{
                 readOnly: true,
                 endAdornment: (
                   <InputAdornment position="end">
-                    <Tooltip
-                      title={!isOnline ? "Нет подключения к интернету" : "Выбрать координаты на карте"}
-                    >
+                    <Tooltip title={"Выбрать координаты на карте"}>
                       <span>
                         <IconButton
-                          disabled={!isOnline}
+                          disabled={false}
                           onClick={() => setMapOpen(true)}
                         >
                           <PlaceIcon />
@@ -294,6 +318,9 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
             />
 
             <FormControlLabel
+              sx={{
+                pt: 2,
+              }}
               control={
                 <Checkbox
                   checked={form.useWeatherApi}
@@ -304,20 +331,39 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
                     });
 
                     if (e.target.checked) {
-                      loadWeather();
+                      loadWeather(form.lat, form.lon);
                     }
                   }}
                 />
               }
-              label="Получать данные со стороннего сервиса"
+              label="Получать данные о погоде со стороннего сервиса по местоположению"
             />
+            <Box>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ ml: 0.5 }}
+              >
+                Для получения данных используется сервис{" "}
+                <Link
+                  href="https://open-meteo.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  underline="hover"
+                >
+                  Open-Meteo.com
+                </Link>
+              </Typography>
+            </Box>
           </Box>
         )}
       </DialogContent>
 
-      <Divider />
+      {/* <Divider /> */}
       <DialogActions>
-        <Button onClick={onClose}>Отмена</Button>
+        <Button variant="outlined" onClick={onClose}>
+          Отмена
+        </Button>
         <Button variant="contained" onClick={handleSave}>
           Применить
         </Button>
@@ -326,11 +372,18 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
       <LocationPickerDialog
         open={mapOpen}
         onClose={() => setMapOpen(false)}
+        lat={form.lat}
+        lon={form.lon}
         onSelect={(lat, lon) => {
-          setLat(lat);
-          setLon(lon);
+          setForm((prev) => ({
+            ...prev,
+            lat,
+            lon,
+          }));
 
-          if (form.useWeatherApi) loadWeather();
+          if (form.useWeatherApi) {
+            loadWeather(lat, lon);
+          }
         }}
       />
     </Dialog>

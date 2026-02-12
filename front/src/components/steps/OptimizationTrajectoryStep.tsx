@@ -33,27 +33,23 @@ import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ManageSearchIcon from "@mui/icons-material/ManageSearch";
 
-import SceneShower from "../draw/SceneShower";
-
 import type { Point, Polygon, ImageData } from "../draw/scene.types";
+import type {
+  Weather,
+  DroneParams,
+  FlightSettings,
+} from "../../types/uav.types";
 
+import { HelpIconTooltip } from "../ui-widgets/HelpIconTooltip";
 import { DeleteButton } from "../ui-widgets/DeleteButton";
 import FlightSettingsDialog from "../ui-widgets/FlightSettingsDialog";
-import OptimizationDialog from "../ui-widgets/OptimizationDialog";
+import OptimizationDetailDialog from "../ui-widgets/OptimizationDetailDialog";
 
 import useImage from "use-image";
+
 import SceneEditor from "../draw/SceneEditor";
 import StoryboardEditor from "../draw/StoryboardEditor";
-export interface FlightSettings {
-  flightSpeed: number;
-  batteryTime: number;
-  hoverTime: number;
-  windResistance: number;
-  considerObstacles: boolean;
-  windSpeed: number;
-  windDirection: number;
-  useWeatherApi: boolean;
-}
+import SceneShower from "../draw/SceneShower";
 
 interface OptimizationTrajectoryStepProps {
   imageData: ImageData;
@@ -64,20 +60,43 @@ interface OptimizationTrajectoryStepProps {
   obstacles: Polygon[];
   setObstacles: React.Dispatch<React.SetStateAction<Polygon[]>>;
 
-  droneParams: any;
-  setDroneParams: (params: any) => void;
+  droneParams: DroneParams;
+  setDroneParams: React.Dispatch<React.SetStateAction<DroneParams>>;
 
   trajectoryData: any;
   setTrajectoryData: (data: any) => void;
+
+  weatherConditions: Weather;
+  setWeatherConditions: (data: Weather) => void;
 }
+
+const colors = [
+  "#65b9f7",
+  "#ff6b6b",
+  "#66a9ff",
+  "#ffdd57",
+  "#9e69c4",
+  "#64f3f1",
+  "#f59fe1",
+  "#f4e24d",
+  "#e38b5a",
+  "#5e4a3a",
+  "#7a9f60",
+  "#a2b9d1",
+  "#d1d1d1",
+  "#b8a25b",
+];
 
 const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   imageData,
   points,
   obstacles,
   droneParams,
+  setDroneParams,
   trajectoryData,
   setTrajectoryData,
+  weatherConditions,
+  setWeatherConditions,
 }) => {
   const [activeImage, setActiveImage] = React.useState(0);
   const [image] = useImage(imageData.imageUrl);
@@ -93,14 +112,17 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   >("small");
 
   const [flightSettings, setFlightSettings] = React.useState<FlightSettings>({
-    flightSpeed: 5,
-    batteryTime: 35,
-    hoverTime: 5,
-    windResistance: 15,
-    considerObstacles: true,
-    windSpeed: 15,
-    windDirection: 20,
-    useWeatherApi: true,
+    flightSpeed: droneParams.speed,
+    batteryTime: droneParams.batteryTime,
+    hoverTime: droneParams.hoverTime,
+    windResistance: droneParams.windResistance,
+    considerObstacles: droneParams.considerObstacles,
+    windSpeed: weatherConditions.windSpeed,
+    windDirection: weatherConditions.windDirection,
+    useWeatherApi: weatherConditions.useWeatherApi,
+    lat: weatherConditions.position.lat,
+    lon: weatherConditions.position.lon,
+    model: droneParams.model
   });
 
   const sceneUserTrajectoryShower = useRef<{ handleDownload: () => void }>(
@@ -144,6 +166,11 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       width_m,
       height_m,
       points: pointsInMeters,
+      speed: droneParams.speed,
+      hoverTime: droneParams.hoverTime,
+      batteryTime: droneParams.batteryTime,
+      obstacles: [],
+      windResistance: droneParams.windResistance
     };
 
     try {
@@ -157,7 +184,16 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       );
       const data = await response.json();
       console.log("Ответ API:", data);
-      setTrajectoryData(data);
+
+      const preparedData = {
+        ...data,
+        B: data.B.map((taxon: any, index: any) => ({
+          ...taxon,
+          color: colors[index % colors.length],
+        })),
+      };
+
+      setTrajectoryData(preparedData);
     } catch (err) {
       console.error("Ошибка запроса:", err);
     } finally {
@@ -366,20 +402,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                   <Typography fontWeight={600}>
                     1. Оптимизация пользовательской траектории
                   </Typography>
-
-                  <Tooltip
-                    title="На этом этапе выполняется оптимизация траектории, заданной пользователем, двумя методами."
-                    arrow
-                    enterDelay={400}
-                  >
-                    <IconButton
-                      size="small"
-                      component="span"
-                      sx={{ m: 0, p: 0, ml: 1 }}
-                    >
-                      <HelpOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  <HelpIconTooltip title="На этом этапе выполняется оптимизация траектории, заданной пользователем, двумя методами." />
                 </Box>
 
                 {/* Правая часть: статус */}
@@ -545,9 +568,28 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
         data={flightSettings}
         onSave={(form) => {
           setFlightSettings(form);
+
+          setDroneParams((prev: DroneParams) => ({
+            ...prev,
+            speed: form.flightSpeed,
+            batteryTime: form.batteryTime,
+            hoverTime: form.hoverTime,
+            windResistance: form.windResistance,
+            considerObstacles: form.considerObstacles,
+          }));
+
+          setWeatherConditions({
+            position: {
+              lat: form.lat,
+              lon: form.lon,
+            },
+            windSpeed: form.windSpeed,
+            windDirection: form.windDirection,
+            useWeatherApi: form.useWeatherApi,
+          });
         }}
       />
-      <OptimizationDialog
+      <OptimizationDetailDialog
         open={openOptimizationDetailDialog}
         onClose={() => setOpenOptimizationDetailDialog(false)}
         trajectoryData={trajectoryData}

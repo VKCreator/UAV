@@ -1,79 +1,134 @@
 // src/components/CoalReceiptList.tsx
 import * as React from "react";
-import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
-import Stack from "@mui/material/Stack";
-import Tooltip from "@mui/material/Tooltip";
-import AddIcon from "@mui/icons-material/Add";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import { TextField, InputAdornment } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-
+import {
+  Alert,
+  Box,
+  Button,
+  IconButton,
+  Stack,
+  Tooltip,
+  TextField,
+  InputAdornment,
+  Typography,
+  Chip,
+} from "@mui/material";
 import {
   DataGrid,
   GridColDef,
   GridPaginationModel,
   gridClasses,
 } from "@mui/x-data-grid";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import { useNavigate } from "react-router";
-import useNotifications from "../../hooks/useNotifications/useNotifications";
-import { useContext } from "react";
+import {
+  Add as AddIcon,
+  Refresh as RefreshIcon,
+  Search as SearchIcon,
+  Visibility as VisibilityIcon,
+  Delete as DeleteIcon,
+} from "@mui/icons-material";
+import { useNavigate, useSearchParams } from "react-router";
 
 import PageContainer from "../PageContainer";
-import { api, TrajectorySchema } from "../../api/client";
-
-import * as XLSX from "xlsx-js-style";
-import { DateToPrettyLocalDateTime } from "../../utils/dateUtils";
-
+import { TrajectorySchema } from "../../api/client";
 import { russianLocale } from "../../constants";
+import useNotifications from "../../hooks/useNotifications/useNotifications";
 
 export default function TrajectoryList() {
   const navigate = useNavigate();
   const notifications = useNotifications();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [isExportDialogOpen, setIsExportDialogOpen] = React.useState(false);
-
+  const [searchText, setSearchText] = React.useState("");
+  const page = Number(searchParams.get("page") ?? 0);
+  const pageSize = Number(searchParams.get("pageSize") ?? 25);
   const [paginationModel, setPaginationModel] =
     React.useState<GridPaginationModel>({
-      page: 0,
-      pageSize: 25,
+      page,
+      pageSize,
     });
 
   const [rowsState, setRowsState] = React.useState<{
     rows: TrajectorySchema[];
     rowCount: number;
-  }>({
-    rows: [],
-    rowCount: 0,
-  });
+  }>({ rows: [], rowCount: 0 });
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
 
-  // Функция загрузки данных с сервера
+  // Маппинг метода на читабельный label
+  const getMethodLabel = React.useCallback((type: string) => {
+    switch (type) {
+      case "METHOD_1":
+        return "Метод 1";
+      case "METHOD_2":
+        return "Метод 2";
+      default:
+        return "Не указан";
+    }
+  }, []);
+
+  // Фильтрация строк по searchText
+  const filteredRows = React.useMemo(() => {
+    if (!searchText) return rowsState.rows;
+
+    const lowerSearch = searchText.toLowerCase();
+
+    return rowsState.rows.filter((row) => {
+      const methodLabel = getMethodLabel(row.methodType).toLowerCase();
+      return (
+        row.schemaName.toLowerCase().includes(lowerSearch) ||
+        String(row.pointCount).toLowerCase().includes(lowerSearch) ||
+        String(row.distanceToCamera).toLowerCase().includes(lowerSearch) ||
+        methodLabel.includes(lowerSearch)
+      );
+    });
+  }, [rowsState.rows, searchText, getMethodLabel]);
+
+  // Подсветка совпадений текста
+  const highlightText = React.useCallback((text: string, query: string) => {
+    if (!query) return text;
+
+    const regex = new RegExp(`(${query})`, "gi");
+    return text.split(regex).map((part, index) =>
+      regex.test(part) ? (
+        <mark
+          key={index}
+          style={{
+            backgroundColor: "#fff176",
+            padding: 0,
+            borderRadius: 2,
+          }}
+        >
+          {part}
+        </mark>
+      ) : (
+        part
+      ),
+    );
+  }, []);
+
+  // Загрузка данных (тестовые данные)
   const loadData = React.useCallback(async () => {
     setError(null);
     setIsLoading(true);
-
     try {
-      // const data = await api.coalReceipts.getAll();
-      const data = { data: [] };
+      const testRows: TrajectorySchema[] = Array.from(
+        { length: 100 },
+        (_, i) => ({
+          id: String(i + 1),
+          schemaName: `Тестовая схема облёта №${i + 1}`,
+          schemaImage: `https://placehold.co/${300 + i * 10}x200`,
+          pointCount: 20 + i,
+          distanceToCamera: 10 + i * 1.5,
+          methodType: i % 2 === 0 ? "METHOD_1" : "METHOD_2",
+        }),
+      );
 
-      setRowsState({
-        rows: data.data || [],
-        rowCount: (data.data || []).length,
-      });
+      setRowsState({ rows: testRows, rowCount: testRows.length });
     } catch (fetchError) {
-      // setError(fetchError as Error);
+      setError(fetchError as Error);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   }, []);
 
   React.useEffect(() => {
@@ -81,124 +136,160 @@ export default function TrajectoryList() {
   }, [loadData]);
 
   const handleRefresh = React.useCallback(() => {
-    if (!isLoading) {
-      loadData();
-    }
+    if (!isLoading) loadData();
   }, [isLoading, loadData]);
 
   const handleCreateClick = React.useCallback(() => {
     navigate("/trajectories/new");
   }, [navigate]);
 
-  // Определяем колонки таблицы
-  const columns = React.useMemo<GridColDef[]>(
+  const handleView = React.useCallback(
+    (id: string) => {
+      navigate(
+        `/trajectories/${id}?page=${paginationModel.page}&pageSize=${paginationModel.pageSize}`,
+      );
+    },
+    [navigate, paginationModel],
+  );
+
+  // Колонки таблицы
+  const columns: GridColDef[] = React.useMemo(
     () => [
       {
         field: "schemaName",
         headerName: "Имя схемы",
-        minWidth: 100,
-        flex: 0.5,
-        sortable: true,
+        width: 300,
+        minWidth: 180,
+        renderCell: (params) => (
+          <span>{highlightText(params.value as string, searchText)}</span>
+        ),
       },
       {
         field: "schemaImage",
-        headerName: "Изображение схемы",
-        minWidth: 200,
-        flex: 0.9,
-        renderCell: (params) => {
-          const imageUrl = params.value; // предполагаем, что это URL изображения
-          return imageUrl ? (
-            <img
-              src={imageUrl}
+        headerName: "Изображение",
+        width: 160,
+        sortable: false,
+        align: "center",
+        headerAlign: "center",
+        renderCell: ({ value }) =>
+          value ? (
+            <Box
+              component="img"
+              src={value}
               alt="Схема"
-              style={{
+              sx={{
                 width: "100%",
-                height: "auto",
-                maxHeight: "80px",
+                height: 80,
                 objectFit: "contain",
-                borderRadius: "4px",
+                borderRadius: 1,
               }}
             />
           ) : (
-            <span>Нет изображения</span>
-          );
-        },
+            <Typography variant="body2" color="text.secondary">
+              —
+            </Typography>
+          ),
       },
       {
         field: "pointCount",
-        headerName: "Количество точек",
+        headerName: "Точки, шт",
         type: "number",
-        minWidth: 150,
-        flex: 0.4,
-        sortable: true,
-        valueFormatter: (value) => Number(value).toFixed(0),
+        width: 150,
+        align: "right",
+        headerAlign: "right",
+        renderCell: (params) => (
+          <span>{highlightText(String(params.value), searchText)}</span>
+        ),
       },
       {
         field: "distanceToCamera",
-        headerName: "Расстояние до объекта",
+        headerName: "Расстояние, м",
         type: "number",
-        minWidth: 180,
-        flex: 0.9,
-        sortable: true,
-        valueFormatter: (value) => `${Number(value).toFixed(2)} м`,
+        width: 200,
+        align: "right",
+        headerAlign: "right",
+        renderCell: (params) => (
+          <span>{highlightText(String(params.value), searchText)}</span>
+        ),
       },
-      // {
-      //   field: "cameraAngle",
-      //   headerName: "Угол раскрытия камеры",
-      //   type: "number",
-      //   minWidth: 160,
-      //   flex: 0.7,
-      //   sortable: true,
-      //   valueFormatter: (value) => `${Number(value).toFixed(1)}°`,
-      // },
       {
         field: "methodType",
         headerName: "Тип метода",
         minWidth: 150,
         flex: 0.6,
         sortable: true,
-        valueGetter: (value, row) => row.methodType || "Не указан",
+        align: "center",
+        headerAlign: "center",
+        renderCell: (params) => {
+          const value = params.row.methodType;
+          const chip = {
+            label: getMethodLabel(value),
+            color: value === "METHOD_1" ? "info" : "secondary",
+          };
+          return (
+            <Chip
+              size="small"
+              label={highlightText(chip.label, searchText)}
+              color={chip.color}
+              variant="filled"
+              sx={{ fontWeight: 500, minWidth: 90 }}
+            />
+          );
+        },
       },
-      // Столбец с действиями — последний
       {
         field: "actions",
         headerName: "",
-        minWidth: 50,
-        flex: 0.2,
+        width: 120,
         sortable: false,
         filterable: false,
         disableColumnMenu: true,
+        align: "center",
         renderCell: (params) => {
+          const id = params.id.toString();
           return (
-            <Box sx={{ display: "flex", gap: 0.5 }}>
-              <IconButton size="small" color="primary">
-                <EditIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" color="error">
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" color="info">
-                <VisibilityIcon fontSize="small" />
-              </IconButton>
+            <Box className="actions-wrapper" sx={{ display: "flex", gap: 1 }}>
+              <Tooltip title="Просмотр" arrow>
+                <IconButton
+                  size="medium"
+                  color="primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleView(id);
+                  }}
+                >
+                  <VisibilityIcon fontSize="medium" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Удалить" arrow>
+                <IconButton
+                  size="medium"
+                  color="error"
+                  onClick={(e) => e.stopPropagation()}
+                  disabled={true}
+                >
+                  <DeleteIcon fontSize="medium" />
+                </IconButton>
+              </Tooltip>
             </Box>
           );
         },
       },
     ],
-    []
+    [highlightText, searchText, handleView, getMethodLabel],
   );
-
-  const pageTitle = "Схемы полётов";
 
   return (
     <PageContainer
-      title={pageTitle}
+      title="Схемы полётов"
       actions={
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" alignItems="center" spacing={1} mb={0}>
           <TextField
             size="small"
             placeholder="Поиск..."
             variant="outlined"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -208,94 +299,74 @@ export default function TrajectoryList() {
             }}
             sx={{ width: 300 }}
           />
-          <Tooltip title="Обновить данные" placement="bottom" enterDelay={1000}>
-            <div>
-              <IconButton
-                size="small"
-                aria-label="refresh"
-                onClick={handleRefresh}
-                color="primary"
-              >
-                <RefreshIcon />
-              </IconButton>
-            </div>
+          <Tooltip title="Обновить данные" placement="bottom" arrow>
+            <IconButton size="small" color="primary" onClick={handleRefresh}>
+              <RefreshIcon />
+            </IconButton>
           </Tooltip>
           <Button
             variant="contained"
-            onClick={handleCreateClick}
             startIcon={<AddIcon />}
+            onClick={handleCreateClick}
           >
             Создать
           </Button>
         </Stack>
       }
     >
-      <Box
-        sx={{ width: "100%", overflow: "auto", height: "calc(100vh - 200px)" }}
-      >
+      <Box sx={{ width: "100%", height: "calc(100vh - 200px)" }}>
         {error ? (
-          <Box sx={{ flexGrow: 1 }}>
-            <Alert severity="error">{error.message}</Alert>
-          </Box>
+          <Alert severity="error">{error.message}</Alert>
         ) : (
           <DataGrid
-            rows={rowsState.rows}
+            rows={filteredRows}
             columns={columns}
+            loading={isLoading}
             pagination
             paginationModel={paginationModel}
-            onPaginationModelChange={setPaginationModel}
-            disableRowSelectionOnClick
+            onPaginationModelChange={(model) => {
+              setPaginationModel(model);
+              setSearchParams({
+                page: model.page.toString(),
+                pageSize: model.pageSize.toString(),
+              });
+            }}
             disableColumnFilter
-            loading={isLoading}
+            disableColumnMenu
+            disableDensitySelector
             pageSizeOptions={[5, 10, 25]}
-            getRowHeight={() => "auto"}
+            rowHeight={96}
             localeText={russianLocale}
-            initialState={{
-              sorting: {
-                sortModel: [{ field: "receiptDate", sort: "desc" }],
-              },
+            onRowClick={(params, event) => {
+              if ((event.target as HTMLElement).closest("button")) return;
+              handleView(params.id.toString());
             }}
             sx={{
               [`& .${gridClasses.columnHeader}, & .${gridClasses.cell}`]: {
                 outline: "transparent",
               },
               [`& .${gridClasses.columnHeader}:focus-within, & .${gridClasses.cell}:focus-within`]:
-                {
-                  outline: "none",
+                { outline: "none" },
+              [`& .${gridClasses.row}:hover`]: { cursor: "pointer" },
+              [`& .${gridClasses.cell}`]: {
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                lineHeight: 1.4,
+                padding: "8px",
+                minHeight: 48,
+                display: "flex",
+                alignItems: "center",
+                "& .actions-wrapper": {
+                  opacity: 0,
+                  transition: "opacity 0.2s",
                 },
-              [`& .${gridClasses.row}:hover`]: {
-                cursor: "arrow",
               },
-              ["& .MuiDataGrid-columnHeaders"]: {
+              "& .MuiDataGrid-row:hover .actions-wrapper": { opacity: 1 },
+              "& .MuiDataGrid-columnHeaders": {
                 position: "sticky",
                 top: 0,
                 zIndex: 10,
                 backgroundColor: "background.paper",
-              },
-              ["& .MuiDataGrid-virtualScroller"]: {
-                marginTop: "0 !important",
-              },
-              [`& .${gridClasses.cell}`]: {
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                lineHeight: "1.4",
-                padding: "8px",
-                minHeight: "48px",
-                display: "flex",
-                alignItems: "center",
-                // fontFamily: "monospace",
-              },
-              [`& .${gridClasses.columnHeader}`]: {
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                lineHeight: "1.4",
-                padding: "8px",
-              },
-            }}
-            slotProps={{
-              loadingOverlay: {
-                variant: "circular-progress",
-                noRowsVariant: "circular-progress",
               },
             }}
           />

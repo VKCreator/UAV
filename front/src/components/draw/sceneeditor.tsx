@@ -1,4 +1,4 @@
-import { FC, Fragment, useState, useRef, type JSX } from "react";
+import { FC, Fragment, useState, useRef, type JSX, useEffect } from "react";
 import {
   Box,
   Button,
@@ -8,6 +8,7 @@ import {
   Checkbox,
   ToggleButton,
   ToggleButtonGroup,
+  FormControlLabel,
 } from "@mui/material";
 import {
   List,
@@ -32,15 +33,17 @@ import Konva from "konva";
 import PanToolIcon from "@mui/icons-material/PanTool";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import ChangeHistoryIcon from "@mui/icons-material/ChangeHistory";
+import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
+import CheckIcon from "@mui/icons-material/Check";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
+
 import Tooltip from "@mui/material/Tooltip";
 import { DeleteButton } from "../ui-widgets/DeleteButton";
 
 import { AppBar, Toolbar, IconButton } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 import { v4 as uuidv4 } from "uuid";
-import DeleteIcon from "@mui/icons-material/Delete";
-import CheckIcon from "@mui/icons-material/Check";
 
 import type { Point, Polygon, ImageData, TrajectoryPoint } from "./scene.types";
 
@@ -108,6 +111,11 @@ const SceneEditor: FC<SceneEditorProps> = ({
   const [hoveredObstacleId, setHoveredObstacleId] = useState<string | null>(
     null,
   );
+  const [showUavLine, setShowUavLine] = useState(true); // галка отображения
+  const [uavLineConfigured, setUavLineConfigured] = useState(false); // статус
+
+  const [lineY, setLineY] = useState<number | null>(null);
+  const [acceptLineY, setAcceptLineY] = useState<number | null>(null);
 
   const stageRef = useRef<any>(null);
 
@@ -116,7 +124,6 @@ const SceneEditor: FC<SceneEditorProps> = ({
     "#ff6b6b", // яркий красный
     "#66a9ff", // яркий синий
     "#ffdd57", // ярко-жёлто-оранжевый
-    "#65b9f7", // яркий голубой
     "#9e69c4", // ярко-фиолетовый
     "#64f3f1", // яркий циановый
     "#f59fe1", // яркий лавандовый
@@ -242,11 +249,6 @@ const SceneEditor: FC<SceneEditorProps> = ({
     setPoints([]);
   };
 
-  const handleClearTaxonTrajectory = () => {
-    setTrajectoryData(null);
-    setShowUserTrajectory(true);
-  };
-
   const clearObstacles = () => {
     setObstacles([]);
     setCurrentPolygon([]);
@@ -301,41 +303,27 @@ const SceneEditor: FC<SceneEditorProps> = ({
     return lines;
   };
 
-  const handleCalculateTrajectory = async () => {
-    if (!image || points.length === 0) return;
-    setLoading(true);
+  const handleMouseMove = (e: any) => {
+    if (toolMode !== "line" || !image) return;
 
-    const meterPerPixelX = width_m / image.width;
-    const meterPerPixelY = height_m / image.height;
+    const stage = e.target.getStage();
+    const pointer = stage.getRelativePointerPosition();
+    if (!pointer) return;
 
-    const pointsInMeters = points.map((p) => ({
-      x: p.x * meterPerPixelX,
-      y: (image.height - p.y) * meterPerPixelY,
-    }));
+    const imageTop = imageY;
+    const imageBottom = imageY + image.height * scaleToFit;
 
-    const payload = {
-      width_m,
-      height_m,
-      points: pointsInMeters,
-    };
+    const clampedY = Math.max(imageTop, Math.min(pointer.y, imageBottom));
 
-    try {
-      const response = await fetch(
-        "http://nmstuvtip.ddns.net:5000/api/calculate-trajectory",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
-      const data = await response.json();
-      console.log("Ответ API:", data);
-      setTrajectoryData(data);
-      setShowUserTrajectory(false);
-    } catch (err) {
-      console.error("Ошибка запроса:", err);
-    } finally {
-      setLoading(false);
+    setLineY(clampedY);
+  };
+
+  const handleStageClick = () => {
+    if (toolMode === "line" && lineY !== null) {
+      setUavLineConfigured(true);
+      setAcceptLineY(lineY);
+      console.info((lineY - imageY) / scaleToFit);
+      // setToolMode("pan");
     }
   };
 
@@ -363,6 +351,12 @@ const SceneEditor: FC<SceneEditorProps> = ({
       to.y - uy * toRadius,
     ];
   };
+
+  useEffect(() => {
+    if (!image || !scaleToFit) return;
+
+    setAcceptLineY(imageY + image.height * scaleToFit);
+  }, [image, imageY, scaleToFit]);
 
   return (
     <Box display="flex" flexDirection="column" height="100%" width="100%">
@@ -422,6 +416,12 @@ const SceneEditor: FC<SceneEditorProps> = ({
                   </ToggleButton>
                 </Tooltip>
 
+                <Tooltip title="Установка линии взлёта/посадок" arrow>
+                  <ToggleButton value="line">
+                    <HorizontalRuleIcon />
+                  </ToggleButton>
+                </Tooltip>
+
                 <Tooltip title="Расстановка препятствий" arrow>
                   <ToggleButton value="polygons">
                     <ChangeHistoryIcon />
@@ -476,6 +476,63 @@ const SceneEditor: FC<SceneEditorProps> = ({
             </Box>
 
             <Divider />
+
+            <Box>
+              <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <Typography variant="subtitle1">
+                  {" "}
+                  Линия точек взлётов и посадок
+                </Typography>
+                <Tooltip title="Показывать линию" arrow>
+                  <Checkbox
+                    checked={showUavLine}
+                    onChange={(e) => {
+                      setShowUavLine(e.target.checked);
+                    }}
+                    size="small"
+                    disabled={acceptLineY == null}
+                  />
+                </Tooltip>
+              </Box>
+
+              <Stack
+                direction="row"
+                spacing={1}
+                justifyContent="space-between"
+                alignItems="center"
+              >
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Box
+                    width={10}
+                    height={10}
+                    borderRadius="50%"
+                    bgcolor={uavLineConfigured ? "green" : "gray"}
+                  />
+                  <Typography variant="body2">
+                    {uavLineConfigured ? "Настроена" : "По умолчанию"}
+                  </Typography>
+                </Box>
+
+                <Box mt={1} display="flex" gap={1}>
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      setAcceptLineY(imageY + image!.height * scaleToFit);
+                      setUavLineConfigured(false);
+                    }}
+                    aria-label="Сбросить"
+                  >
+                    <RestartAltIcon />
+                  </IconButton>
+                </Box>
+              </Stack>
+            </Box>
+            <Divider />
+
             <Box>
               <Box
                 display="flex"
@@ -532,10 +589,15 @@ const SceneEditor: FC<SceneEditorProps> = ({
                 шт.
               </Typography>
 
-              <Stack direction="row" spacing={1} justifyContent="space-between">
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                maxHeight="30px"
+                sx={{ mt: 2 }}
+              >
                 <Button
                   size="small"
-                  variant="contained"
+                  variant="outlined"
                   disabled={currentPolygon.length < 3}
                   onClick={() => {
                     setObstacles([
@@ -553,14 +615,11 @@ const SceneEditor: FC<SceneEditorProps> = ({
                   Замкнуть
                 </Button>
 
-                <IconButton
-                  size="small"
-                  color="error"
+                <DeleteButton
                   onClick={clearObstacles}
                   disabled={obstacles.length === 0}
-                >
-                  <DeleteIcon />
-                </IconButton>
+                  tooltip="Очистить все препятствия"
+                ></DeleteButton>
               </Stack>
             </Box>
 
@@ -604,14 +663,12 @@ const SceneEditor: FC<SceneEditorProps> = ({
                   </Box>{" "}
                   шт.
                 </Typography>
-                <IconButton
-                  size="small"
-                  color="error"
+
+                <DeleteButton
                   onClick={handleClearPoints}
                   disabled={points.length === 0}
-                >
-                  <DeleteIcon />
-                </IconButton>
+                  tooltip="Очистить все точки"
+                ></DeleteButton>
               </Stack>
             </Box>
 
@@ -717,6 +774,8 @@ const SceneEditor: FC<SceneEditorProps> = ({
               onDragMove={handleDragMove}
               onWheel={handleWheel}
               style={{ cursor: getCursor() }}
+              onMouseMove={handleMouseMove}
+              onClick={handleStageClick}
             >
               <Layer>
                 {image && (
@@ -755,6 +814,65 @@ const SceneEditor: FC<SceneEditorProps> = ({
                 )}
 
                 {renderGrid()}
+
+                {toolMode === "line" && lineY !== null && image && (
+                  <Line
+                    points={[
+                      imageX,
+                      lineY,
+                      imageX + image.width * scaleToFit,
+                      lineY,
+                    ]}
+                    stroke="red"
+                    strokeWidth={2}
+                    dash={[8, 4]}
+                  />
+                )}
+
+                {showUavLine && acceptLineY !== null && image && (
+                  <>
+                    {/* Линия */}
+                    <Line
+                      points={[
+                        imageX,
+                        acceptLineY,
+                        imageX + image.width * scaleToFit,
+                        acceptLineY,
+                      ]}
+                      stroke="orange"
+                      strokeWidth={2}
+                    />
+
+                    {/* Серая зона */}
+                    <Rect
+                      x={imageX}
+                      y={acceptLineY}
+                      width={image.width * scaleToFit}
+                      height={
+                        image.height * scaleToFit - (acceptLineY - imageY)
+                      }
+                      fill="rgba(128, 128, 128, 0.3)"
+                      listening={false}
+                    />
+
+                    {/* Текст */}
+                    {  (<Text
+                      x={imageX}
+                      y={
+                        acceptLineY +
+                        (image.height * scaleToFit - (acceptLineY - imageY)) /
+                          2 -
+                        10
+                      }
+                      width={image.width * scaleToFit}
+                      text="Неинформативная зона"
+                      align="center"
+                      fontSize={16}
+                      fill="rgba(255,255,255,0.8)"
+                      listening={false}
+                    />)}
+                  </>
+                )}
 
                 {showUserTrajectory &&
                   points.length > 1 &&
@@ -1118,6 +1236,24 @@ const SceneEditor: FC<SceneEditorProps> = ({
             >
               Установите точки съёмки на сцене для формирования траектории: ЛКМ
               - добавить точку, ПКМ - удалить точку
+            </Box>
+          )}
+
+          {toolMode === "line" && (
+            <Box
+              position="absolute"
+              bottom="20px"
+              sx={{
+                bgcolor: "rgba(0,0,0,0.6)",
+                color: "white",
+                p: 1.5,
+                borderRadius: 1,
+                fontSize: 14,
+                textAlign: "center",
+                pointerEvents: "none",
+              }}
+            >
+              Нажмите ЛКМ на изображении для установки линии на позиции
             </Box>
           )}
         </Box>

@@ -98,7 +98,14 @@ export interface WeatherResponse {
   current_weather: CurrentWeather;
 }
 
-export interface TrajectorySchema {}
+export interface TrajectorySchema {
+  id: string;
+  schemaName: string;
+  schemaImage?: string;
+  pointCount: number;
+  distanceToCamera: number;
+  methodType: string;
+}
 
 // Типы для создания
 export interface CreateDroneInput {

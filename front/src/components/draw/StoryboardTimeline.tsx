@@ -26,11 +26,12 @@ const StoryboardTimeline: FC<Props> = ({ frames, selectedIndex, onSelect }) => {
       width="100%"
       height="100%"
       maxHeight="100px"
-  sx={{
-    // width: 300,
-    overflowX: "auto",
-    // border: "1px solid #ccc",
-  }}
+      minHeight="100px"
+      sx={{
+        // width: 300,
+        overflowX: "auto",
+        // border: "1px solid #ccc",
+      }}
     >
       {frames.map((f, i) => (
         <Box

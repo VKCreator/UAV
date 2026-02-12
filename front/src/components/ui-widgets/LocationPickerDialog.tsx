@@ -6,11 +6,13 @@ import {
   Button,
 } from "@mui/material";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import L from "leaflet";
 
 interface Props {
   open: boolean;
+  lat: number;
+  lon: number;
   onClose: () => void;
   onSelect: (lat: number, lon: number) => void;
 }
@@ -37,17 +39,45 @@ const ClickHandler = ({
   return null;
 };
 
-export const LocationPickerDialog = ({ open, onClose, onSelect }: Props) => {
-  const [position, setPosition] = useState<[number, number] | null>(null);
+export const LocationPickerDialog = ({
+  open,
+  onClose,
+  onSelect,
+  lat,
+  lon,
+}: Props) => {
+  const [position, setPosition] = useState<[number, number]>([lat, lon]);
+
+  const handleClose = (
+    _: object,
+    reason: "backdropClick" | "escapeKeyDown",
+  ) => {
+    if (reason === "escapeKeyDown" || reason === "backdropClick") {
+      return; // игнорируем
+    }
+    onClose();
+  };
+
+  useEffect(() => {
+    if (open) {
+      setPosition([lat, lon]);
+    }
+  }, [lat, lon, open]);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="md"
+      fullWidth
+      disableEscapeKeyDown
+    >
       <DialogTitle>Выбор местоположения</DialogTitle>
 
       <DialogContent sx={{ height: 500, p: 0 }}>
         <MapContainer
-          center={[61, 100]} // центр России
-          zoom={3}
+          center={position ?? [position[0], position[1]]}
+          zoom={13}
           style={{ height: "100%", width: "100%" }}
           attributionControl={false}
         >
@@ -63,7 +93,7 @@ export const LocationPickerDialog = ({ open, onClose, onSelect }: Props) => {
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>Отмена</Button>
+        <Button variant="outlined" onClick={onClose}>Отмена</Button>
         <Button
           variant="contained"
           disabled={!position}

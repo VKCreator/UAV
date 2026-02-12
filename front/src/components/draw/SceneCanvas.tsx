@@ -8,6 +8,7 @@ import {
   Line,
   Arrow,
   Text,
+  Rect
 } from "react-konva";
 import useImage from "use-image";
 
@@ -18,7 +19,8 @@ const STAGE_HEIGHT = 700;
 
 const TAXON_POINT_RADIUS = 10;
 const BASE_RADIUS = 4;
-
+const POINT_RECT_WIDTH = 150;   // ширина рамки
+const POINT_RECT_HEIGHT = 75;  // высота рамки
 interface SceneCanvasProps {
   imageData: { imageUrl: string };
 
@@ -36,7 +38,6 @@ const colors = [
   "#ff6b6b", // яркий красный
   "#66a9ff", // яркий синий
   "#ffdd57", // ярко-жёлто-оранжевый
-  "#65b9f7", // яркий голубой
   "#9e69c4", // ярко-фиолетовый
   "#64f3f1", // яркий циановый
   "#f59fe1", // яркий лавандовый
@@ -122,23 +123,38 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
 
           {/* Пользовательские точки */}
           {showPoints &&
-            points.map((p, i) => (
-              <Fragment key={`p-${i}`}>
-                <Circle
-                  x={p.x * scaleToFit + imageX}
-                  y={p.y * scaleToFit + imageY}
-                  radius={10}
-                  fill="blue"
-                />
-                <Text
-                  x={p.x * scaleToFit + imageX - 5}
-                  y={p.y * scaleToFit + imageY - 7}
-                  text={`${i + 1}`}
-                  fontSize={12}
-                  fill="white"
-                />
-              </Fragment>
-            ))}
+            points.map((p, i) => {
+              const x = p.x * scaleToFit + imageX;
+              const y = p.y * scaleToFit + imageY;
+
+              return (
+                <Fragment key={`p-${i}`}>
+                  <Rect
+                    x={x - POINT_RECT_WIDTH / 2} // смещаем, чтобы точка была в центре
+                    y={y - POINT_RECT_HEIGHT / 2}
+                    width={POINT_RECT_WIDTH}
+                    height={POINT_RECT_HEIGHT}
+                    stroke="black" // рамка
+                    strokeWidth={2}
+                    fill="#ff000022" // прозрачный фон
+                    cornerRadius={0}
+                  />
+                  <Circle
+                    x={x}
+                    y={y}
+                    radius={10} // точка в центре прямоугольника
+                    fill="blue"
+                  />
+                  <Text
+                    x={x - 4}
+                    y={y - 6}
+                    text={`${i + 1}`}
+                    fontSize={12}
+                    fill="white"
+                  />
+                </Fragment>
+              );
+            })}
 
           {/* Линии между точками */}
           {showPoints &&

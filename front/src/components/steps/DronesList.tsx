@@ -246,7 +246,9 @@ export default function DronesList() {
             disableColumnFilter
             loading={isLoading}
             pageSizeOptions={[5, 10, 25]}
-            getRowHeight={() => "auto"}
+            // getRowHeight={() => "auto"}
+                        rowHeight={50}
+
             // columnHeaderHeight={80}
             localeText={russianLocale}
             sx={{

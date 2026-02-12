@@ -1,16 +1,18 @@
-import { FC, useState } from "react";
+import { FC, useState, JSX } from "react";
 import {
   Box,
   Typography,
   Divider,
-  Stack,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
   Button,
   IconButton,
+  Stack,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+
+import CircleIcon from "@mui/icons-material/Circle";
+import RecommendIcon from "@mui/icons-material/Recommend";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 
 import SceneCanvas from "./SceneCanvas";
 import StoryboardTimeline from "./StoryboardTimeline";
@@ -18,19 +20,40 @@ import StoryboardTimeline from "./StoryboardTimeline";
 interface StoryboardEditorProps {
   onClose: () => void;
 
-  // данные сцены
   imageData: any;
   points: any[];
   obstacles: any[];
   trajectoryData?: any;
 
-  // свойства раскадровки
   framesCount: number;
   memoryMb: number;
   flightTimeSec: number;
 }
 
 type StoryboardType = "point" | "recommended" | "optimal";
+
+const typeConfigs: Record<
+  StoryboardType,
+  { label: string; icon: JSX.Element; description: string }
+> = {
+  point: {
+    label: "Точечная",
+    icon: <CircleIcon fontSize="small" />,
+    description: "Создаёт раскадровку только по отдельным точкам пользовательского маршрута.",
+  },
+  recommended: {
+    label: "Рекомендуемая",
+    icon: <RecommendIcon fontSize="small" />,
+    description:
+      "Формируется на основе всего фасада исследуемого объекта.",
+  },
+  optimal: {
+    label: "Оптимальная",
+    icon: <AutoAwesomeIcon fontSize="small" />,
+    description:
+      "Строится на основе направления оптимальной траектории полёта.",
+  },
+};
 
 const StoryboardEditor: FC<StoryboardEditorProps> = ({
   onClose,
@@ -42,9 +65,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   memoryMb,
   flightTimeSec,
 }) => {
-  const [storyboardType, setStoryboardType] = useState<StoryboardType>("point");
-
+  const [activeType, setActiveType] = useState<StoryboardType | null>("point");
   const [selectedFrame, setSelectedFrame] = useState(0);
+  const [frameSize, setFrameSize] = useState(100);
 
   const frames = points.map((p, i) => ({
     id: `frame-${i}`,
@@ -52,12 +75,22 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     time: i * 2,
   }));
 
+  const toggleType = (type: StoryboardType) => {
+    setActiveType((prev) => (prev === type ? null : type));
+  };
+
   const handleApply = () => {
-    console.log("Применить тип раскадровки:", storyboardType);
-    // здесь дальше:
-    // - пересчёт кадров
-    // - запрос к API
-    // - генерация раскадровки
+    console.log(
+      "Применить раскадровку:",
+      activeType,
+      "Размер кадра:",
+      frameSize,
+    );
+  };
+
+  const handleReset = () => {
+    setFrameSize(100);
+    console.log("Сброс параметров для:", activeType);
   };
 
   return (
@@ -80,102 +113,131 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
         </Typography>
       </Box>
 
-      <Box display="flex" flex={1} overflow="auto">
-        {/* Левая панель */}
+      <Box display="flex" flex={1} overflow="hidden">
+        {/* Левая панель — вертикальное меню */}
         <Box
-          width={350}
+          width={120}
           borderRight="1px solid"
           borderColor="divider"
-          p={2}
-          height="100%"
-          overflow="auto"
+          p={1}
+          display="flex"
+          flexDirection="column"
+          gap={1}
         >
-          <Stack spacing={2}>
-            {/* Тип раскадровки */}
-            <Box>
-              <Typography variant="subtitle1" gutterBottom>
-                Тип раскадровки
-              </Typography>
-
-              <RadioGroup
-                value={storyboardType}
-                onChange={(e) =>
-                  setStoryboardType(e.target.value as StoryboardType)
-                }
+          {(Object.keys(typeConfigs) as StoryboardType[]).map((type) => {
+            const config = typeConfigs[type];
+            const isActive = activeType === type;
+            return (
+              <Box
+                key={type}
+                onClick={() => toggleType(type)}
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  cursor: "pointer",
+                  userSelect: "none",
+                  // bgcolor: isActive ? "primary.dark" : "transparent",
+                  color: isActive ? "primary.dark" : "text.primary",
+                  borderRadius: 2,
+                  py: 1,
+                  px: 0.5,
+                  "&:hover": {
+                    color: isActive ? "primary.dark" : "text.primary", // при наведении тоже меняем цвет текста
+                    bgcolor: isActive
+                      ? "transparent"
+                      : "          rgba(0, 78, 158, 0.08)",
+                  },
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    toggleType(type);
+                    e.preventDefault();
+                  }
+                }}
               >
-                <FormControlLabel
-                  value="point"
-                  control={<Radio />}
-                  label="Точечная"
-                />
-                <FormControlLabel
-                  value="recommended"
-                  control={<Radio />}
-                  label="Рекомендуемая"
-                />
-                <FormControlLabel
-                  value="optimal"
-                  control={<Radio />}
-                  label="Оптимальная"
-                />
-              </RadioGroup>
-
-              <Button
-                fullWidth
-                variant="contained"
-                size="small"
-                onClick={handleApply}
-                sx={{ mt: 1 }}
-              >
-                Применить
-              </Button>
-            </Box>
-
-            <Divider />
-
-            {/* Свойства раскадровки */}
-            <Box>
-              <Typography variant="subtitle1" gutterBottom>
-                Свойства раскадровки
-              </Typography>
-
-              <Stack spacing={1}>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Количество кадров
-                  </Typography>
-                  <Typography fontWeight="bold">{framesCount}</Typography>
-                </Box>
-
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Объём памяти
-                  </Typography>
-                  <Typography fontWeight="bold">{memoryMb} МБ</Typography>
-                </Box>
-
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Общее время облёта
-                  </Typography>
-                  <Typography fontWeight="bold">{flightTimeSec} сек</Typography>
-                </Box>
-              </Stack>
-            </Box>
-          </Stack>
+                <IconButton
+                  size="large"
+                  sx={{
+                    color: "inherit",
+                    p: 0,
+                    mb: 0.5,
+                    pointerEvents: "none",
+                  }}
+                  aria-label={config.label}
+                  tabIndex={-1}
+                >
+                  {config.icon}
+                </IconButton>
+                <Typography
+                  variant="caption"
+                  sx={{ fontSize: "12px" }}
+                  component="span"
+                  align="center"
+                >
+                  {config.label}
+                </Typography>
+              </Box>
+            );
+          })}
         </Box>
 
-        {/* Правая сцена */}
+        {/* Панель инструментов для выбранного типа */}
+        {activeType && (
+          <Box
+            width={250}
+            borderRight="1px solid"
+            borderColor="divider"
+            p={2}
+            display="flex"
+            flexDirection="column"
+            gap={2}
+          >
+            <Typography variant="subtitle1">
+              {typeConfigs[activeType].label}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {typeConfigs[activeType].description}
+            </Typography>
+
+            {/* Размер кадра */}
+            <Box>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Размер кадра
+              </Typography>
+              {/* <input
+                type="number"
+                value={frameSize}
+                onChange={(e) => setFrameSize(Number(e.target.value))}
+                style={{ width: "100%" }}
+              /> */}
+            </Box>
+
+            {/* Кнопки применить/сбросить */}
+            <Stack direction="row" spacing={1}>
+              <Button size="small" variant="contained" fullWidth onClick={handleApply}>
+                Применить
+              </Button>
+              <Button size="small" variant="outlined" fullWidth onClick={handleReset}>
+                Сбросить
+              </Button>
+            </Stack>
+          </Box>
+        )}
+
+        {/* Правая панель — сцена + таймлайн */}
         <Box
           flex={1}
           display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-          bgcolor="#f4f6f8"
           flexDirection="column"
-          gap={0}
-          sx={{ pt: 3 }}
+          bgcolor="#f4f6f8"
           overflow="auto"
+          alignItems="center"
+          justifyContent="space-between"
+          gap={2}
+          pt={2}
         >
           <SceneCanvas
             imageData={imageData}

@@ -5,6 +5,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import TrajectoriesList from "./components/steps/TrajectoryList";
 import TrajectoryCreate from "./components/steps/TrajectoryCreate";
 import DronesList from "./components/steps/DronesList";
+import TrajectoryDetails from "./components/pages/TrajectoryDetails";
 
 import NotificationsProvider from "./hooks/useNotifications/NotificationsProvider";
 import DialogsProvider from "./hooks/useDialogs/DialogsProvider";
@@ -27,6 +28,10 @@ const router = createHashRouter([
       {
         path: "/trajectories/new",
         Component: TrajectoryCreate,
+      },
+      {
+        path: "/trajectories/:id",
+        Component: TrajectoryDetails,
       },
       {
         path: "/drones",

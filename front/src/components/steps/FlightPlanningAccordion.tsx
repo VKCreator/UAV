@@ -20,6 +20,7 @@ import {
   DialogActions,
   Checkbox,
   FormControlLabel,
+  Chip,
 } from "@mui/material";
 
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -36,12 +37,13 @@ import { api, Drone } from "../../api/client";
 import UavSelector from "../ui-widgets/UavSelector";
 import UavParamsDialog, { UavParams } from "../ui-widgets/UavParamsDialog";
 import type { Polygon, Point, ImageData } from "../draw/scene.types";
+import type { DroneParams, UAVCameraParams } from "../../types/uav.types";
 
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
-import Chip from "@mui/material/Chip";
+import { DeleteButton } from "../ui-widgets/DeleteButton";
 
 const DRONES_CACHE_KEY = "drones-cache-v1";
 
@@ -64,9 +66,9 @@ export default function FlightPlanningAccordion({
   onEditUserTrajectory: () => void;
   onClearObstacles: () => void;
   onClearUserTrajectory: () => void;
-  onUpdateDroneParams: (params: any) => void; // Тип пропса
-  droneParams: any;
-  setDroneParams: (params: any) => void;
+  onUpdateDroneParams: (params: DroneParams) => void; // Тип пропса
+  droneParams: DroneParams;
+  setDroneParams: React.Dispatch<React.SetStateAction<DroneParams>>;
 }) {
   const notifications = useNotifications();
   const updateSource = React.useRef<"init" | "props" | "user">("init");
@@ -77,22 +79,32 @@ export default function FlightPlanningAccordion({
 
   // Раскадровка и параметры БПЛА
   const [drones, setDrones] = React.useState<Drone[]>([]);
-  const [selectedDroneId, setSelectedDroneId] = React.useState<string>(
-    droneParams.selectedDroneId,
-  );
+  const [selectedDroneId, setSelectedDroneId] = React.useState<
+    string | number | undefined
+  >(droneParams.selectedDroneId);
   const [loading, setLoading] = React.useState(true);
 
   const [openUavParams, setOpenUavParams] = React.useState(false);
-  const [initialUavParams, setInitialUavParams] = React.useState<UavParams>({
-    fov: 77,
-    resolutionWidth: 5472,
-    resolutionHeight: 3648,
-    useFromReference: true,
-  });
+  const [initialUavParams, setInitialUavParams] =
+    React.useState<UAVCameraParams>({
+      fov: droneParams.uavParams.fov,
+      resolutionWidth: droneParams.uavParams.resolutionWidth,
+      resolutionHeight: droneParams.uavParams.resolutionHeight,
+      useFromReference: droneParams.uavParams.useFromReference,
+    });
 
-  const [uavParams, setUavParams] = React.useState<UavParams>(
+  const [uavCameraParams, setUavCameraParams] = React.useState<UAVCameraParams>(
     droneParams.uavParams,
   );
+
+  const [uavParams, setUavParams] = React.useState<any>({
+    model: droneParams.model,
+    speed: droneParams.speed,
+    hoverTime: droneParams.hoverTime,
+    batteryTime: droneParams.batteryTime,
+    considerObstacles: droneParams.considerObstacles,
+    windResistance: droneParams.windResistance,
+  });
 
   const [distance, setDistance] = React.useState<number>(droneParams.distance);
   const [plannedDistance, setPlannedDistance] = React.useState<number>(
@@ -104,17 +116,21 @@ export default function FlightPlanningAccordion({
     return 2 * d * Math.tan(fovRad / 2);
   };
 
-  const frameHeightBase = calculateFrameSize(distance, uavParams.fov);
+  const frameHeightBase = calculateFrameSize(distance, uavCameraParams.fov);
   const frameWidthBase =
-    frameHeightBase * (uavParams.resolutionWidth / uavParams.resolutionHeight);
-  const frameHeightPlanned = calculateFrameSize(plannedDistance, uavParams.fov);
+    frameHeightBase *
+    (uavCameraParams.resolutionWidth / uavCameraParams.resolutionHeight);
+  const frameHeightPlanned = calculateFrameSize(
+    plannedDistance,
+    uavCameraParams.fov,
+  );
   const frameWidthPlanned =
     frameHeightPlanned *
-    (uavParams.resolutionWidth / uavParams.resolutionHeight);
+    (uavCameraParams.resolutionWidth / uavCameraParams.resolutionHeight);
 
   const isResolutionMatch =
-    uavParams.resolutionWidth === imageData.width &&
-    uavParams.resolutionHeight === imageData.height;
+    uavCameraParams.resolutionWidth === imageData.width &&
+    uavCameraParams.resolutionHeight === imageData.height;
 
   const togglePanel = (panel: string) => () => {
     setExpanded((prev) => {
@@ -126,18 +142,18 @@ export default function FlightPlanningAccordion({
 
   const handleUavParamsOpen = () => {
     setOpenUavParams(true);
-    setInitialUavParams(uavParams);
+    setInitialUavParams(uavCameraParams);
   };
 
   const handleUavParamsClose = () => {
     setOpenUavParams(false);
-    setUavParams(initialUavParams);
+    setUavCameraParams(initialUavParams);
   };
 
   const handleUavParamsSave = (params: UavParams) => {
     updateSource.current = "user";
 
-    setUavParams(params);
+    setUavCameraParams(params);
     setOpenUavParams(false);
   };
 
@@ -146,11 +162,20 @@ export default function FlightPlanningAccordion({
 
     setSelectedDroneId(String(drone.id));
 
-    setUavParams({
+    setUavCameraParams({
       fov: drone.fov_vertical || 77,
       resolutionWidth: drone.resolution_width || 5472,
       resolutionHeight: drone.resolution_height || 3648,
       useFromReference: true,
+    });
+
+    setUavParams({
+      speed: drone.min_speed! * 5,
+      batteryTime: drone.battery_life,
+      hoverTime: uavParams.hoverTime,
+      windResistance: drone.max_wind_resistance,
+      considerObstacles: uavParams.considerObstacles,
+      model: drone.model
     });
   };
 
@@ -158,12 +183,19 @@ export default function FlightPlanningAccordion({
     if (checked) {
       const drone = drones.find((d) => String(d.id) === selectedDroneId);
       if (drone) {
-        setUavParams({
+        setUavCameraParams({
           fov: drone.fov_vertical || 77,
           resolutionWidth: drone.resolution_width || 5472,
           resolutionHeight: drone.resolution_height || 3648,
           useFromReference: true,
         });
+        // setUavParams({
+        //   speed: drone.min_speed! * 5,
+        //   batteryTime: drone.battery_life,
+        //   hoverTime: uavParams.hoverTime,
+        //   windResistance: drone.max_wind_resistance,
+        //   considerObstacles: uavParams.considerObstacles,
+        // });
       }
     }
   };
@@ -186,29 +218,40 @@ export default function FlightPlanningAccordion({
         if (data.length > 0) {
           const id = Number(droneParams?.selectedDroneId);
           if (Number.isFinite(id)) {
-            setUavParams(droneParams.uavParams);
+            setUavCameraParams(droneParams.uavParams);
             setSelectedDroneId(String(droneParams.selectedDroneId));
           } else {
             let first = data[0];
 
-            setUavParams({
+            setUavCameraParams({
               fov: first.fov_vertical || 77,
               resolutionWidth: first.resolution_width || 5472,
               resolutionHeight: first.resolution_height || 3648,
               useFromReference: true,
             });
+
             setSelectedDroneId(String(first.id));
+            setUavParams({
+              speed: first.min_speed! * 5,
+              batteryTime: first.battery_life,
+              hoverTime: uavParams.hoverTime,
+              windResistance: first.max_wind_resistance,
+              considerObstacles: uavParams.considerObstacles,
+              model: first.model
+            });
           }
-          setDroneParams({
-            selectedDroneId,
+
+          setDroneParams((prev: DroneParams) => ({
+            ...prev,
+            selectedDroneId: selectedDroneId,
             frameHeightBase,
             frameWidthBase,
             frameHeightPlanned,
             frameWidthPlanned,
             distance,
             plannedDistance,
-            uavParams,
-          });
+            uavParams: uavCameraParams,
+          }));
         }
       } catch (error) {
         notifications.show("Не удалось загрузить список БПЛА", {
@@ -236,10 +279,16 @@ export default function FlightPlanningAccordion({
         frameWidthPlanned,
         distance,
         plannedDistance,
-        uavParams,
+        uavParams: uavCameraParams,
+        speed: uavParams.speed,
+        windResistance: uavParams.windResistance,
+        hoverTime: uavParams.hoverTime,
+        considerObstacles: uavParams.considerObstacles,
+        batteryTime: uavParams.batteryTime,
+        model: uavParams.model
       });
     }
-  }, [selectedDroneId, distance, plannedDistance, uavParams]);
+  }, [selectedDroneId, distance, plannedDistance, uavCameraParams]);
 
   return (
     <Box sx={{ width: "100%" }}>
@@ -287,7 +336,7 @@ export default function FlightPlanningAccordion({
                   ? "Разрешение базового слоя совпадает с параметрами камеры"
                   : `Несовпадение разрешений:
            изображение ${imageData.width}×${imageData.height} px,
-           камера ${uavParams.resolutionWidth}×${uavParams.resolutionHeight} px`
+           камера ${uavCameraParams.resolutionWidth}×${uavCameraParams.resolutionHeight} px`
               }
               arrow
               enterDelay={400}
@@ -306,7 +355,7 @@ export default function FlightPlanningAccordion({
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <UavSelector
                 drones={drones}
-                value={selectedDroneId}
+                value={String(selectedDroneId)}
                 onChange={handleDroneChange}
                 loading={loading}
               />
@@ -443,19 +492,12 @@ export default function FlightPlanningAccordion({
               >
                 Редактировать
               </Button>
-              <Tooltip title="Очистить все препятствия" enterDelay={500}>
-                <span>
-                  <IconButton
-                    color="error"
-                    onClick={onClearObstacles}
-                    aria-label="Очистить препятствия"
-                    size="small"
-                    disabled={obstacles.length === 0}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </span>
-              </Tooltip>
+
+              <DeleteButton
+                onClick={onClearObstacles}
+                disabled={obstacles.length === 0}
+                tooltip="Очистить все препятствия"
+              ></DeleteButton>
             </Box>
           </Box>
         </AccordionDetails>
@@ -538,19 +580,12 @@ export default function FlightPlanningAccordion({
               >
                 Редактировать
               </Button>
-              <Tooltip title="Очистить траекторию" enterDelay={500}>
-                <span>
-                  <IconButton
-                    color="error"
-                    onClick={onClearUserTrajectory}
-                    aria-label="Очистить траекторию"
-                    size="small"
-                    disabled={points.length === 0}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </span>
-              </Tooltip>
+
+              <DeleteButton
+                onClick={onClearUserTrajectory}
+                disabled={points.length === 0}
+                tooltip="Очистить траекторию"
+              ></DeleteButton>
             </Box>
           </Box>
         </AccordionDetails>
@@ -561,7 +596,7 @@ export default function FlightPlanningAccordion({
         onOpen={handleUavParamsOpen}
         onClose={handleUavParamsClose}
         onSave={handleUavParamsSave}
-        initialValues={uavParams}
+        initialValues={uavCameraParams}
         onUseFromReferenceChange={handleUseFromReferenceChange}
       />
     </Box>

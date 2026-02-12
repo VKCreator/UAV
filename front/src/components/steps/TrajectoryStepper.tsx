@@ -15,6 +15,7 @@ import {
   DialogActions,
   Tooltip,
 } from "@mui/material";
+
 import EditIcon from "@mui/icons-material/Edit";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
@@ -28,9 +29,15 @@ import BuildTrajectoryStep from "./BuildTrajectoryStep";
 import OptimizationTrajectoryStep from "./OptimizationTrajectoryStep";
 import CompareOptimizationMethodsStep from "./CompareOptimizationMethodsStep";
 
-import type { ExifData } from "./common.types";
+import FlightSchemaPage from "../pages/FlightSchemaPage";
 
+import type { ExifData } from "./common.types";
 import type { Point, Polygon } from "../draw/scene.types";
+import type { DroneParams, Weather } from "../../types/uav.types";
+import type { Opt1TrajectoryData } from "../../types/optTrajectory.types";
+
+import { Fab, Zoom, useScrollTrigger } from "@mui/material";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 
 const TrajectoryStepper: React.FC<{
   onSubmit: () => void;
@@ -60,30 +67,56 @@ const TrajectoryStepper: React.FC<{
   // Step 2
   const [points, setPoints] = React.useState<Point[]>([]);
   const [obstacles, setObstacles] = React.useState<Polygon[]>([]);
-  const [trajectoryData, setTrajectoryData] = React.useState<any>(null);
-
-  const [droneParams, setDroneParams] = React.useState({
+  const [droneParams, setDroneParams] = React.useState<DroneParams>({
     selectedDroneId: undefined,
     frameHeightBase: 0,
     frameWidthBase: 0,
     frameHeightPlanned: 0,
     frameWidthPlanned: 0,
-    distance: 100,
+    distance: 75,
     plannedDistance: 15,
+    considerObstacles: true,
     uavParams: {
       fov: 77,
       resolutionWidth: 5472,
       resolutionHeight: 3648,
       useFromReference: true,
     },
+    speed: 5,
+    batteryTime: 30,
+    hoverTime: 5,
+    windResistance: 15,
+    model: "unknown",
   });
+
+  console.info(droneParams);
+
+  // Step 3
+  const [opt1TrajectoryData, setOpt1TrajectoryData] =
+    React.useState<Opt1TrajectoryData | null>(null);
+  const [opt2TrajectoryData, setOpt2TrajectoryData] = React.useState<any>(null);
+
+  const initWeather: Weather = {
+    windSpeed: 10,
+    windDirection: 180,
+    useWeatherApi: true,
+    position: {
+      lat: 53.4260327, // ММК
+      lon: 59.0531761,
+    },
+  };
+  const [weatherConditions, setWeatherConditions] =
+    React.useState<Weather>(initWeather);
+
+  // Step 4
+  const [openPreviewPage, setPreviewPage] = React.useState(false);
 
   const handleImageUpload = (newFiles: File[], newExif: ExifData[]) => {
     setFiles(newFiles);
     setExifData(newExif);
     setPoints([]);
     setObstacles([]);
-    setTrajectoryData(null);
+    setOpt1TrajectoryData(null);
 
     if (imageUrl) {
       URL.revokeObjectURL(imageUrl);
@@ -96,7 +129,7 @@ const TrajectoryStepper: React.FC<{
     setExifData([]);
     setPoints([]);
     setObstacles([]);
-    setTrajectoryData(null);
+    setOpt1TrajectoryData(null);
 
     if (imageUrl) {
       URL.revokeObjectURL(imageUrl);
@@ -181,14 +214,14 @@ const TrajectoryStepper: React.FC<{
   const isDisabled =
     (activeStep === 0 && imageUrl === "") ||
     (activeStep === 1 && points.length === 0) ||
-    (activeStep == 2 && trajectoryData == null);
+    (activeStep == 2 && opt1TrajectoryData == null);
 
   const tooltipTitle =
     activeStep === 0 && imageUrl === ""
       ? "Для шага 2 нужно загрузить базовый слой"
       : activeStep === 1 && points.length === 0
         ? "Для шага 3 требуется построение пользовательской траектории"
-        : activeStep === 2 && trajectoryData === null
+        : activeStep === 2 && opt1TrajectoryData === null
           ? "Для шага 4 требуется оптимизация пользовательской траектории"
           : "";
 
@@ -213,8 +246,8 @@ const TrajectoryStepper: React.FC<{
             setPoints={setPoints}
             obstacles={obstacles}
             setObstacles={setObstacles}
-            trajectoryData={trajectoryData}
-            setTrajectoryData={setTrajectoryData}
+            trajectoryData={opt1TrajectoryData}
+            setTrajectoryData={setOpt1TrajectoryData}
             droneParams={droneParams}
             setDroneParams={setDroneParams}
           />
@@ -230,8 +263,10 @@ const TrajectoryStepper: React.FC<{
             setObstacles={setObstacles}
             droneParams={droneParams}
             setDroneParams={setDroneParams}
-            trajectoryData={trajectoryData}
-            setTrajectoryData={setTrajectoryData}
+            trajectoryData={opt1TrajectoryData}
+            setTrajectoryData={setOpt1TrajectoryData}
+            weatherConditions={weatherConditions}
+            setWeatherConditions={setWeatherConditions}
           />
         );
       case 3:
@@ -247,6 +282,29 @@ const TrajectoryStepper: React.FC<{
           </Paper>
         );
     }
+  };
+
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [triggerTarget, setTriggerTarget] = React.useState<HTMLElement | null>(
+    null,
+  );
+
+  // Когда ref инициализируется, сохраняем его в state
+  React.useEffect(() => {
+    if (containerRef.current) {
+      setTriggerTarget(containerRef.current);
+    }
+  }, []);
+
+  // триггер будет работать только когда target !== null
+  const trigger = useScrollTrigger({
+    disableHysteresis: true,
+    threshold: 100,
+    target: triggerTarget || undefined,
+  });
+
+  const handleClick = () => {
+    containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -346,7 +404,9 @@ const TrajectoryStepper: React.FC<{
             <Button
               variant="outlined"
               color="primary"
-              onClick={() => {}} // функция для открытия полной схемы
+              onClick={() => {
+                setPreviewPage(true);
+              }} // функция для открытия полной схемы
               startIcon={<VisibilityIcon />}
             >
               Просмотр схемы
@@ -433,6 +493,52 @@ const TrajectoryStepper: React.FC<{
             Сохранить
           </Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog
+        fullScreen
+        open={openPreviewPage}
+        onClose={() => setPreviewPage(false)}
+      >
+        <Box
+          sx={{ height: "100%", overflow: "auto", maxHeight: "100%" }}
+          ref={containerRef}
+        >
+          <FlightSchemaPage
+            imageData={imageData}
+            exifData={exifData}
+            onClose={() => {
+              setPreviewPage(false);
+            }}
+          />
+          <Zoom in={true}>
+            <Box
+              onClick={handleClick}
+              role="presentation"
+              sx={{
+                position: "fixed",
+                bottom: 24,
+                right: 32,
+                zIndex: 1000,
+              }}
+            >
+              <Tooltip title="Наверх" arrow>
+                <Fab
+                  size="small"
+                  aria-label="scroll back to top"
+                  sx={{
+                    bgcolor: "#004E9E", // фон кнопки
+                    "&:hover": {
+                      bgcolor: "#004E9E", // фон при наведении
+                    },
+                  }}
+                >
+                  <KeyboardArrowUpIcon sx={{ fill: "white" }} />
+                </Fab>
+              </Tooltip>
+            </Box>
+          </Zoom>
+        </Box>
       </Dialog>
     </Box>
   );
