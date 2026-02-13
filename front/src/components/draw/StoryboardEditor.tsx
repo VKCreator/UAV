@@ -6,6 +6,7 @@ import {
   Button,
   IconButton,
   Stack,
+  CircularProgress,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
@@ -16,18 +17,26 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 
 import SceneCanvas from "./SceneCanvas";
 import StoryboardTimeline from "./StoryboardTimeline";
+import { DroneParams } from "../../types/uav.types";
+import { Storyboards } from "../../types/storyboards.types";
+import useImage from "use-image";
+import { ImageData } from "./scene.types";
+import Konva from "konva";
 
 interface StoryboardEditorProps {
   onClose: () => void;
 
-  imageData: any;
+  imageData: ImageData;
   points: any[];
   obstacles: any[];
   trajectoryData?: any;
 
-  framesCount: number;
-  memoryMb: number;
-  flightTimeSec: number;
+  droneParams: DroneParams;
+  storyboardsData: Storyboards;
+
+  // framesCount: number;
+  // memoryMb: number;
+  // flightTimeSec: number;
 }
 
 type StoryboardType = "point" | "recommended" | "optimal";
@@ -39,13 +48,13 @@ const typeConfigs: Record<
   point: {
     label: "Точечная",
     icon: <CircleIcon fontSize="small" />,
-    description: "Создаёт раскадровку только по отдельным точкам пользовательского маршрута.",
+    description:
+      "Создаёт раскадровку только по отдельным точкам пользовательского маршрута.",
   },
   recommended: {
     label: "Рекомендуемая",
     icon: <RecommendIcon fontSize="small" />,
-    description:
-      "Формируется на основе всего фасада исследуемого объекта.",
+    description: "Формируется на основе всего фасада исследуемого объекта.",
   },
   optimal: {
     label: "Оптимальная",
@@ -55,19 +64,61 @@ const typeConfigs: Record<
   },
 };
 
+const cropFrameKonva = (
+  image: HTMLImageElement,
+  centerX: number,
+  centerY: number,
+  frameWidth: number,
+  frameHeight: number,
+): Promise<Blob> => {
+  return new Promise((resolve) => {
+    const stage = new Konva.Stage({
+      width: frameWidth,
+      height: frameHeight,
+      container: document.createElement("div"), // временный контейнер
+    });
+
+    const layer = new Konva.Layer();
+    stage.add(layer);
+
+    const konvaImage = new Konva.Image({
+      image,
+      x: -centerX + frameWidth / 2,
+      y: -centerY + frameHeight / 2,
+    });
+
+    layer.add(konvaImage);
+    layer.draw();
+
+    stage.toCanvas().toBlob((blob: any) => {
+      if (blob) resolve(blob);
+    });
+  });
+};
+
 const StoryboardEditor: FC<StoryboardEditorProps> = ({
   onClose,
   imageData,
   points,
   obstacles,
   trajectoryData,
-  framesCount,
-  memoryMb,
-  flightTimeSec,
+  droneParams,
+  storyboardsData,
 }) => {
   const [activeType, setActiveType] = useState<StoryboardType | null>("point");
   const [selectedFrame, setSelectedFrame] = useState(0);
   const [frameSize, setFrameSize] = useState(100);
+  const [urls, setUrls] = useState<any>([]);
+
+  const [loading, setLoading] = useState(false);
+  const [fadeOut, setFadeOut] = useState(false); // Состояние для анимации
+
+  const frameWidthPx =
+    imageData.width /
+    (droneParams.frameWidthBase / droneParams.frameWidthPlanned);
+  const frameHeightPx =
+    imageData.height /
+    (droneParams.frameHeightBase / droneParams.frameHeightPlanned);
 
   const frames = points.map((p, i) => ({
     id: `frame-${i}`,
@@ -75,26 +126,81 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     time: i * 2,
   }));
 
+  const [img] = useImage(imageData.imageUrl);
+
+  const extractFrames = async () => {
+    if (!img) return;
+
+    const blobs = await Promise.all(
+      points.map((p) =>
+        cropFrameKonva(img, p.x, p.y, frameWidthPx, frameHeightPx),
+      ),
+    );
+
+    const totalBytes = blobs.reduce((sum, b) => sum + b.size, 0);
+
+    console.log("Размер одного кадра (пример):", blobs[0]?.size, "байт");
+    console.log("Общий размер:", totalBytes, "байт");
+    console.log("Общий размер (MB):", (totalBytes / 1024 / 1024).toFixed(2));
+    
+    storyboardsData.point_based.disk_space = totalBytes;
+    storyboardsData.point_based.count_frames = blobs.length;
+
+    const urls = blobs.map((b) => URL.createObjectURL(b));
+    setUrls(urls);
+    return urls; // массив URL для <img src={url} />
+  };
+
   const toggleType = (type: StoryboardType) => {
     setActiveType((prev) => (prev === type ? null : type));
   };
 
-  const handleApply = () => {
-    console.log(
-      "Применить раскадровку:",
-      activeType,
-      "Размер кадра:",
-      frameSize,
-    );
+  const handleApply = async () => {
+    if (activeType === "point") {
+      setLoading(true);
+      try {
+        await extractFrames();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const handleReset = () => {
-    setFrameSize(100);
+    setUrls([]);
     console.log("Сброс параметров для:", activeType);
   };
 
   return (
     <Box display="flex" flexDirection="column" height="100%" width="100%">
+      {/* Спиннер */}
+      {loading && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(255, 255, 255, 0.7)", // Полупрозрачный фон
+            zIndex: 9999, // Спиннер будет поверх всего контента
+            flexDirection: "column",
+          }}
+        >
+          <CircularProgress />
+          <Typography
+            variant="h6"
+            sx={{ mt: 2, color: "#014488ff", fontWeight: 500 }} // отступ сверху, цвет и жирность
+          >
+            Пожалуйста, подождите...
+          </Typography>
+        </Box>
+      )}
       {/* Header */}
       <Box
         display="flex"
@@ -217,10 +323,20 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
 
             {/* Кнопки применить/сбросить */}
             <Stack direction="row" spacing={1}>
-              <Button size="small" variant="contained" fullWidth onClick={handleApply}>
+              <Button
+                size="small"
+                variant="contained"
+                fullWidth
+                onClick={handleApply}
+              >
                 Применить
               </Button>
-              <Button size="small" variant="outlined" fullWidth onClick={handleReset}>
+              <Button
+                size="small"
+                variant="outlined"
+                fullWidth
+                onClick={handleReset}
+              >
                 Сбросить
               </Button>
             </Stack>
@@ -244,12 +360,14 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
             points={points}
             obstacles={obstacles}
             trajectoryData={trajectoryData}
+            frameWidthPx={frameWidthPx}
+            frameHeightPx={frameHeightPx}
             showPoints
             showObstacles
             showTaxons
           />
           <StoryboardTimeline
-            frames={frames}
+            frames={urls}
             selectedIndex={selectedFrame}
             onSelect={setSelectedFrame}
           />

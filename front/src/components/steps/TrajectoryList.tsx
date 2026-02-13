@@ -26,11 +26,28 @@ import {
   Delete as DeleteIcon,
 } from "@mui/icons-material";
 import { useNavigate, useSearchParams } from "react-router";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
+import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
+import ScatterPlotIcon from "@mui/icons-material/ScatterPlot";
+import PersonIcon from "@mui/icons-material/Person";
 
 import PageContainer from "../PageContainer";
 import { TrajectorySchema } from "../../api/client";
 import { russianLocale } from "../../constants";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
+import { api } from "../../api/client";
+
+const BASE_URL = "http://nmstuvtip.ddns.net:5000";
+
+type MethodType = "METHOD_1" | "METHOD_2" | "USER";
+
+interface MethodConfig {
+  label: string;
+  icon: React.ReactNode;
+  color: "success" | "secondary" | "default";
+  tooltip: string;
+}
 
 export default function TrajectoryList() {
   const navigate = useNavigate();
@@ -54,15 +71,40 @@ export default function TrajectoryList() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
 
+  const METHOD_CONFIG: Record<string, MethodConfig> = {
+    METHOD_1: {
+      label: "low-d",
+      icon: <FiberManualRecordIcon fontSize="small" />,
+      color: "success",
+      tooltip: "Маленькая плотность точек",
+    },
+    METHOD_2: {
+      label: "high-d",
+      icon: <ScatterPlotIcon fontSize="small" />,
+      color: "secondary",
+      tooltip: "Большая плотность точек",
+    },
+    default: {
+      label: "user",
+      icon: <PersonIcon fontSize="small" />,
+      color: "default",
+      tooltip: "Пользовательская траектория",
+    },
+  };
+
+  const getMethodConfig = React.useCallback((type: string): MethodConfig => {
+    return METHOD_CONFIG[type] ?? METHOD_CONFIG.default;
+  }, []);
+
   // Маппинг метода на читабельный label
   const getMethodLabel = React.useCallback((type: string) => {
     switch (type) {
       case "METHOD_1":
-        return "Метод 1";
+        return "low-d";
       case "METHOD_2":
-        return "Метод 2";
+        return "high-d";
       default:
-        return "Не указан";
+        return "user";
     }
   }, []);
 
@@ -78,6 +120,7 @@ export default function TrajectoryList() {
         row.schemaName.toLowerCase().includes(lowerSearch) ||
         String(row.pointCount).toLowerCase().includes(lowerSearch) ||
         String(row.distanceToCamera).toLowerCase().includes(lowerSearch) ||
+        String(row.flightTime).toLowerCase().includes(lowerSearch) ||
         methodLabel.includes(lowerSearch)
       );
     });
@@ -111,19 +154,8 @@ export default function TrajectoryList() {
     setError(null);
     setIsLoading(true);
     try {
-      const testRows: TrajectorySchema[] = Array.from(
-        { length: 100 },
-        (_, i) => ({
-          id: String(i + 1),
-          schemaName: `Тестовая схема облёта №${i + 1}`,
-          schemaImage: `https://placehold.co/${300 + i * 10}x200`,
-          pointCount: 20 + i,
-          distanceToCamera: 10 + i * 1.5,
-          methodType: i % 2 === 0 ? "METHOD_1" : "METHOD_2",
-        }),
-      );
-
-      setRowsState({ rows: testRows, rowCount: testRows.length });
+      const response = await api.schemas.getAll();
+      setRowsState({ rows: response, rowCount: response.length });
     } catch (fetchError) {
       setError(fetchError as Error);
     } finally {
@@ -158,7 +190,7 @@ export default function TrajectoryList() {
       {
         field: "schemaName",
         headerName: "Имя схемы",
-        width: 300,
+        width: 180,
         minWidth: 180,
         renderCell: (params) => (
           <span>{highlightText(params.value as string, searchText)}</span>
@@ -175,13 +207,13 @@ export default function TrajectoryList() {
           value ? (
             <Box
               component="img"
-              src={value}
+              src={`${BASE_URL}/${value}`} // Добавляем URL бэкенда перед значением
               alt="Схема"
               sx={{
                 width: "100%",
                 height: 80,
                 objectFit: "contain",
-                borderRadius: 1,
+                borderRadius: 2,
               }}
             />
           ) : (
@@ -194,7 +226,9 @@ export default function TrajectoryList() {
         field: "pointCount",
         headerName: "Точки, шт",
         type: "number",
-        width: 150,
+        width: 120,
+        flex: 0.3,
+
         align: "right",
         headerAlign: "right",
         renderCell: (params) => (
@@ -205,7 +239,9 @@ export default function TrajectoryList() {
         field: "distanceToCamera",
         headerName: "Расстояние, м",
         type: "number",
-        width: 200,
+        width: 150,
+        flex: 0.3,
+
         align: "right",
         headerAlign: "right",
         renderCell: (params) => (
@@ -213,27 +249,60 @@ export default function TrajectoryList() {
         ),
       },
       {
+        field: "flightTime",
+        headerName: "Время, мин",
+        type: "number",
+        width: 120,
+        flex: 0.3,
+
+        align: "right",
+        headerAlign: "right",
+        renderCell: (params) => (
+          <span>{highlightText(String(params.value), searchText)}</span>
+        ),
+      },
+      {
+        field: "isWeatherConditions",
+        headerName: "Учёт погоды",
+        width: 120,
+        flex: 0.3,
+        align: "right",
+        headerAlign: "right",
+        renderCell: (params) => (
+          <Tooltip
+            title={params.value ? "Погода учтена" : "Погода не учтена"}
+            arrow
+          >
+            {params.value ? (
+              <CheckCircleIcon sx={{ color: "#2e7d32" }} />
+            ) : (
+              <CancelIcon sx={{ color: "#9e9e9e" }} />
+            )}
+          </Tooltip>
+        ),
+      },
+      {
         field: "methodType",
         headerName: "Тип метода",
         minWidth: 150,
-        flex: 0.6,
+        flex: 0.3,
         sortable: true,
         align: "center",
         headerAlign: "center",
         renderCell: (params) => {
-          const value = params.row.methodType;
-          const chip = {
-            label: getMethodLabel(value),
-            color: value === "METHOD_1" ? "info" : "secondary",
-          };
+          const config = getMethodConfig(params.row.methodType);
+
           return (
-            <Chip
-              size="small"
-              label={highlightText(chip.label, searchText)}
-              color={chip.color}
-              variant="filled"
-              sx={{ fontWeight: 500, minWidth: 90 }}
-            />
+            <Tooltip title={`${config.tooltip}`} arrow>
+              <Chip
+                size="small"
+                icon={config.icon}
+                label={highlightText(config.label, searchText)}
+                color={config.color}
+                variant="outlined"
+                sx={{ fontWeight: 500, minWidth: 90 }}
+              />
+            </Tooltip>
           );
         },
       },
@@ -347,7 +416,6 @@ export default function TrajectoryList() {
               },
               [`& .${gridClasses.columnHeader}:focus-within, & .${gridClasses.cell}:focus-within`]:
                 { outline: "none" },
-              [`& .${gridClasses.row}:hover`]: { cursor: "pointer" },
               [`& .${gridClasses.cell}`]: {
                 whiteSpace: "normal",
                 wordBreak: "break-word",
@@ -367,6 +435,19 @@ export default function TrajectoryList() {
                 top: 0,
                 zIndex: 10,
                 backgroundColor: "background.paper",
+              },
+              "& .MuiDataGrid-row:nth-of-type(odd)": {
+                backgroundColor: "#f5f5f5", // Цвет для нечетных строк
+              },
+              "& .MuiDataGrid-row:nth-of-type(even)": {
+                backgroundColor: "#ffffff", // Цвет для четных строк
+              },
+              [`& .${gridClasses.row}:hover`]: {
+                backgroundColor: "#337EFF11",
+                cursor: "pointer",
+              },
+              [`& .${gridClasses.row}`]: {
+                transition: "background-color 0.3s ease", // Плавный переход для фона
               },
             }}
           />

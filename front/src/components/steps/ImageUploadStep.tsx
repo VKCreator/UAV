@@ -245,7 +245,12 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
               <TableCell sx={{ fontWeight: "bold", width: "50%" }}>
                 {title}
               </TableCell>
-              <TableCell sx={{ fontWeight: "bold", width: "50%" }}>
+              <TableCell
+                sx={{
+                  fontWeight: "bold",
+                  width: "50%",
+                }}
+              >
                 Значение
               </TableCell>
             </TableRow>
@@ -257,7 +262,12 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
                   {key.charAt(0).toUpperCase() +
                     key.slice(1).replace(/([A-Z])/g, " $1")}
                 </TableCell>
-                <TableCell>
+                <TableCell
+                  sx={{
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                  }}
+                >
                   {value === undefined || value === null || value === ""
                     ? "—"
                     : key === "width" || key === "height"

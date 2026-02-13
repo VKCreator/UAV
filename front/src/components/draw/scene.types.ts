@@ -18,6 +18,6 @@ export interface Polygon {
 export interface ImageData {
   imageUrl: string;
   fileName: string;
-  width?: number;
-  height?: number;
+  width: number;
+  height: number;
 }

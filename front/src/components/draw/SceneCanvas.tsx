@@ -8,7 +8,7 @@ import {
   Line,
   Arrow,
   Text,
-  Rect
+  Rect,
 } from "react-konva";
 import useImage from "use-image";
 
@@ -19,8 +19,8 @@ const STAGE_HEIGHT = 700;
 
 const TAXON_POINT_RADIUS = 10;
 const BASE_RADIUS = 4;
-const POINT_RECT_WIDTH = 150;   // ширина рамки
-const POINT_RECT_HEIGHT = 75;  // высота рамки
+const POINT_RECT_WIDTH = 150; // ширина рамки
+const POINT_RECT_HEIGHT = 75; // высота рамки
 interface SceneCanvasProps {
   imageData: { imageUrl: string };
 
@@ -31,6 +31,9 @@ interface SceneCanvasProps {
   showPoints?: boolean;
   showObstacles?: boolean;
   showTaxons?: boolean;
+
+  frameWidthPx: number;
+  frameHeightPx: number;
 }
 
 const colors = [
@@ -58,6 +61,8 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
   showPoints = true,
   showObstacles = true,
   showTaxons = true,
+  frameWidthPx,
+  frameHeightPx,
 }) => {
   const stageRef = useRef<any>(null);
   const [image] = useImage(imageData.imageUrl);
@@ -126,14 +131,16 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
             points.map((p, i) => {
               const x = p.x * scaleToFit + imageX;
               const y = p.y * scaleToFit + imageY;
+              const scaledFrameWidth = frameWidthPx * scaleToFit;
+              const scaledFrameHeight = frameHeightPx * scaleToFit;
 
               return (
                 <Fragment key={`p-${i}`}>
                   <Rect
-                    x={x - POINT_RECT_WIDTH / 2} // смещаем, чтобы точка была в центре
-                    y={y - POINT_RECT_HEIGHT / 2}
-                    width={POINT_RECT_WIDTH}
-                    height={POINT_RECT_HEIGHT}
+                    x={x - scaledFrameWidth / 2} // смещаем, чтобы точка была в центре
+                    y={y - scaledFrameHeight / 2}
+                    width={scaledFrameWidth}
+                    height={scaledFrameHeight}
                     stroke="black" // рамка
                     strokeWidth={2}
                     fill="#ff000022" // прозрачный фон

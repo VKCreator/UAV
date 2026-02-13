@@ -6,6 +6,8 @@ import { useSearchParams } from "react-router";
 import { Fab, Zoom, useScrollTrigger } from "@mui/material";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { useRef } from "react";
+
+
 export default function TrajectoryDetails() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -41,6 +43,7 @@ export default function TrajectoryDetails() {
         imageData={null}
         exifData={[]}
         onClose={handleClose}
+        weatherConditions={null}
       ></FlightSchemaPage>
       <Zoom in={true}>
         <Box

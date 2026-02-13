@@ -24,10 +24,8 @@ import {
 } from "@mui/material";
 
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ViewListIcon from "@mui/icons-material/ViewList";
 import RouteIcon from "@mui/icons-material/Route";
 import SettingsIcon from "@mui/icons-material/Settings";
-import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 
 import useNotifications from "../../hooks/useNotifications/useNotifications";
@@ -35,12 +33,10 @@ import useNotifications from "../../hooks/useNotifications/useNotifications";
 import { api, Drone } from "../../api/client";
 
 import UavSelector from "../ui-widgets/UavSelector";
-import UavParamsDialog, { UavParams } from "../ui-widgets/UavParamsDialog";
+import UavParamsDialog from "../ui-widgets/UavParamsDialog";
 import type { Polygon, Point, ImageData } from "../draw/scene.types";
 import type { DroneParams, UAVCameraParams } from "../../types/uav.types";
 
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import CancelIcon from "@mui/icons-material/Cancel";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import { DeleteButton } from "../ui-widgets/DeleteButton";
@@ -85,16 +81,9 @@ export default function FlightPlanningAccordion({
   const [loading, setLoading] = React.useState(true);
 
   const [openUavParams, setOpenUavParams] = React.useState(false);
-  const [initialUavParams, setInitialUavParams] =
-    React.useState<UAVCameraParams>({
-      fov: droneParams.uavParams.fov,
-      resolutionWidth: droneParams.uavParams.resolutionWidth,
-      resolutionHeight: droneParams.uavParams.resolutionHeight,
-      useFromReference: droneParams.uavParams.useFromReference,
-    });
 
   const [uavCameraParams, setUavCameraParams] = React.useState<UAVCameraParams>(
-    droneParams.uavParams,
+    droneParams.uavCameraParams,
   );
 
   const [uavParams, setUavParams] = React.useState<any>({
@@ -142,15 +131,13 @@ export default function FlightPlanningAccordion({
 
   const handleUavParamsOpen = () => {
     setOpenUavParams(true);
-    setInitialUavParams(uavCameraParams);
   };
 
   const handleUavParamsClose = () => {
     setOpenUavParams(false);
-    setUavCameraParams(initialUavParams);
   };
 
-  const handleUavParamsSave = (params: UavParams) => {
+  const handleUavParamsSave = (params: UAVCameraParams) => {
     updateSource.current = "user";
 
     setUavCameraParams(params);
@@ -163,107 +150,111 @@ export default function FlightPlanningAccordion({
     setSelectedDroneId(String(drone.id));
 
     setUavCameraParams({
-      fov: drone.fov_vertical || 77,
-      resolutionWidth: drone.resolution_width || 5472,
-      resolutionHeight: drone.resolution_height || 3648,
+      fov: drone.fov_vertical,
+      resolutionWidth: drone.resolution_width,
+      resolutionHeight: drone.resolution_height,
       useFromReference: true,
     });
 
-    setUavParams({
-      speed: drone.min_speed! * 5,
-      batteryTime: drone.battery_life,
-      hoverTime: uavParams.hoverTime,
-      windResistance: drone.max_wind_resistance,
-      considerObstacles: uavParams.considerObstacles,
-      model: drone.model
-    });
-  };
-
-  const handleUseFromReferenceChange = (checked: boolean) => {
-    if (checked) {
-      const drone = drones.find((d) => String(d.id) === selectedDroneId);
-      if (drone) {
-        setUavCameraParams({
-          fov: drone.fov_vertical || 77,
-          resolutionWidth: drone.resolution_width || 5472,
-          resolutionHeight: drone.resolution_height || 3648,
-          useFromReference: true,
-        });
-        // setUavParams({
-        //   speed: drone.min_speed! * 5,
-        //   batteryTime: drone.battery_life,
-        //   hoverTime: uavParams.hoverTime,
-        //   windResistance: drone.max_wind_resistance,
-        //   considerObstacles: uavParams.considerObstacles,
-        // });
-      }
-    }
+    setUavParams((prev: any) => ({
+      ...prev,
+      speed: (drone.min_speed ?? 0) * 5,
+      batteryTime: drone.battery_life ?? 0,
+      windResistance: drone.max_wind_resistance ?? 0,
+      model: drone.model,
+    }));
   };
 
   React.useEffect(() => {
+    let isMounted = true;
+
     const fetchDrones = async () => {
       try {
         const cached = sessionStorage.getItem(DRONES_CACHE_KEY);
-        let data: Drone[] = [];
+
+        let dronesData: Drone[];
 
         if (cached) {
-          data = JSON.parse(cached);
-          setDrones(JSON.parse(cached));
+          dronesData = JSON.parse(cached);
         } else {
-          data = await api.drones.getAll();
-          sessionStorage.setItem(DRONES_CACHE_KEY, JSON.stringify(data));
-          setDrones(data);
+          dronesData = await api.drones.getAll();
+          sessionStorage.setItem(DRONES_CACHE_KEY, JSON.stringify(dronesData));
         }
 
-        if (data.length > 0) {
-          const id = Number(droneParams?.selectedDroneId);
-          if (Number.isFinite(id)) {
-            setUavCameraParams(droneParams.uavParams);
-            setSelectedDroneId(String(droneParams.selectedDroneId));
-          } else {
-            let first = data[0];
+        if (!isMounted) return;
 
-            setUavCameraParams({
-              fov: first.fov_vertical || 77,
-              resolutionWidth: first.resolution_width || 5472,
-              resolutionHeight: first.resolution_height || 3648,
-              useFromReference: true,
-            });
-
-            setSelectedDroneId(String(first.id));
-            setUavParams({
-              speed: first.min_speed! * 5,
-              batteryTime: first.battery_life,
-              hoverTime: uavParams.hoverTime,
-              windResistance: first.max_wind_resistance,
-              considerObstacles: uavParams.considerObstacles,
-              model: first.model
-            });
-          }
-
-          setDroneParams((prev: DroneParams) => ({
-            ...prev,
-            selectedDroneId: selectedDroneId,
-            frameHeightBase,
-            frameWidthBase,
-            frameHeightPlanned,
-            frameWidthPlanned,
-            distance,
-            plannedDistance,
-            uavParams: uavCameraParams,
-          }));
+        if (!dronesData.length) {
+          setLoading(false);
+          return;
         }
+
+        setDrones(dronesData);
+
+        // ----------------------------
+        // Определяем какой дрон выбрать
+        // ----------------------------
+        const requestedId = Number(droneParams?.selectedDroneId);
+
+        const selectedDrone = Number.isFinite(requestedId)
+          ? (dronesData.find((d) => d.id === requestedId) ?? dronesData[0])
+          : dronesData[0];
+
+        if (!selectedDrone) return;
+
+        const newSelectedId = String(selectedDrone.id);
+
+        const newCameraParams = {
+          fov: selectedDrone.fov_vertical,
+          resolutionWidth: selectedDrone.resolution_width,
+          resolutionHeight: selectedDrone.resolution_height,
+          useFromReference: true,
+        };
+
+        const newUavParams = {
+          speed: (selectedDrone.min_speed ?? 0) * 5,
+          batteryTime: selectedDrone.battery_life ?? 0,
+          windResistance: selectedDrone.max_wind_resistance ?? 0,
+          model: selectedDrone.model,
+        };
+
+        // ----------------------------
+        // Обновляем состояния
+        // ----------------------------
+        setSelectedDroneId(newSelectedId);
+        setUavCameraParams(newCameraParams);
+
+        setUavParams((prev: any) => ({
+          ...prev,
+          ...newUavParams,
+        }));
+
+        setDroneParams((prev) => ({
+          ...prev,
+          selectedDroneId: newSelectedId,
+          uavCameraParams: newCameraParams,
+          ...newUavParams,
+          frameHeightBase,
+          frameWidthBase,
+          frameHeightPlanned,
+          frameWidthPlanned,
+        }));
       } catch (error) {
         notifications.show("Не удалось загрузить список БПЛА", {
           severity: "error",
           autoHideDuration: 3000,
         });
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchDrones();
+
+    return () => {
+      isMounted = false; // защита от memory leak
+    };
   }, []);
 
   React.useEffect(() => {
@@ -279,16 +270,16 @@ export default function FlightPlanningAccordion({
         frameWidthPlanned,
         distance,
         plannedDistance,
-        uavParams: uavCameraParams,
+        uavCameraParams: uavCameraParams,
         speed: uavParams.speed,
         windResistance: uavParams.windResistance,
         hoverTime: uavParams.hoverTime,
         considerObstacles: uavParams.considerObstacles,
         batteryTime: uavParams.batteryTime,
-        model: uavParams.model
+        model: uavParams.model,
       });
     }
-  }, [selectedDroneId, distance, plannedDistance, uavCameraParams]);
+  }, [selectedDroneId, distance, plannedDistance, uavCameraParams, uavParams]);
 
   return (
     <Box sx={{ width: "100%" }}>
@@ -593,11 +584,11 @@ export default function FlightPlanningAccordion({
 
       <UavParamsDialog
         open={openUavParams}
-        onOpen={handleUavParamsOpen}
         onClose={handleUavParamsClose}
         onSave={handleUavParamsSave}
         initialValues={uavCameraParams}
-        onUseFromReferenceChange={handleUseFromReferenceChange}
+        drones={drones}
+        selectedDroneId={selectedDroneId}
       />
     </Box>
   );

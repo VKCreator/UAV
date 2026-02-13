@@ -247,8 +247,7 @@ export default function DronesList() {
             loading={isLoading}
             pageSizeOptions={[5, 10, 25]}
             // getRowHeight={() => "auto"}
-                        rowHeight={50}
-
+            rowHeight={50}
             // columnHeaderHeight={80}
             localeText={russianLocale}
             sx={{
@@ -259,9 +258,6 @@ export default function DronesList() {
                 {
                   outline: "none",
                 },
-              [`& .${gridClasses.row}:hover`]: {
-                cursor: "pointer",
-              },
               ["& .MuiDataGrid-columnHeaders"]: {
                 position: "sticky",
                 top: 0,
@@ -288,6 +284,20 @@ export default function DronesList() {
                 wordBreak: "break-word",
                 // textAlign: "center",
                 lineHeight: "1.3",
+              },
+
+              "& .MuiDataGrid-row:nth-of-type(odd)": {
+                backgroundColor: "#f5f5f5", // Цвет для нечетных строк
+              },
+              "& .MuiDataGrid-row:nth-of-type(even)": {
+                backgroundColor: "#ffffff", // Цвет для четных строк
+              },
+              [`& .${gridClasses.row}:hover`]: {
+                backgroundColor: "#337EFF11",
+                cursor: "pointer",
+              },
+              [`& .${gridClasses.row}`]: {
+                transition: "background-color 0.3s ease", // Плавный переход для фона
               },
             }}
             slotProps={{

@@ -19,7 +19,7 @@ export interface DroneParams {
   plannedDistance: number;
 
   /** Параметры камеры БПЛА */
-  uavParams: UAVCameraParams;
+  uavCameraParams: UAVCameraParams;
 
   speed: number;
 

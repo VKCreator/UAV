@@ -70,12 +70,12 @@ const AppIcon: React.FC<AppIconProps> = ({
             color: "#014488ff",
             fontWeight: 600,
             fontFamily: "Roboto, Arial, sans-serif",
-            fontSize: "16px",
+            fontSize: "20px",
             letterSpacing: "0.3px",
             whiteSpace: "nowrap",
           }}
         >
-          SkyPath UAV Service
+          SkyPath Service
         </Typography>
       </Box>
     </Link>

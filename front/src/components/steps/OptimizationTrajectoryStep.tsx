@@ -39,6 +39,7 @@ import type {
   DroneParams,
   FlightSettings,
 } from "../../types/uav.types";
+import type { Storyboard, Storyboards } from "../../types/storyboards.types";
 
 import { HelpIconTooltip } from "../ui-widgets/HelpIconTooltip";
 import { DeleteButton } from "../ui-widgets/DeleteButton";
@@ -111,6 +112,12 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     "small" | "large"
   >("small");
 
+  const [storyboardsData, setStoryboardsData] = React.useState<Storyboards>({
+    point_based: { count_frames: 0, disk_space: 0, total_flight_time: 0 },
+    recommended: { count_frames: 0, disk_space: 0, total_flight_time: 0 },
+    optimal: { count_frames: 0, disk_space: 0, total_flight_time: 0 },
+  });
+
   const [flightSettings, setFlightSettings] = React.useState<FlightSettings>({
     flightSpeed: droneParams.speed,
     batteryTime: droneParams.batteryTime,
@@ -122,7 +129,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     useWeatherApi: weatherConditions.useWeatherApi,
     lat: weatherConditions.position.lat,
     lon: weatherConditions.position.lon,
-    model: droneParams.model
+    model: droneParams.model,
   });
 
   const sceneUserTrajectoryShower = useRef<{ handleDownload: () => void }>(
@@ -170,7 +177,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       hoverTime: droneParams.hoverTime,
       batteryTime: droneParams.batteryTime,
       obstacles: [],
-      windResistance: droneParams.windResistance
+      windResistance: droneParams.windResistance,
     };
 
     try {
@@ -555,9 +562,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             points={points}
             obstacles={obstacles}
             trajectoryData={trajectoryData}
-            framesCount={15}
-            memoryMb={10}
-            flightTimeSec={100}
+            droneParams={droneParams}
+            storyboardsData={storyboardsData}
           />
         </DialogContent>
       </Dialog>

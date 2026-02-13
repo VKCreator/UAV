@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
+  CircularProgress,
 } from "@mui/material";
 
 import EditIcon from "@mui/icons-material/Edit";
@@ -23,6 +24,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 
 import { useDialogs } from "../../hooks/useDialogs/useDialogs";
 import { useNavigate } from "react-router";
+import useNotifications from "../../hooks/useNotifications/useNotifications";
 
 import ImageUploadStep from "./ImageUploadStep";
 import BuildTrajectoryStep from "./BuildTrajectoryStep";
@@ -38,12 +40,15 @@ import type { Opt1TrajectoryData } from "../../types/optTrajectory.types";
 
 import { Fab, Zoom, useScrollTrigger } from "@mui/material";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import { api } from "../../api/client";
 
 const TrajectoryStepper: React.FC<{
   onSubmit: () => void;
   onReset: () => void;
 }> = ({ onSubmit, onReset }) => {
   const navigate = useNavigate();
+  const notifications = useNotifications();
+
   const { confirm } = useDialogs();
 
   const [activeStep, setActiveStep] = React.useState(0);
@@ -76,7 +81,7 @@ const TrajectoryStepper: React.FC<{
     distance: 75,
     plannedDistance: 15,
     considerObstacles: true,
-    uavParams: {
+    uavCameraParams: {
       fov: 77,
       resolutionWidth: 5472,
       resolutionHeight: 3648,
@@ -110,6 +115,8 @@ const TrajectoryStepper: React.FC<{
 
   // Step 4
   const [openPreviewPage, setPreviewPage] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [fadeOut, setFadeOut] = React.useState(false); // Состояние для анимации
 
   const handleImageUpload = (newFiles: File[], newExif: ExifData[]) => {
     setFiles(newFiles);
@@ -137,6 +144,60 @@ const TrajectoryStepper: React.FC<{
     }
   };
 
+  const handleCreateSchema = React.useCallback(async () => {
+    try {
+      if (!files[0]) {
+        notifications.show("Не выбрано изображение", {
+          severity: "error",
+        });
+        return;
+      }
+
+      const formData = new FormData();
+
+      formData.append("schemaName", schemaName);
+      formData.append("image", files[0]); // сам файл
+      formData.append("pointsCount", String(points.length));
+      formData.append("distance", String(droneParams.distance));
+      formData.append("flightTime", String(15));
+      formData.append("method", "METHOD_1");
+      formData.append("isWeatherConditions", String(true));
+
+      setLoading(true); // Включаем спиннер
+
+      await api.schemas.create(formData);
+
+      setFadeOut(true);
+      // Ждём окончания анимации, затем отключаем спиннер
+      setTimeout(() => {
+        setLoading(false); // Скрываем спиннер
+        navigate("/trajectories"); // Переход на другую страницу
+        notifications.show("Схема полётов создана", {
+          severity: "success",
+          autoHideDuration: 3000,
+        });
+      }, 1000); // Задержка перед навигацией (по времени, равному анимации)
+
+      navigate("/trajectories");
+    } catch (error) {
+      setLoading(false); // Скрываем спиннер
+      notifications.show(
+        `Не удалось создать схему. Причина: ${(error as Error).message}`,
+        {
+          severity: "error",
+          autoHideDuration: 5000,
+        },
+      );
+    }
+  }, [
+    schemaName,
+    files,
+    points.length,
+    droneParams.distance,
+    navigate,
+    notifications,
+  ]);
+
   const steps = [
     "Загрузка базового слоя",
     "Построение траектории",
@@ -160,7 +221,7 @@ const TrajectoryStepper: React.FC<{
 
   const handleBackClick = React.useCallback(async () => {
     const shouldNavigate = await confirm(
-      "Вы хотите прервать создание карты полетов?",
+      "Вы хотите прервать создание схемы полетов?",
       {
         title: "Подтверждение", // Заголовок окна
         okText: "Да", // Кнопка подтверждения
@@ -315,8 +376,38 @@ const TrajectoryStepper: React.FC<{
         flexDirection: "column",
         height: "calc(100vh - 90px)",
         overflow: "hidden",
+        // position: "relative",
       }}
     >
+      {/* Спиннер */}
+      {loading && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(255, 255, 255, 0.7)", // Полупрозрачный фон
+            zIndex: 9999, // Спиннер будет поверх всего контента
+            flexDirection: "column",
+            opacity: fadeOut ? 0 : 1, // Плавное исчезновение
+            transition: "opacity 1s ease", // Плавное исчезновение за 1 секунды
+          }}
+        >
+          <CircularProgress />
+          <Typography
+            variant="h6"
+            sx={{ mt: 2, color: "#014488ff", fontWeight: 500 }} // отступ сверху, цвет и жирность
+          >
+            Пожалуйста, подождите...
+          </Typography>
+        </Box>
+      )}
+
       <Box
         sx={{
           flexShrink: 0,
@@ -422,7 +513,9 @@ const TrajectoryStepper: React.FC<{
             <span>
               <Button
                 onClick={
-                  activeStep === steps.length - 1 ? onSubmit : handleNext
+                  activeStep === steps.length - 1
+                    ? handleCreateSchema
+                    : handleNext
                 }
                 variant="contained"
                 color="primary"
@@ -510,6 +603,7 @@ const TrajectoryStepper: React.FC<{
             onClose={() => {
               setPreviewPage(false);
             }}
+            weatherConditions={weatherConditions}
           />
           <Zoom in={true}>
             <Box

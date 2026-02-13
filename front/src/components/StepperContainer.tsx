@@ -36,7 +36,7 @@ export default function StepperContainer(props: StepperContainerProps) {
 
   const handleBackClick = React.useCallback(async () => {
     const shouldNavigate = await confirm(
-      "Вы хотите прервать создание карты полетов?",
+      "Вы хотите прервать создание схемы полетов?",
       {
         title: "Подтверждение", // Заголовок окна
         okText: "Да", // Кнопка подтверждения

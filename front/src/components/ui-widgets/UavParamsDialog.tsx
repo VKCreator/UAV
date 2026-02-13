@@ -14,39 +14,35 @@ import {
   Divider,
 } from "@mui/material";
 
-export interface UavParams {
-  fov: number;
-  resolutionWidth: number;
-  resolutionHeight: number;
-  useFromReference: boolean;
-}
+import type { Drone } from "../../api/client";
+import type { UAVCameraParams } from "../../types/uav.types";
 
 interface UavParamsDialogProps {
   open: boolean;
-  onOpen: () => void;
   onClose: () => void;
-  onSave: (params: UavParams) => void;
-  initialValues: UavParams;
-  onUseFromReferenceChange: (checked: boolean) => void;
+  onSave: (params: UAVCameraParams) => void;
+  initialValues: UAVCameraParams;
+  drones: Drone[];
+  selectedDroneId: string | number | undefined;
 }
 
 export default function UavParamsDialog({
   open,
-  onOpen,
   onClose,
   onSave,
   initialValues,
-  onUseFromReferenceChange,
+  drones,
+  selectedDroneId,
 }: UavParamsDialogProps) {
   const [fov, setFov] = React.useState<number>(initialValues.fov);
   const [resolutionWidth, setResolutionWidth] = React.useState<number>(
-    initialValues.resolutionWidth
+    initialValues.resolutionWidth,
   );
   const [resolutionHeight, setResolutionHeight] = React.useState<number>(
-    initialValues.resolutionHeight
+    initialValues.resolutionHeight,
   );
   const [useFromReference, setUseFromReference] = React.useState<boolean>(
-    initialValues.useFromReference
+    initialValues.useFromReference,
   );
 
   // Сбрасываем локальное состояние при открытии
@@ -56,22 +52,34 @@ export default function UavParamsDialog({
       setResolutionWidth(initialValues.resolutionWidth);
       setResolutionHeight(initialValues.resolutionHeight);
       setUseFromReference(initialValues.useFromReference);
-    //   onOpen();
     }
-  }, [open, initialValues, onOpen]);
+  }, [open]);
+
+  const handleUseFromReferenceChange = (checked: boolean) => {
+    if (checked) {
+      const drone = drones.find((d) => String(d.id) === selectedDroneId);
+      if (drone != undefined) {
+        setFov(drone.fov_vertical);
+        setResolutionWidth(drone.resolution_width);
+        setResolutionHeight(drone.resolution_height);
+        setUseFromReference(true);
+      }
+    }
+  };
 
   const handleSave = () => {
-    console.info("handleSave", fov)
     onSave({
       fov,
       resolutionWidth,
       resolutionHeight,
       useFromReference,
     });
-    // onClose();
   };
 
-  const handleClose = (_: object, reason: "backdropClick" | "escapeKeyDown") => {
+  const handleClose = (
+    _: object,
+    reason: "backdropClick" | "escapeKeyDown",
+  ) => {
     if (reason === "escapeKeyDown" || reason === "backdropClick") {
       return; // игнорируем
     }
@@ -81,7 +89,7 @@ export default function UavParamsDialog({
   return (
     <Dialog
       open={open}
-      onClose={handleClose} // ← используем кастомный обработчик
+      onClose={handleClose}
       maxWidth="sm"
       fullWidth
     >
@@ -123,14 +131,19 @@ export default function UavParamsDialog({
           disabled={useFromReference}
         />
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Базовый слой не должен быть обрезанным изображением или после преобразований. Разрешения фотокамеры должны совпадать с разрешениями базового слоя.
+          Базовый слой не должен быть обрезанным изображением или после
+          преобразований. Разрешения фотокамеры должны совпадать с разрешениями
+          базового слоя.
         </Typography>
         <Box>
           <FormControlLabel
             control={
               <Checkbox
                 checked={useFromReference}
-                onChange={(e) => {onUseFromReferenceChange(e.target.checked); setUseFromReference(e.target.checked);}}
+                onChange={(e) => {
+                  handleUseFromReferenceChange(e.target.checked);
+                  setUseFromReference(e.target.checked);
+                }}
               />
             }
             label="Применять значения из справочника"
