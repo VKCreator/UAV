@@ -1,4 +1,4 @@
-import { FC, useState, JSX } from "react";
+import { FC, useState, JSX, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -7,13 +7,21 @@ import {
   IconButton,
   Stack,
   CircularProgress,
+  TextField,
+  ToggleButton,
+  Paper,
+  Alert,
 } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 
 import CircleIcon from "@mui/icons-material/Circle";
 import RecommendIcon from "@mui/icons-material/Recommend";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import DeleteIcon from "@mui/icons-material/Delete";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { CheckCircle as CheckCircleIcon } from "@mui/icons-material";
+import CheckIcon from "@mui/icons-material/Check";
+import HighlightAltIcon from "@mui/icons-material/HighlightAlt";
 
 import SceneCanvas from "./SceneCanvas";
 import StoryboardTimeline from "./StoryboardTimeline";
@@ -32,11 +40,12 @@ interface StoryboardEditorProps {
   trajectoryData?: any;
 
   droneParams: DroneParams;
-  storyboardsData: Storyboards;
 
-  // framesCount: number;
-  // memoryMb: number;
-  // flightTimeSec: number;
+  storyboardsData: Storyboards;
+  setStoryboardsData: React.Dispatch<React.SetStateAction<Storyboards>>;
+
+  framesUrlsPointBased: string[];
+  setFramesUrlsPointBased: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 type StoryboardType = "point" | "recommended" | "optimal";
@@ -54,7 +63,8 @@ const typeConfigs: Record<
   recommended: {
     label: "Рекомендуемая",
     icon: <RecommendIcon fontSize="small" />,
-    description: "Формируется на основе всего фасада исследуемого объекта.",
+    description:
+      "Формируется на основе всей площади поверхности исследуемого объекта.",
   },
   optimal: {
     label: "Оптимальная",
@@ -90,10 +100,26 @@ const cropFrameKonva = (
     layer.add(konvaImage);
     layer.draw();
 
-    stage.toCanvas().toBlob((blob: any) => {
-      if (blob) resolve(blob);
-    });
+    stage.toCanvas().toBlob(
+      (blob: any) => {
+        if (blob) resolve(blob);
+      },
+      "image/jpeg",
+      1,
+    ); // or png?
   });
+};
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  } else if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(2)} KB`;
+  } else if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  } else {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
 };
 
 const StoryboardEditor: FC<StoryboardEditorProps> = ({
@@ -104,14 +130,25 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   trajectoryData,
   droneParams,
   storyboardsData,
+  setStoryboardsData,
+  framesUrlsPointBased,
+  setFramesUrlsPointBased,
 }) => {
   const [activeType, setActiveType] = useState<StoryboardType | null>("point");
   const [selectedFrame, setSelectedFrame] = useState(0);
-  const [frameSize, setFrameSize] = useState(100);
-  const [urls, setUrls] = useState<any>([]);
 
   const [loading, setLoading] = useState(false);
-  const [fadeOut, setFadeOut] = useState(false); // Состояние для анимации
+
+  const [applyPointBasedStoryboard, setApplyPointBasedStoryboard] =
+    useState<boolean>(false);
+  const [applyRecommendedStoryboard, setApplyRecommendedStoryboard] =
+    useState<boolean>(false);
+  const [applyOptimalStoryboard, setApplyOptimalStoryboard] =
+    useState<boolean>(false);
+  const [isSelecting, setIsSelecting] = useState(false); // Управление режимом выбора области
+  const handleSelectAreaClick = () => {
+    setIsSelecting(!isSelecting); // Переключаем режим выбора области
+  };
 
   const frameWidthPx =
     imageData.width /
@@ -120,15 +157,10 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     imageData.height /
     (droneParams.frameHeightBase / droneParams.frameHeightPlanned);
 
-  const frames = points.map((p, i) => ({
-    id: `frame-${i}`,
-    index: i,
-    time: i * 2,
-  }));
-
   const [img] = useImage(imageData.imageUrl);
 
   const extractFrames = async () => {
+    console.error(img);
     if (!img) return;
 
     const blobs = await Promise.all(
@@ -142,13 +174,21 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     console.log("Размер одного кадра (пример):", blobs[0]?.size, "байт");
     console.log("Общий размер:", totalBytes, "байт");
     console.log("Общий размер (MB):", (totalBytes / 1024 / 1024).toFixed(2));
-    
-    storyboardsData.point_based.disk_space = totalBytes;
-    storyboardsData.point_based.count_frames = blobs.length;
 
-    const urls = blobs.map((b) => URL.createObjectURL(b));
-    setUrls(urls);
-    return urls; // массив URL для <img src={url} />
+    setStoryboardsData((prev) => ({
+      ...prev,
+      point_based: {
+        ...prev.point_based,
+        disk_space: totalBytes,
+        count_frames: blobs.length,
+      },
+    }));
+
+    const urls = blobs.map((b) => {
+      return URL.createObjectURL(b);
+    });
+    setFramesUrlsPointBased(urls);
+    return urls;
   };
 
   const toggleType = (type: StoryboardType) => {
@@ -156,22 +196,54 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   };
 
   const handleApply = async () => {
+    console.error(activeType);
     if (activeType === "point") {
       setLoading(true);
       try {
         await extractFrames();
+        setApplyPointBasedStoryboard(true);
+        storyboardsData.point_based.applied = true;
       } catch (e) {
         console.error(e);
       } finally {
         setLoading(false);
       }
-    }
+    } else if (activeType == "recommended") setApplyRecommendedStoryboard(true);
+    else if (activeType == "optimal") setApplyOptimalStoryboard(true);
   };
 
+  const handleResetInterestArea = () => {};
+
   const handleReset = () => {
-    setUrls([]);
+    framesUrlsPointBased.map((u: string) => URL.revokeObjectURL(u));
+
+    setFramesUrlsPointBased([]);
+
+    if (activeType == "point") {
+      setApplyPointBasedStoryboard(false);
+      setStoryboardsData((prev) => ({
+        ...prev,
+        point_based: {
+          ...prev.point_based,
+          applied: false,
+          count_frames: null,
+          disk_space: null,
+        },
+      }));
+    }
+
     console.log("Сброс параметров для:", activeType);
   };
+
+  useEffect(() => {
+    console.error(storyboardsData.point_based);
+    // if (storyboardsData.point_based.applied) handleApply();
+
+    return () => {
+      // framesUrlsPointBased.map((u: string) => URL.revokeObjectURL(u));
+      // setFramesUrlsPointBased([]);
+    };
+  }, [img]);
 
   return (
     <Box display="flex" flexDirection="column" height="100%" width="100%">
@@ -293,52 +365,301 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
         {/* Панель инструментов для выбранного типа */}
         {activeType && (
           <Box
-            width={250}
+            width={350}
             borderRight="1px solid"
             borderColor="divider"
             p={2}
             display="flex"
             flexDirection="column"
             gap={2}
+            overflow="auto"
           >
-            <Typography variant="subtitle1">
+            <Typography variant="subtitle1" fontWeight={600}>
               {typeConfigs[activeType].label}
             </Typography>
+
             <Typography variant="body2" color="text.secondary">
               {typeConfigs[activeType].description}
             </Typography>
 
-            {/* Размер кадра */}
-            <Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+            {/* ---------------- Размер кадра ---------------- */}
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ textTransform: "uppercase", letterSpacing: 0.5 }}
+              >
                 Размер кадра
               </Typography>
-              {/* <input
-                type="number"
-                value={frameSize}
-                onChange={(e) => setFrameSize(Number(e.target.value))}
-                style={{ width: "100%" }}
-              /> */}
+
+              <Stack spacing={1} mt={1}>
+                <Typography color="text.secondary" fontWeight={600}>
+                  {droneParams.frameWidthPlanned.toFixed(2)} ×{" "}
+                  {droneParams.frameHeightPlanned.toFixed(2)} м
+                </Typography>
+                <Typography color="text.secondary" fontWeight={600}>
+                  {frameWidthPx.toFixed(2)} × {frameHeightPx.toFixed(2)} px
+                </Typography>
+              </Stack>
             </Box>
 
-            {/* Кнопки применить/сбросить */}
-            <Stack direction="row" spacing={1}>
+            {activeType === "recommended" && (
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: "background.paper",
+                  border: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ textTransform: "uppercase", letterSpacing: 0.5 }}
+                  gutterBottom
+                >
+                  Параметры
+                </Typography>
+
+                <Stack spacing={1.5} mt={1}>
+                  <Box
+                    display="flex"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Шаг по ширине, м
+                    </Typography>
+                    <TextField
+                      type="number"
+                      value={storyboardsData?.recommended?.step_x || ""}
+                      onChange={(e) =>
+                        setStoryboardsData((prev) => ({
+                          ...prev,
+                          recommended: {
+                            ...prev.recommended,
+                            step_x: Number(e.target.value),
+                          },
+                        }))
+                      }
+                      variant="outlined" // variant для оформления (outlined, filled, etc.)
+                      size="small" // Размер поля
+                      sx={{ width: 120, textAlign: "right" }} // Стиль: задаём размер и выравнивание
+                      InputProps={{
+                        inputMode: "numeric", // Для мобильных устройств, чтобы показывалась клавиатура для ввода чисел
+                      }}
+                    />
+                  </Box>
+                  <Box
+                    display="flex"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Шаг по высоте, м
+                    </Typography>
+                    <TextField
+                      type="number"
+                      value={storyboardsData?.recommended?.step_y || ""}
+                      onChange={(e) =>
+                        setStoryboardsData((prev) => ({
+                          ...prev,
+                          recommended: {
+                            ...prev.recommended,
+                            step_y: Number(e.target.value),
+                          },
+                        }))
+                      }
+                      variant="outlined" // variant для оформления (outlined, filled, etc.)
+                      size="small" // Размер поля
+                      sx={{ width: 120, textAlign: "right" }} // Стиль: задаём размер и выравнивание
+                      InputProps={{
+                        inputMode: "numeric", // Для мобильных устройств, чтобы показывалась клавиатура для ввода чисел
+                      }}
+                    />
+                  </Box>
+
+                  {/* Кнопки снизу */}
+                  <Stack direction="row" spacing={2} alignItems="center" mt={2}>
+                    {/* Кнопка для выбора области */}
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ color: isSelecting ? "green" : "text.secondary" }}
+                    >
+                      {isSelecting
+                        ? "Режим выбора области включен"
+                        : "Выбор области исследования"}
+                    </Typography>
+                    <ToggleButton
+                      value="check"
+                      selected={isSelecting}
+                      onChange={() => {
+                        setIsSelecting((prevSelected) => !prevSelected);
+
+                        setApplyRecommendedStoryboard(false);
+                      }}
+                    >
+                      <HighlightAltIcon />
+                    </ToggleButton>
+
+                    {/* Кнопка сброса */}
+                    <IconButton color="error" onClick={handleResetInterestArea}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </Stack>
+
+                  {/* Текст инструкции при включенном режиме выбора */}
+
+                  {isSelecting && (
+                    <Alert
+                      severity="info"
+                      sx={{
+                        mt: 3,
+                        fontSize: "0.7rem", // мелкий текст
+                        borderRadius: 1,
+                        p: 1.5, // паддинг
+                        alignItems: "center",
+                      }}
+                    >
+                      Нажмите на изображение и, удерживая мышь, протяните
+                      область выделения.
+                    </Alert>
+                  )}
+                </Stack>
+              </Box>
+            )}
+
+            {/* ---------------- Свойства раскадровки ---------------- */}
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ textTransform: "uppercase", letterSpacing: 0.5 }}
+                gutterBottom
+              >
+                Свойства раскадровки
+              </Typography>
+
+              <Stack spacing={1.5} mt={1}>
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  gap={1}
+                >
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Box
+                      sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        bgcolor: "#004e9e",
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      Количество кадров
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" fontWeight={500}>
+                    {storyboardsData?.point_based.count_frames
+                      ? `${storyboardsData?.point_based.count_frames} шт.`
+                      : "—"}
+                  </Typography>
+                </Box>
+
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  gap={1}
+                >
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Box
+                      sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        bgcolor: "#004e9e",
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      Объём памяти
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" fontWeight={500}>
+                    {storyboardsData?.point_based.disk_space
+                      ? `${formatFileSize(storyboardsData.point_based.disk_space)}`
+                      : "—"}
+                  </Typography>
+                </Box>
+
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  gap={1}
+                >
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Box
+                      sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        bgcolor: "#004e9e",
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      Время полёта
+                    </Typography>
+                  </Box>
+
+                  <Typography variant="body2" fontWeight={500}>
+                    {storyboardsData?.point_based.total_flight_time
+                      ? `${storyboardsData.point_based.total_flight_time} сек`
+                      : "—"}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Box>
+
+            {/* ---------------- Кнопки ---------------- */}
+            <Stack
+              direction="row"
+              // spacing={2}
+              alignItems="center"
+              justifyContent="space-between"
+            >
               <Button
                 size="small"
                 variant="contained"
-                fullWidth
+                // fullWidth
                 onClick={handleApply}
+                disabled={activeType == "recommended" && isSelecting}
               >
                 Применить
               </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                fullWidth
-                onClick={handleReset}
-              >
-                Сбросить
-              </Button>
+
+              <IconButton color="error" onClick={handleReset}>
+                <DeleteIcon />
+              </IconButton>
             </Stack>
           </Box>
         )}
@@ -362,12 +683,26 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
             trajectoryData={trajectoryData}
             frameWidthPx={frameWidthPx}
             frameHeightPx={frameHeightPx}
-            showPoints
+            showPoints={activeType == "point"}
             showObstacles
-            showTaxons
+            showTaxons={activeType == "optimal"}
+            applyPointBasedStoryboard={
+              applyPointBasedStoryboard && activeType == "point"
+            }
+            applyRecommendedStoryboard={
+              applyRecommendedStoryboard && activeType == "recommended"
+            }
+            applyOptimalStoryboard={
+              applyOptimalStoryboard && activeType == "optimal"
+            }
+            isSelecting={isSelecting}
+            activeType={activeType}
+            width_m={droneParams.frameWidthBase}
+            height_m={droneParams.frameHeightBase}
           />
+
           <StoryboardTimeline
-            frames={urls}
+            frames={framesUrlsPointBased}
             selectedIndex={selectedFrame}
             onSelect={setSelectedFrame}
           />

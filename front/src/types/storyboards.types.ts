@@ -1,8 +1,10 @@
 export interface Storyboard {
-  count_frames: number;
-  disk_space: number;
+  count_frames: number | null;
+  disk_space: number | null;
   step_y?: number;
-  total_flight_time: number;
+  step_x?: number;
+  total_flight_time: number | null;
+  applied: boolean;
 }
 
 export interface Storyboards {

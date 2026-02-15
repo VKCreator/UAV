@@ -37,6 +37,7 @@ import type { ExifData } from "./common.types";
 import type { Point, Polygon } from "../draw/scene.types";
 import type { DroneParams, Weather } from "../../types/uav.types";
 import type { Opt1TrajectoryData } from "../../types/optTrajectory.types";
+import type { Storyboards } from "../../types/storyboards.types";
 
 import { Fab, Zoom, useScrollTrigger } from "@mui/material";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
@@ -65,8 +66,8 @@ const TrajectoryStepper: React.FC<{
   const imageData = {
     imageUrl,
     fileName: files[0]?.name || "",
-    width: exifData[0]?.width,
-    height: exifData[0]?.height,
+    width: exifData[0]?.width || 0,
+    height: exifData[0]?.height || 0,
   };
 
   // Step 2
@@ -112,6 +113,27 @@ const TrajectoryStepper: React.FC<{
   };
   const [weatherConditions, setWeatherConditions] =
     React.useState<Weather>(initWeather);
+
+  const [storyboardsData, setStoryboardsData] = React.useState<Storyboards>({
+    point_based: {
+      count_frames: 0,
+      disk_space: 0,
+      total_flight_time: 0,
+      applied: false,
+    },
+    recommended: {
+      count_frames: 0,
+      disk_space: 0,
+      total_flight_time: 0,
+      applied: false,
+    },
+    optimal: {
+      count_frames: 0,
+      disk_space: 0,
+      total_flight_time: 0,
+      applied: false,
+    },
+  });
 
   // Step 4
   const [openPreviewPage, setPreviewPage] = React.useState(false);
@@ -328,6 +350,8 @@ const TrajectoryStepper: React.FC<{
             setTrajectoryData={setOpt1TrajectoryData}
             weatherConditions={weatherConditions}
             setWeatherConditions={setWeatherConditions}
+            storyboardsData={storyboardsData}
+            setStoryboardsData={setStoryboardsData}
           />
         );
       case 3:

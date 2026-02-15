@@ -69,6 +69,9 @@ interface OptimizationTrajectoryStepProps {
 
   weatherConditions: Weather;
   setWeatherConditions: (data: Weather) => void;
+
+  storyboardsData: Storyboards;
+  setStoryboardsData: React.Dispatch<React.SetStateAction<Storyboards>>;
 }
 
 const colors = [
@@ -98,6 +101,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   setTrajectoryData,
   weatherConditions,
   setWeatherConditions,
+  storyboardsData,
+  setStoryboardsData,
 }) => {
   const [activeImage, setActiveImage] = React.useState(0);
   const [image] = useImage(imageData.imageUrl);
@@ -108,15 +113,11 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   const [openOptimizationDetailDialog, setOpenOptimizationDetailDialog] =
     React.useState(false);
 
+  const [framesUrlsPointBased, setFramesUrlsPointBased] = React.useState<any>([]);
+
   const [optimizationMethod, setOptimizationMethod] = React.useState<
     "small" | "large"
   >("small");
-
-  const [storyboardsData, setStoryboardsData] = React.useState<Storyboards>({
-    point_based: { count_frames: 0, disk_space: 0, total_flight_time: 0 },
-    recommended: { count_frames: 0, disk_space: 0, total_flight_time: 0 },
-    optimal: { count_frames: 0, disk_space: 0, total_flight_time: 0 },
-  });
 
   const [flightSettings, setFlightSettings] = React.useState<FlightSettings>({
     flightSpeed: droneParams.speed,
@@ -564,6 +565,9 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             trajectoryData={trajectoryData}
             droneParams={droneParams}
             storyboardsData={storyboardsData}
+            setStoryboardsData={setStoryboardsData}
+            framesUrlsPointBased={framesUrlsPointBased}
+            setFramesUrlsPointBased={setFramesUrlsPointBased}
           />
         </DialogContent>
       </Dialog>
