@@ -31,10 +31,11 @@ import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import type { Point, Polygon, ImageData } from "../draw/scene.types";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 import { useDialogs } from "../../hooks/useDialogs/useDialogs";
+import { Drone } from "../../api/client";
 
 interface BuildTrajectoryStepProps {
   imageData: ImageData;
-
+  
   points: Point[];
   setPoints: React.Dispatch<React.SetStateAction<Point[]>>;
 
@@ -46,6 +47,8 @@ interface BuildTrajectoryStepProps {
 
   droneParams: any;
   setDroneParams: (params: any) => void;
+
+  drones: Drone[];
 }
 
 const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
@@ -58,7 +61,8 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   setTrajectoryData,
   droneParams,
   setDroneParams,
-}) => {
+  drones
+}) => { 
   const { confirm } = useDialogs();
   const notifications = useNotifications();
 
@@ -93,22 +97,6 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
 
   const downloadScene = () => {
     scenePreviewRef.current?.handleDownload();
-  };
-
-  const handleUpdateDroneParams = (params: any) => {
-    console.info(params);
-    setDroneParams(params);
-
-    if (trajectoryData != null) {
-      notifications.show(
-        "Изменены параметры съёмки. Результаты оптимизации очищены.",
-        {
-          severity: "info",
-          autoHideDuration: 5000,
-        },
-      );
-      setTrajectoryData(null);
-    }
   };
 
   return (
@@ -240,6 +228,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
             <FlightPlanningAccordion
               imageData={imageData}
               points={points}
+              drones={drones}
               obstacles={obstacles}
               onClearObstacles={() => {
                 setObstacles([]);
@@ -255,7 +244,6 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                 setEditorOpen(true);
                 setEditorMode("points");
               }}
-              onUpdateDroneParams={handleUpdateDroneParams}
               setDroneParams={setDroneParams}
               droneParams={droneParams}
             />

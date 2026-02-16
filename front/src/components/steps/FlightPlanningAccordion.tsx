@@ -7,19 +7,9 @@ import {
   Box,
   Paper,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   IconButton,
   Button,
   Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Checkbox,
-  FormControlLabel,
   Chip,
 } from "@mui/material";
 
@@ -30,7 +20,7 @@ import EditIcon from "@mui/icons-material/Edit";
 
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 
-import { api, Drone } from "../../api/client";
+import { Drone } from "../../api/client";
 
 import UavSelector from "../ui-widgets/UavSelector";
 import UavParamsDialog from "../ui-widgets/UavParamsDialog";
@@ -41,85 +31,40 @@ import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import { DeleteButton } from "../ui-widgets/DeleteButton";
 
-const DRONES_CACHE_KEY = "drones-cache-v1";
-
 export default function FlightPlanningAccordion({
   imageData,
   obstacles,
   points,
+  drones,
   onClearObstacles,
   onClearUserTrajectory,
   onEditObstacles,
   onEditUserTrajectory,
-  onUpdateDroneParams,
   droneParams,
   setDroneParams,
 }: {
   imageData: ImageData;
   obstacles: Polygon[];
   points: Point[];
+  drones: Drone[];
   onEditObstacles: () => void;
   onEditUserTrajectory: () => void;
   onClearObstacles: () => void;
   onClearUserTrajectory: () => void;
-  onUpdateDroneParams: (params: DroneParams) => void; // Тип пропса
   droneParams: DroneParams;
   setDroneParams: React.Dispatch<React.SetStateAction<DroneParams>>;
 }) {
-  const notifications = useNotifications();
-  const updateSource = React.useRef<"init" | "props" | "user">("init");
-
   const [expanded, setExpanded] = React.useState<Set<string>>(
     new Set(["panel1"]),
   );
 
-  // Раскадровка и параметры БПЛА
-  const [drones, setDrones] = React.useState<Drone[]>([]);
-  const [selectedDroneId, setSelectedDroneId] = React.useState<
-    string | number | undefined
-  >(droneParams.selectedDroneId);
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = React.useState(drones.length === 0);
 
   const [openUavParams, setOpenUavParams] = React.useState(false);
 
-  const [uavCameraParams, setUavCameraParams] = React.useState<UAVCameraParams>(
-    droneParams.uavCameraParams,
-  );
-
-  const [uavParams, setUavParams] = React.useState<any>({
-    model: droneParams.model,
-    speed: droneParams.speed,
-    hoverTime: droneParams.hoverTime,
-    batteryTime: droneParams.batteryTime,
-    considerObstacles: droneParams.considerObstacles,
-    windResistance: droneParams.windResistance,
-  });
-
-  const [distance, setDistance] = React.useState<number>(droneParams.distance);
-  const [plannedDistance, setPlannedDistance] = React.useState<number>(
-    droneParams.plannedDistance,
-  );
-
-  const calculateFrameSize = (d: number, f: number) => {
-    const fovRad = (f * Math.PI) / 180;
-    return 2 * d * Math.tan(fovRad / 2);
-  };
-
-  const frameHeightBase = calculateFrameSize(distance, uavCameraParams.fov);
-  const frameWidthBase =
-    frameHeightBase *
-    (uavCameraParams.resolutionWidth / uavCameraParams.resolutionHeight);
-  const frameHeightPlanned = calculateFrameSize(
-    plannedDistance,
-    uavCameraParams.fov,
-  );
-  const frameWidthPlanned =
-    frameHeightPlanned *
-    (uavCameraParams.resolutionWidth / uavCameraParams.resolutionHeight);
-
   const isResolutionMatch =
-    uavCameraParams.resolutionWidth === imageData.width &&
-    uavCameraParams.resolutionHeight === imageData.height;
+    droneParams.uavCameraParams.resolutionWidth === imageData.width &&
+    droneParams.uavCameraParams.resolutionHeight === imageData.height;
 
   const togglePanel = (panel: string) => () => {
     setExpanded((prev) => {
@@ -138,148 +83,33 @@ export default function FlightPlanningAccordion({
   };
 
   const handleUavParamsSave = (params: UAVCameraParams) => {
-    updateSource.current = "user";
-
-    setUavCameraParams(params);
-    setOpenUavParams(false);
+    setDroneParams((prev) => ({
+      ...prev,
+      uavCameraParams: params,
+    }));
+    handleUavParamsClose();
   };
 
   const handleDroneChange = (drone: Drone) => {
-    updateSource.current = "user";
-
-    setSelectedDroneId(String(drone.id));
-
-    setUavCameraParams({
-      fov: drone.fov_vertical,
-      resolutionWidth: drone.resolution_width,
-      resolutionHeight: drone.resolution_height,
-      useFromReference: true,
-    });
-
-    setUavParams((prev: any) => ({
+    setDroneParams((prev) => ({
       ...prev,
-      speed: (drone.min_speed ?? 0) * 5,
-      batteryTime: drone.battery_life ?? 0,
-      windResistance: drone.max_wind_resistance ?? 0,
+      selectedDroneId: String(drone.id),
+      uavCameraParams: {
+        fov: drone.fov_vertical,
+        resolutionWidth: drone.resolution_width,
+        resolutionHeight: drone.resolution_height,
+        useFromReference: true,
+      },
+      speed: drone.min_speed,
+      batteryTime: drone.battery_life,
+      windResistance: drone.max_wind_resistance,
       model: drone.model,
     }));
   };
 
   React.useEffect(() => {
-    let isMounted = true;
-
-    const fetchDrones = async () => {
-      try {
-        const cached = sessionStorage.getItem(DRONES_CACHE_KEY);
-
-        let dronesData: Drone[];
-
-        if (cached) {
-          dronesData = JSON.parse(cached);
-        } else {
-          dronesData = await api.drones.getAll();
-          sessionStorage.setItem(DRONES_CACHE_KEY, JSON.stringify(dronesData));
-        }
-
-        if (!isMounted) return;
-
-        if (!dronesData.length) {
-          setLoading(false);
-          return;
-        }
-
-        setDrones(dronesData);
-
-        // ----------------------------
-        // Определяем какой дрон выбрать
-        // ----------------------------
-        const requestedId = Number(droneParams?.selectedDroneId);
-
-        const selectedDrone = Number.isFinite(requestedId)
-          ? (dronesData.find((d) => d.id === requestedId) ?? dronesData[0])
-          : dronesData[0];
-
-        if (!selectedDrone) return;
-
-        const newSelectedId = String(selectedDrone.id);
-
-        const newCameraParams = {
-          fov: selectedDrone.fov_vertical,
-          resolutionWidth: selectedDrone.resolution_width,
-          resolutionHeight: selectedDrone.resolution_height,
-          useFromReference: true,
-        };
-
-        const newUavParams = {
-          speed: (selectedDrone.min_speed ?? 0) * 5,
-          batteryTime: selectedDrone.battery_life ?? 0,
-          windResistance: selectedDrone.max_wind_resistance ?? 0,
-          model: selectedDrone.model,
-        };
-
-        // ----------------------------
-        // Обновляем состояния
-        // ----------------------------
-        setSelectedDroneId(newSelectedId);
-        setUavCameraParams(newCameraParams);
-
-        setUavParams((prev: any) => ({
-          ...prev,
-          ...newUavParams,
-        }));
-
-        setDroneParams((prev) => ({
-          ...prev,
-          selectedDroneId: newSelectedId,
-          uavCameraParams: newCameraParams,
-          ...newUavParams,
-          frameHeightBase,
-          frameWidthBase,
-          frameHeightPlanned,
-          frameWidthPlanned,
-        }));
-      } catch (error) {
-        notifications.show("Не удалось загрузить список БПЛА", {
-          severity: "error",
-          autoHideDuration: 3000,
-        });
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchDrones();
-
-    return () => {
-      isMounted = false; // защита от memory leak
-    };
-  }, []);
-
-  React.useEffect(() => {
-    if (updateSource.current !== "user") return;
-
-    // Отправляем данные обратно в родительский компонент каждый раз, когда изменяются параметры
-    if (onUpdateDroneParams) {
-      onUpdateDroneParams({
-        selectedDroneId,
-        frameHeightBase,
-        frameWidthBase,
-        frameHeightPlanned,
-        frameWidthPlanned,
-        distance,
-        plannedDistance,
-        uavCameraParams: uavCameraParams,
-        speed: uavParams.speed,
-        windResistance: uavParams.windResistance,
-        hoverTime: uavParams.hoverTime,
-        considerObstacles: uavParams.considerObstacles,
-        batteryTime: uavParams.batteryTime,
-        model: uavParams.model,
-      });
-    }
-  }, [selectedDroneId, distance, plannedDistance, uavCameraParams, uavParams]);
+    setLoading(drones.length == 0);
+  }, [drones]);
 
   return (
     <Box sx={{ width: "100%" }}>
@@ -327,7 +157,7 @@ export default function FlightPlanningAccordion({
                   ? "Разрешение базового слоя совпадает с параметрами камеры"
                   : `Несовпадение разрешений:
            изображение ${imageData.width}×${imageData.height} px,
-           камера ${uavCameraParams.resolutionWidth}×${uavCameraParams.resolutionHeight} px`
+           камера ${droneParams.uavCameraParams.resolutionWidth}×${droneParams.uavCameraParams.resolutionHeight} px`
               }
               arrow
               enterDelay={400}
@@ -346,7 +176,7 @@ export default function FlightPlanningAccordion({
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <UavSelector
                 drones={drones}
-                value={String(selectedDroneId)}
+                value={String(droneParams.selectedDroneId)}
                 onChange={handleDroneChange}
                 loading={loading}
               />
@@ -366,17 +196,19 @@ export default function FlightPlanningAccordion({
                 label="Расстояние от объекта до камеры, м"
                 type="number"
                 size="small"
-                value={distance}
+                value={droneParams.distance}
                 onChange={(e) => {
-                  updateSource.current = "user";
-                  setDistance(Number(e.target.value) || 0);
+                  setDroneParams((prev) => ({
+                    ...prev,
+                    distance: Number(e.target.value) || 0,
+                  }));
                 }}
                 inputProps={{ step: 0.1, min: 0.1 }}
                 sx={{ mb: 1.5 }}
               />
               <Typography variant="body2" color="text.secondary">
-                Кадр: {frameWidthBase.toFixed(2)} м ×{" "}
-                {frameHeightBase.toFixed(2)} м
+                Кадр: {droneParams.frameWidthBase.toFixed(2)} м ×{" "}
+                {droneParams.frameHeightBase.toFixed(2)} м
               </Typography>
             </Paper>
 
@@ -389,19 +221,21 @@ export default function FlightPlanningAccordion({
                 label="Расстояние от объекта до камеры, м"
                 type="number"
                 size="small"
-                value={plannedDistance}
+                value={droneParams.plannedDistance}
                 onChange={(e) => {
-                  updateSource.current = "user";
-                  setPlannedDistance(Number(e.target.value) || 0);
+                  setDroneParams((prev) => ({
+                    ...prev,
+                    plannedDistance: Number(e.target.value) || 0,
+                  }));
                 }}
                 slotProps={{
-                  htmlInput: { step: 0.1, min: 0.1, max: distance },
+                  htmlInput: { step: 0.1, min: 0.1, max: droneParams.distance },
                 }}
                 sx={{ mb: 1.5 }}
               />
               <Typography variant="body2" color="text.secondary">
-                Кадр: {frameWidthPlanned.toFixed(2)} м ×{" "}
-                {frameHeightPlanned.toFixed(2)} м
+                Кадр: {droneParams.frameWidthPlanned.toFixed(2)} м ×{" "}
+                {droneParams.frameHeightPlanned.toFixed(2)} м
               </Typography>
             </Paper>
           </Box>
@@ -586,9 +420,9 @@ export default function FlightPlanningAccordion({
         open={openUavParams}
         onClose={handleUavParamsClose}
         onSave={handleUavParamsSave}
-        initialValues={uavCameraParams}
+        initialValues={droneParams.uavCameraParams}
         drones={drones}
-        selectedDroneId={selectedDroneId}
+        selectedDroneId={droneParams.selectedDroneId}
       />
     </Box>
   );

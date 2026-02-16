@@ -295,6 +295,7 @@ export default function TrajectoryList() {
           return (
             <Tooltip title={`${config.tooltip}`} arrow>
               <Chip
+                component="span"
                 size="small"
                 icon={config.icon}
                 label={highlightText(config.label, searchText)}
@@ -336,6 +337,7 @@ export default function TrajectoryList() {
                   color="error"
                   onClick={(e) => e.stopPropagation()}
                   disabled={true}
+                  component="span"
                 >
                   <DeleteIcon fontSize="medium" />
                 </IconButton>

@@ -24,11 +24,9 @@ const useImage = (url: string): [HTMLImageElement | null] => {
 
 interface Props {
   frames: string[];
-  selectedIndex: number;
-  onSelect: (index: number) => void;
 }
 
-const StoryboardTimeline: FC<Props> = ({ frames, selectedIndex, onSelect }) => {
+const StoryboardTimeline: FC<Props> = ({ frames }) => {
   const [open, setOpen] = useState(false);
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
 
@@ -52,9 +50,11 @@ const StoryboardTimeline: FC<Props> = ({ frames, selectedIndex, onSelect }) => {
           borderTop="1px solid #ddd"
           bgcolor="background.paper"
         >
-          <Typography variant="subtitle2" fontWeight={600}>
-            Коллекция кадров ({frames?.length ?? 0} шт.)
-          </Typography>
+          {frames?.length > 0 && (
+            <Typography variant="subtitle2" fontWeight={600}>
+              Коллекция кадров ({frames?.length ?? 0} шт.)
+            </Typography>
+          )}
         </Box>
 
         {/* ---------------- Список кадров ---------------- */}

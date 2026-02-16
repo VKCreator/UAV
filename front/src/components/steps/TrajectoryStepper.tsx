@@ -41,7 +41,7 @@ import type { Storyboards } from "../../types/storyboards.types";
 
 import { Fab, Zoom, useScrollTrigger } from "@mui/material";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
-import { api } from "../../api/client";
+import { api, Drone } from "../../api/client";
 
 const TrajectoryStepper: React.FC<{
   onSubmit: () => void;
@@ -95,12 +95,17 @@ const TrajectoryStepper: React.FC<{
     model: "unknown",
   });
 
-  console.info(droneParams);
-
   // Step 3
   const [opt1TrajectoryData, setOpt1TrajectoryData] =
     React.useState<Opt1TrajectoryData | null>(null);
   const [opt2TrajectoryData, setOpt2TrajectoryData] = React.useState<any>(null);
+
+  const [selection, setSelection] = React.useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   const initWeather: Weather = {
     windSpeed: 10,
@@ -115,25 +120,88 @@ const TrajectoryStepper: React.FC<{
     React.useState<Weather>(initWeather);
 
   const [storyboardsData, setStoryboardsData] = React.useState<Storyboards>({
-    point_based: {
-      count_frames: 0,
-      disk_space: 0,
-      total_flight_time: 0,
+    point: {
+      count_frames: null,
+      disk_space: null,
+      total_flight_time: null,
       applied: false,
     },
     recommended: {
-      count_frames: 0,
-      disk_space: 0,
-      total_flight_time: 0,
+      count_frames: null,
+      disk_space: null,
+      total_flight_time: null,
       applied: false,
     },
     optimal: {
-      count_frames: 0,
-      disk_space: 0,
-      total_flight_time: 0,
+      count_frames: null,
+      disk_space: null,
+      total_flight_time: null,
       applied: false,
     },
   });
+
+  const [framesUrlsPointBased, setFramesUrlsPointBased] = React.useState<any>(
+    [],
+  );
+  const [framesUrlsRecommended, setFramesUrlsRecommended] = React.useState<any>(
+    [],
+  );
+  const [framesUrlsOptimal, setFramesUrlsOptimal] = React.useState<any>([]);
+
+  const [pointsRecommended, setPointsRecommended] = React.useState<any[]>([]);
+
+  // Очистка point-based раскадровки
+  const clearPointBasedStoryboards = () => {
+    setStoryboardsData((prev) => ({
+      ...prev,
+      point: {
+        count_frames: null,
+        disk_space: null,
+        total_flight_time: null,
+        applied: false,
+      },
+    }));
+    framesUrlsPointBased.forEach((url: string) => URL.revokeObjectURL(url)); // освобождаем память от старых URL
+    setFramesUrlsPointBased([]);
+  };
+
+  // Очистка recommended раскадровки
+  const clearRecommendedStoryboards = () => {
+    setStoryboardsData((prev) => ({
+      ...prev,
+      recommended: {
+        count_frames: null,
+        disk_space: null,
+        total_flight_time: null,
+        applied: false,
+      },
+    }));
+    framesUrlsRecommended.forEach((url: string) => URL.revokeObjectURL(url)); // освобождаем память от старых URL
+    setFramesUrlsRecommended([]);
+    setPointsRecommended([]); // если хочешь сбрасывать точки тоже
+    setSelection(null); // сбрасываем выделение
+  };
+
+  // Очистка optimal раскадровки
+  const clearOptimalStoryboards = () => {
+    setStoryboardsData((prev) => ({
+      ...prev,
+      optimal: {
+        count_frames: null,
+        disk_space: null,
+        total_flight_time: null,
+        applied: false,
+      },
+    }));
+    framesUrlsOptimal.forEach((url: string) => URL.revokeObjectURL(url)); // освобождаем память от старых URL
+    setFramesUrlsOptimal([]);
+  };
+
+  const clearAllStoryboards = () => {
+    clearPointBasedStoryboards();
+    clearRecommendedStoryboards();
+    clearOptimalStoryboards();
+  };
 
   // Step 4
   const [openPreviewPage, setPreviewPage] = React.useState(false);
@@ -147,6 +215,8 @@ const TrajectoryStepper: React.FC<{
     setObstacles([]);
     setOpt1TrajectoryData(null);
 
+    clearAllStoryboards();
+
     if (imageUrl) {
       URL.revokeObjectURL(imageUrl);
       setImageUrl(String());
@@ -159,6 +229,8 @@ const TrajectoryStepper: React.FC<{
     setPoints([]);
     setObstacles([]);
     setOpt1TrajectoryData(null);
+
+    clearAllStoryboards();
 
     if (imageUrl) {
       URL.revokeObjectURL(imageUrl);
@@ -282,6 +354,25 @@ const TrajectoryStepper: React.FC<{
   };
 
   React.useEffect(() => {
+    console.warn("points changed", points);
+    clearPointBasedStoryboards();
+    clearOptimalStoryboards();
+  }, [points]);
+
+  React.useEffect(() => {
+    console.warn(
+      "droneParams.frameHeightBase changed",
+      droneParams.frameHeightBase,
+    );
+    clearAllStoryboards();
+  }, [
+    droneParams.frameHeightBase,
+    droneParams.frameWidthBase,
+    droneParams.frameHeightPlanned,
+    droneParams.frameWidthPlanned,
+  ]);
+
+  React.useEffect(() => {
     console.info("new image");
     if (files.length > 0) {
       const url = URL.createObjectURL(files[0]);
@@ -290,13 +381,187 @@ const TrajectoryStepper: React.FC<{
       return () => {
         console.info("useEffect", "clear memory");
         URL.revokeObjectURL(url);
+
+        console.warn("Очищена память!")
+        clearAllStoryboards();
       };
     }
   }, [files]);
 
+  const DRONES_CACHE_KEY = "drones-cache-v1";
+  const [drones, setDrones] = React.useState<Drone[]>([]);
+
+  const calculateFrameSize = (d: number, f: number) => {
+    const fovRad = (f * Math.PI) / 180;
+    return 2 * d * Math.tan(fovRad / 2);
+  };
+
+  React.useEffect(() => {
+    if (droneParams.distance && droneParams.uavCameraParams) {
+      const height = calculateFrameSize(
+        droneParams.distance,
+        droneParams.uavCameraParams.fov,
+      );
+
+      setDroneParams((prev) => ({
+        ...prev,
+        frameHeightBase: height,
+        frameWidthBase:
+          height *
+          (droneParams.uavCameraParams.resolutionWidth /
+            droneParams.uavCameraParams.resolutionHeight),
+      }));
+    }
+  }, [droneParams.distance, droneParams.uavCameraParams]);
+
+  React.useEffect(() => {
+    if (droneParams.plannedDistance && droneParams.uavCameraParams) {
+      const height = calculateFrameSize(
+        droneParams.plannedDistance,
+        droneParams.uavCameraParams.fov,
+      );
+      setDroneParams((prev) => ({
+        ...prev,
+        frameHeightPlanned: height,
+        frameWidthPlanned:
+          height *
+          (droneParams.uavCameraParams.resolutionWidth /
+            droneParams.uavCameraParams.resolutionHeight),
+      }));
+    }
+  }, [droneParams.plannedDistance, droneParams.uavCameraParams]);
+
+  React.useEffect(() => {
+    if (opt1TrajectoryData != null) {
+      notifications.show(
+        "Изменены параметры съёмки. Результаты оптимизации очищены.",
+        {
+          severity: "info",
+          autoHideDuration: 5000,
+        },
+      );
+      setOpt1TrajectoryData(null);
+    }
+
+    if (
+      storyboardsData.point.applied ||
+      storyboardsData.optimal.applied ||
+      storyboardsData.recommended.applied
+    ) {
+      notifications.show(
+        "Изменены параметры БПЛА. Результаты раскадровок очищены.",
+        {
+          severity: "info",
+          autoHideDuration: 5000,
+        },
+      );
+      clearAllStoryboards();
+    }
+  }, [droneParams]);
+
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const fetchDrones = async () => {
+      try {
+        const cached = sessionStorage.getItem(DRONES_CACHE_KEY);
+
+        let dronesData: Drone[];
+
+        if (cached) {
+          dronesData = JSON.parse(cached);
+        } else {
+          dronesData = await api.drones.getAll();
+          sessionStorage.setItem(DRONES_CACHE_KEY, JSON.stringify(dronesData));
+        }
+
+        if (!isMounted) return;
+
+        if (!dronesData.length) {
+          // setLoading(false);
+          return;
+        }
+
+        setDrones(dronesData);
+
+        // ----------------------------
+        // Определяем какой дрон выбрать
+        // ----------------------------
+        const requestedId = Number(droneParams?.selectedDroneId);
+
+        const selectedDrone = Number.isFinite(requestedId)
+          ? (dronesData.find((d) => d.id === requestedId) ?? dronesData[0])
+          : dronesData[0];
+
+        if (!selectedDrone) return;
+
+        const newSelectedId = String(selectedDrone.id);
+
+        const newCameraParams = {
+          fov: selectedDrone.fov_vertical,
+          resolutionWidth: selectedDrone.resolution_width,
+          resolutionHeight: selectedDrone.resolution_height,
+          useFromReference: true,
+        };
+
+        const newUavParams = {
+          speed: (selectedDrone.min_speed ?? 0) * 5,
+          batteryTime: selectedDrone.battery_life ?? 0,
+          windResistance: selectedDrone.max_wind_resistance ?? 0,
+          model: selectedDrone.model,
+        };
+
+        let frameHeightBase = calculateFrameSize(
+          droneParams.distance,
+          droneParams.uavCameraParams.fov,
+        );
+
+        let frameWidthBase =
+          frameHeightBase *
+          (droneParams.uavCameraParams.resolutionWidth /
+            droneParams.uavCameraParams.resolutionHeight);
+
+        let frameHeightPlanned = calculateFrameSize(
+          droneParams.plannedDistance,
+          droneParams.uavCameraParams.fov,
+        );
+        let frameWidthPlanned =
+          frameHeightPlanned *
+          (droneParams.uavCameraParams.resolutionWidth /
+            droneParams.uavCameraParams.resolutionHeight);
+
+        setDroneParams((prev) => ({
+          ...prev,
+          selectedDroneId: newSelectedId,
+          uavCameraParams: newCameraParams,
+          ...newUavParams,
+          frameHeightBase,
+          frameWidthBase,
+          frameHeightPlanned,
+          frameWidthPlanned,
+        }));
+      } catch (error) {
+        notifications.show("Не удалось загрузить список БПЛА", {
+          severity: "error",
+          autoHideDuration: 3000,
+        });
+      } finally {
+        if (isMounted) {
+          // setLoading(false);
+        }
+      }
+    };
+
+    fetchDrones();
+
+    return () => {
+      isMounted = false; // защита от memory leak
+    };
+  }, []);
+
   const isDisabled =
     (activeStep === 0 && imageUrl === "") ||
-    (activeStep === 1 && points.length === 0) ||
+    (activeStep === 1 && (points.length === 0 || drones.length === 0)) ||
     (activeStep == 2 && opt1TrajectoryData == null);
 
   const tooltipTitle =
@@ -333,6 +598,7 @@ const TrajectoryStepper: React.FC<{
             setTrajectoryData={setOpt1TrajectoryData}
             droneParams={droneParams}
             setDroneParams={setDroneParams}
+            drones={drones}
           />
         );
 
@@ -352,6 +618,16 @@ const TrajectoryStepper: React.FC<{
             setWeatherConditions={setWeatherConditions}
             storyboardsData={storyboardsData}
             setStoryboardsData={setStoryboardsData}
+            framesUrlsPointBased={framesUrlsPointBased}
+            setFramesUrlsPointBased={setFramesUrlsPointBased}
+            framesUrlsRecommended={framesUrlsRecommended}
+            setFramesUrlsRecommended={setFramesUrlsRecommended}
+            framesUrlsOptimal={framesUrlsOptimal}
+            setFramesUrlsOptimal={setFramesUrlsOptimal}
+            pointsRecommended={pointsRecommended}
+            setPointsRecommended={setPointsRecommended}
+            selection={selection}
+            setSelection={setSelection}
           />
         );
       case 3:

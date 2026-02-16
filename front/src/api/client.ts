@@ -103,6 +103,18 @@ export const api = {
           `&current_weather=true`,
       ),
   },
+  // Траектория
+  trajectory: {
+    getFlightTime: (points: number[][], v: number, hoverTime: number) =>
+      request<any>("/api/trajectory/flight-time", {
+        method: "POST",
+        body: JSON.stringify({
+          points, // массив вида [[x, y], [x, y]]
+          v,
+          hover_time: hoverTime,
+        }),
+      }),
+  },
 };
 
 // Экспортируем типы

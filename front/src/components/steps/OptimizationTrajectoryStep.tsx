@@ -72,6 +72,21 @@ interface OptimizationTrajectoryStepProps {
 
   storyboardsData: Storyboards;
   setStoryboardsData: React.Dispatch<React.SetStateAction<Storyboards>>;
+
+  framesUrlsPointBased: string[];
+  setFramesUrlsPointBased: React.Dispatch<React.SetStateAction<string[]>>;
+
+  framesUrlsRecommended: string[];
+  setFramesUrlsRecommended: React.Dispatch<React.SetStateAction<string[]>>;
+
+  framesUrlsOptimal: string[];
+  setFramesUrlsOptimal: React.Dispatch<React.SetStateAction<string[]>>;
+
+  pointsRecommended: Point[];
+  setPointsRecommended: React.Dispatch<React.SetStateAction<Point[]>>;
+
+  selection: any;
+  setSelection: React.Dispatch<React.SetStateAction<any>>;
 }
 
 const colors = [
@@ -103,6 +118,16 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   setWeatherConditions,
   storyboardsData,
   setStoryboardsData,
+  framesUrlsPointBased,
+  setFramesUrlsPointBased,
+  framesUrlsRecommended,
+  setFramesUrlsRecommended,
+  framesUrlsOptimal,
+  setFramesUrlsOptimal,
+  pointsRecommended,
+  setPointsRecommended,
+  selection,
+  setSelection,
 }) => {
   const [activeImage, setActiveImage] = React.useState(0);
   const [image] = useImage(imageData.imageUrl);
@@ -112,8 +137,6 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   const [open, setOpen] = React.useState(false);
   const [openOptimizationDetailDialog, setOpenOptimizationDetailDialog] =
     React.useState(false);
-
-  const [framesUrlsPointBased, setFramesUrlsPointBased] = React.useState<any>([]);
 
   const [optimizationMethod, setOptimizationMethod] = React.useState<
     "small" | "large"
@@ -506,7 +529,25 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
               expandIcon={<ExpandMoreIcon />}
               sx={{ flexDirection: "row-reverse", gap: 1 }}
             >
-              <Typography fontWeight={600}>2. Раскадровка</Typography>
+              <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="space-between"
+                width="100%"
+              >
+                {/* Левая часть: заголовок + help */}
+                <Box display="flex" alignItems="center">
+                  <Typography fontWeight={600}>2. Раскадровка</Typography>
+                </Box>
+
+                {/* Правая часть: статус */}
+                <Chip
+                  label={"Опционально"}
+                  size="small"
+                  // color={trajectoryData != null ? "success" : "error"}
+                  variant="outlined"
+                />
+              </Box>
             </AccordionSummary>
 
             <AccordionDetails>
@@ -568,6 +609,14 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             setStoryboardsData={setStoryboardsData}
             framesUrlsPointBased={framesUrlsPointBased}
             setFramesUrlsPointBased={setFramesUrlsPointBased}
+            framesUrlsRecommended={framesUrlsRecommended}
+            setFramesUrlsRecommended={setFramesUrlsRecommended}
+            framesUrlsOptimal={framesUrlsOptimal}
+            setFramesUrlsOptimal={setFramesUrlsOptimal}
+            pointsRecommended={pointsRecommended}
+            setPointsRecommended={setPointsRecommended}
+            selection={selection}
+            setSelection={setSelection}
           />
         </DialogContent>
       </Dialog>

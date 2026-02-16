@@ -1,4 +1,4 @@
-import { FC, Fragment, useRef, useState } from "react";
+import { FC, Fragment, useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 import {
   Stage,
@@ -17,12 +17,14 @@ import type { Point, Polygon, TrajectoryPoint } from "./scene.types";
 const STAGE_WIDTH = 1100;
 const STAGE_HEIGHT = 700;
 
-const TAXON_POINT_RADIUS = 8;
+const TAXON_POINT_RADIUS = 10;
 const BASE_RADIUS = 4;
 interface SceneCanvasProps {
   imageData: { imageUrl: string };
 
   points?: Point[];
+  pointsRecommended?: Point[];
+  pointsOptimal?: Point[];
   obstacles?: Polygon[];
   trajectoryData?: any;
 
@@ -43,11 +45,21 @@ interface SceneCanvasProps {
 
   width_m: number;
   height_m: number;
+
+  selection: any;
+  setSelection: React.Dispatch<React.SetStateAction<any>>;
 }
 
+const getOffsetX = (num: number) => {
+  if (num < 10) return 4;
+  if (num < 100) return 7;
+  return 10;
+};
 const SceneCanvas: FC<SceneCanvasProps> = ({
   imageData,
   points = [],
+  pointsRecommended = [],
+  pointsOptimal = [],
   obstacles = [],
   trajectoryData,
   showPoints = true,
@@ -61,7 +73,9 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
   isSelecting,
   activeType,
   width_m,
-  height_m
+  height_m,
+  selection,
+  setSelection,
 }) => {
   const stageRef = useRef<any>(null);
   const [image] = useImage(imageData.imageUrl);
@@ -81,26 +95,22 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
   const imageY = image ? (STAGE_HEIGHT - image.height * scaleToFit) / 2 : 0;
 
   const [isClickSelecting, setIsClickSelecting] = useState(false);
-  const [selection, setSelection] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
 
   const handleMouseDown = (e: any) => {
-    console.error(applyRecommendedStoryboard);
     if (!isSelecting || activeType != "recommended") return;
 
     const stage = e.target.getStage();
-    const pointer = stage.getRelativePointerPosition();
+    const pointer = stage.getPointerPosition();
 
     if (!pointer) return;
 
+    const imageXCoord = (pointer.x - imageX) / scaleToFit;
+    const imageYCoord = (pointer.y - imageY) / scaleToFit;
+
     setIsClickSelecting(true);
     setSelection({
-      x: pointer.x,
-      y: pointer.y,
+      x: imageXCoord,
+      y: imageYCoord,
       width: 0,
       height: 0,
     });
@@ -112,13 +122,17 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
     if (!isClickSelecting || !selection) return;
 
     const stage = e.target.getStage();
-    const pointer = stage.getRelativePointerPosition();
+    const pointer = stage.getPointerPosition();
+
     if (!pointer) return;
-    console.error("move");
+
+    const imageXCoord = (pointer.x - imageX) / scaleToFit;
+    const imageYCoord = (pointer.y - imageY) / scaleToFit;
+
     setSelection({
       ...selection,
-      width: pointer.x - selection.x,
-      height: pointer.y - selection.y,
+      width: imageXCoord - selection.x,
+      height: imageYCoord - selection.y,
     });
   };
 
@@ -154,104 +168,18 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
     ];
   };
 
-  const generateGridInSelection = () => {
-    if (!selection) return [];
-
-    const scaledFrameWidth = frameWidthPx * scaleToFit;
-    const scaledFrameHeight = frameHeightPx * scaleToFit;
-
-    const stepX = scaledFrameWidth; // шаг по ширине
-    const stepY = scaledFrameHeight; // шаг по высоте
-
-    const points: { x: number; y: number }[] = [];
-
-    // Начинаем с левого нижнего угла
-    const startX = selection.x + scaledFrameWidth / 2;
-    const endX = selection.x + selection.width;
-    let currentY = selection.y + selection.height - scaledFrameHeight / 2;
-    let rowIndex = 0; // Индекс для отслеживания направления движения
-
-    // Пока текущая строка не выйдет за пределы области
-    while (
-      currentY >=
-      selection.y + scaledFrameHeight / 2 - scaledFrameHeight / 2
-    ) {
-      const row: { x: number; y: number }[] = [];
-      let currentX = startX;
-
-      // Заполняем строки
-      while (currentX <= endX) {
-        row.push({ x: currentX, y: currentY });
-        currentX += stepX; // Двигаемся по ширине
-      }
-
-      // Если нечётная строка — разворачиваем
-      if (rowIndex % 2 !== 0) {
-        row.reverse();
-      }
-
-      points.push(...row); // Добавляем строку в итоговый массив
-
-      currentY -= stepY; // Двигаемся вверх на новый ряд
-      rowIndex++;
-    }
-
-    return points;
-  };
-
-  const gridPoints =
-    applyRecommendedStoryboard && selection ? generateGridInSelection() : [];
-  // const generateRecommendedGrid = () => {
-  //   const recommendedYStep = frameHeightPx + 150; // шаг по высоте (в px)
-  //   const recommendedXStep = frameWidthPx - 250; // шаг по ширине (в px)
-
-  //   if (!image || !recommendedYStep || !recommendedXStep) return [];
-
-  //   const rows: { x: number; y: number }[][] = [];
-
-  //   const scaledFrameWidth = frameWidthPx * scaleToFit;
-  //   const scaledFrameHeight = frameHeightPx * scaleToFit;
-  //   const stepY = recommendedYStep * scaleToFit;
-  //   const stepX = recommendedXStep * scaleToFit;
-
-  //   const imgWidth = image.width * scaleToFit;
-  //   const imgHeight = image.height * scaleToFit;
-
-  //   let currentY = imageY + imgHeight - scaledFrameHeight / 2;
-  //   let rowIndex = 0;
-
-  //   // Пока currentY больше верхней границы, продолжаем создавать строки
-  //   while (currentY >= imageY + scaledFrameHeight / 2) {
-  //     const row: { x: number; y: number }[] = [];
-
-  //     let currentX = imageX + scaledFrameWidth / 2;
-
-  //     // Заполняем горизонтальные точки с шагом по X
-  //     while (currentX <= imageX + imgWidth - scaledFrameWidth / 2) {
-  //       row.push({ x: currentX, y: currentY });
-  //       currentX += stepX; // Шаг по X
-  //     }
-
-  //     // Если нечётный ряд, разворачиваем его
-  //     if (rowIndex % 2 !== 0) {
-  //       row.reverse();
-  //     }
-
-  //     rows.push(row);
-
-  //     currentY -= stepY; // Шаг по Y
-  //     rowIndex++;
-  //   }
-
-  //   // Превращаем массив рядов в плоский массив точек
-  //   return rows.flat();
-  // };
   const renderSnakePath = (gridPoints: { x: number; y: number }[]) => {
     const arrows = [];
 
     for (let i = 0; i < gridPoints.length - 1; i++) {
-      const start = gridPoints[i];
-      const end = gridPoints[i + 1];
+      const start = {
+        x: gridPoints[i].x * scaleToFit + imageX,
+        y: gridPoints[i].y * scaleToFit + imageY,
+      };
+      const end = {
+        x: gridPoints[i + 1].x * scaleToFit + imageX,
+        y: gridPoints[i + 1].y * scaleToFit + imageY,
+      };
 
       // Рисуем стрелки между точками
       arrows.push(
@@ -275,6 +203,13 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
     return arrows;
   };
 
+  useEffect(() => {
+    const container = stageRef.current?.container();
+    if (!container) return;
+
+    container.style.cursor = isSelecting ? "pointer" : "default";
+  }, [isSelecting]);
+
   return (
     <Box boxShadow={3} bgcolor="#fff">
       <Stage
@@ -285,7 +220,7 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
         scaleY={scale}
         x={position.x}
         y={position.y}
-        draggable={!isSelecting}
+        // draggable={!isSelecting}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -303,10 +238,10 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
 
           {selection && activeType === "recommended" && (
             <Rect
-              x={selection.x}
-              y={selection.y}
-              width={selection.width}
-              height={selection.height}
+              x={selection.x * scaleToFit + imageX}
+              y={selection.y * scaleToFit + imageY}
+              width={selection.width * scaleToFit}
+              height={selection.height * scaleToFit}
               stroke="orange"
               strokeWidth={2}
               dash={[6, 4]}
@@ -396,12 +331,16 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
 
           {/* Recommended storyboard grid */}
           {applyRecommendedStoryboard &&
-            gridPoints.length > 0 &&
-            gridPoints.map((r, i, arr) => (
+            pointsRecommended.length > 0 &&
+            pointsRecommended.map((r, i, arr) => (
               <Fragment key={`grid-${i}`}>
                 <Rect
-                  x={r.x - (frameWidthPx * scaleToFit) / 2}
-                  y={r.y - (frameHeightPx * scaleToFit) / 2}
+                  x={
+                    r.x * scaleToFit + imageX - (frameWidthPx * scaleToFit) / 2
+                  }
+                  y={
+                    r.y * scaleToFit + imageY - (frameHeightPx * scaleToFit) / 2
+                  }
                   width={frameWidthPx * scaleToFit}
                   height={frameHeightPx * scaleToFit}
                   stroke="#000000"
@@ -409,15 +348,22 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
                   fill="#2ef36f22"
                 />
                 <Circle
-                  x={r.x}
-                  y={r.y}
+                  x={r.x * scaleToFit + imageX}
+                  y={r.y * scaleToFit + imageY}
                   radius={TAXON_POINT_RADIUS}
                   fill="red"
+                />
+                <Text
+                  x={r.x * scaleToFit + imageX - getOffsetX(i + 1)}
+                  y={r.y * scaleToFit + imageY - 6}
+                  text={`${i + 1}`}
+                  fontSize={12}
+                  fill="white"
                 />
               </Fragment>
             ))}
 
-          {applyRecommendedStoryboard && renderSnakePath(gridPoints)}
+          {applyRecommendedStoryboard && renderSnakePath(pointsRecommended)}
 
           {showTaxons &&
             image &&
@@ -544,6 +490,25 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
                   {/* Точки таксона и номера */}
                   {taxonPoints.map((p, i) => (
                     <Fragment key={`taxon-point-${idx}-${i}`}>
+                      {applyOptimalStoryboard && (
+                        <Rect
+                          x={
+                            p.x * scaleToFit +
+                            imageX -
+                            (frameWidthPx * scaleToFit) / 2
+                          }
+                          y={
+                            p.y * scaleToFit +
+                            imageY -
+                            (frameHeightPx * scaleToFit) / 2
+                          }
+                          width={frameWidthPx * scaleToFit}
+                          height={frameHeightPx * scaleToFit}
+                          stroke="#000000"
+                          strokeWidth={2}
+                          fill="#3a5cf322"
+                        />
+                      )}
                       <Circle
                         x={p.x * scaleToFit + imageX}
                         y={p.y * scaleToFit + imageY}

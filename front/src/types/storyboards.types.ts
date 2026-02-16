@@ -8,7 +8,7 @@ export interface Storyboard {
 }
 
 export interface Storyboards {
-  point_based: Storyboard;
+  point: Storyboard;
   recommended: Storyboard;
   optimal: Storyboard;
 }

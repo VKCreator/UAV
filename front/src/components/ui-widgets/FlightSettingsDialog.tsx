@@ -52,9 +52,16 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
   const [mapOpen, setMapOpen] = useState(false);
 
   useEffect(() => {
-    console.info(data);
+    if (!open) return;
+
     setForm(data);
     setErrors({});
+
+    const fetchWeather = async () => {
+      await loadWeather(data.lat, data.lon);
+    };
+
+    if (data.useWeatherApi) fetchWeather();
   }, [data, open]);
 
   const handleDialogClose = (
