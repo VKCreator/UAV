@@ -7,7 +7,6 @@ import { Fab, Zoom, useScrollTrigger } from "@mui/material";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { useRef } from "react";
 
-
 export default function TrajectoryDetails() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -44,6 +43,12 @@ export default function TrajectoryDetails() {
         exifData={[]}
         onClose={handleClose}
         weatherConditions={null}
+        droneParams={null}
+        points={[]} // передаём пустой массив точек
+        obstacles={[]} // передаём пустой массив препятствий
+        trajectoryData={null} // передаём null для данных траектории
+        width_m={0}
+        height_m={0}
       ></FlightSchemaPage>
       <Zoom in={true}>
         <Box

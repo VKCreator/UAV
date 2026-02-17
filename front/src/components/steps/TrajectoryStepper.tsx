@@ -382,7 +382,7 @@ const TrajectoryStepper: React.FC<{
         console.info("useEffect", "clear memory");
         URL.revokeObjectURL(url);
 
-        console.warn("Очищена память!")
+        console.warn("Очищена память!");
         clearAllStoryboards();
       };
     }
@@ -557,6 +557,32 @@ const TrajectoryStepper: React.FC<{
     return () => {
       isMounted = false; // защита от memory leak
     };
+  }, []);
+
+  React.useEffect(() => {
+    if (!weatherConditions.position) return;
+
+    const fetchWeather = async () => {
+      try {
+        const data = await api.weather.getCurrent(
+          weatherConditions.position.lat,
+          weatherConditions.position.lon,
+        );
+
+        setWeatherConditions((prev) => ({
+          ...prev,
+          windSpeed: data.current_weather.windspeed,
+          windDirection: data.current_weather.winddirection,
+        }));
+      } catch (err) {
+        notifications.show("Не удалось получить данные о погоде.", {
+          severity: "error",
+          autoHideDuration: 5000,
+        });
+      }
+    };
+
+    fetchWeather();
   }, []);
 
   const isDisabled =
@@ -904,6 +930,21 @@ const TrajectoryStepper: React.FC<{
               setPreviewPage(false);
             }}
             weatherConditions={weatherConditions}
+            droneParams={droneParams}
+            points={points}
+            obstacles={obstacles}
+            trajectoryData={opt1TrajectoryData}
+            pointsRecommended={pointsRecommended}
+            frameWidthPx={
+              imageData.width /
+              (droneParams.frameWidthBase / droneParams.frameWidthPlanned)
+            }
+            frameHeightPx={
+              imageData.height /
+              (droneParams.frameHeightBase / droneParams.frameHeightPlanned)
+            }
+            storyboardsData={storyboardsData}
+            framesUrlsPointBased={framesUrlsPointBased}
           />
           <Zoom in={true}>
             <Box

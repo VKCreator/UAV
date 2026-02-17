@@ -25,7 +25,7 @@ import CheckIcon from "@mui/icons-material/Check";
 import HighlightAltIcon from "@mui/icons-material/HighlightAlt";
 import HelpIcon from "@mui/icons-material/Help";
 
-import SceneCanvas from "./SceneCanvas";
+import SceneCanvas from "./SceneStoryboardCanvas";
 import StoryboardTimeline from "./StoryboardTimeline";
 import { DroneParams } from "../../types/uav.types";
 import { Storyboards } from "../../types/storyboards.types";
@@ -163,16 +163,8 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   const notifications = useNotifications();
 
   const [activeType, setActiveType] = useState<StoryboardType | null>("point");
-
   const [loading, setLoading] = useState(false);
-
   const [isSelecting, setIsSelecting] = useState(false); // Управление режимом выбора области
-  // const [selection, setSelection] = useState<{
-  //   x: number;
-  //   y: number;
-  //   width: number;
-  //   height: number;
-  // } | null>(null);
 
   const [needUpdateRecommended, setIsNeedUpdateRecommended] = useState(false);
 
@@ -312,7 +304,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
 
   const toggleType = (type: StoryboardType) => {
     setActiveType(type);
-
   };
 
   const handleApply = async () => {
@@ -1264,7 +1255,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
             frameWidthPx={frameWidthPx}
             frameHeightPx={frameHeightPx}
             showPoints={isPointBased}
-            showObstacles
+            showObstacles={true}
             showTaxons={activeType == "optimal"}
             applyPointBasedStoryboard={
               (activeStoryboardData?.applied || false) && activeType == "point"

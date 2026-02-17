@@ -407,6 +407,7 @@ const SceneShower = forwardRef<
           alignItems="center"
           bgcolor="#f4f6f8"
           overflow="auto"
+          sx={{background: "#D3D3D399"}}
           borderRadius={1}
           style={{ cursor: "pointer" }}
           onClick={(e) => {
