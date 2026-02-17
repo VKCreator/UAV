@@ -262,7 +262,7 @@ export default function DashboardSidebar({
               gap: 0.5,
             }}
           >
-            v12.02.2026
+            v17.02.2026
           </Box>
         </Box>
       </React.Fragment>

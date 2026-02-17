@@ -46,6 +46,8 @@ export interface PageContainerProps extends ContainerProps {
   breadcrumbs?: Breadcrumb[];
   actions?: React.ReactNode;
   centerContent?: boolean;
+  pr?: number;
+  pl?: number;
 }
 
 export default function PageContainer(props: PageContainerProps) {
@@ -55,6 +57,8 @@ export default function PageContainer(props: PageContainerProps) {
     title,
     actions = null,
     centerContent = false,
+    pr = 25,
+    pl = 25,
   } = props;
 
   return (
@@ -66,8 +70,8 @@ export default function PageContainer(props: PageContainerProps) {
         sx={{
           flex: 1,
           pt: 5,
-          pl: { xs: 0, sm: 0, md: 3, lg: 25 },
-          pr: { xs: 0, sm: 0, md: 3, lg: 25 },
+          pl: { xs: 0, sm: 0, md: 3, lg: pl },
+          pr: { xs: 0, sm: 0, md: 3, lg: pr },
         }}
         spacing={2}
       >

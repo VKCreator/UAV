@@ -27,6 +27,7 @@ import SceneViewer from "../draw/SceneStoryboardViewer";
 import { Storyboards } from "../../types/storyboards.types";
 import { HelpIconTooltip } from "../ui-widgets/HelpIconTooltip";
 import StoryboardTimeline from "../draw/StoryboardTimeline";
+import PhoneIcon from "@mui/icons-material/Phone";
 
 function Placeholder({ label }: { label: string }) {
   return (
@@ -146,10 +147,21 @@ const FlightSchemaPage: React.FC<Props> = ({
           </IconButton>
         </Tooltip>
       }
+      pr={28}
+      pl={28}
     >
       <Stack spacing={4}>
         {/* Информация о базовом слое */}
-        <Stack spacing={2}>
+        <Stack
+          spacing={2}
+          sx={{
+            borderColor: "divider",
+            borderWidth: 1,
+            borderStyle: "solid",
+            borderRadius: 1,
+            p: 2,
+          }}
+        >
           <Typography variant="h6">Информация о базовом слое</Typography>
           <Stack direction="row" spacing={2}>
             <Box
@@ -292,13 +304,25 @@ const FlightSchemaPage: React.FC<Props> = ({
         <Divider />
 
         {/* Характеристики БПЛА */}
-
-        <Stack spacing={2}>
+        <Stack
+          spacing={2}
+          sx={{
+            borderColor: "divider",
+            borderWidth: 1,
+            borderStyle: "solid",
+            borderRadius: 1,
+            p: 2,
+          }}
+        >
           <Typography variant="h6">
             Характеристики БПЛА и параметры съёмки
           </Typography>
 
-          <Tabs value={droneTab} onChange={(_, v) => setDroneTab(v)}>
+          <Tabs
+            value={droneTab}
+            onChange={(_, v) => setDroneTab(v)}
+            sx={{ borderBottom: 1, borderColor: "divider" }}
+          >
             <Tab label="Общие" />
             <Tab label="Камера" />
             <Tab label="Съёмка" />
@@ -307,144 +331,358 @@ const FlightSchemaPage: React.FC<Props> = ({
           <Box minHeight={160} sx={{ mt: 2 }}>
             {/* ----------------- Общие ----------------- */}
             {droneTab === 0 && droneParams && (
-              <Stack spacing={1}>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Модель:
-                  </Box>{" "}
-                  {droneParams.model || "Не задана"}
-                </Typography>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Рабочая скорость:
-                  </Box>{" "}
-                  {droneParams.speed.toFixed(2)} м/с
-                </Typography>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Время работы батареи:
-                  </Box>{" "}
-                  {droneParams.batteryTime.toFixed(2)} мин
-                </Typography>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Время зависания для фото:
-                  </Box>{" "}
-                  {droneParams.hoverTime.toFixed(2)} с
-                </Typography>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Устойчивость к ветру:
-                  </Box>{" "}
-                  {droneParams.windResistance.toFixed(2)} м/с
-                </Typography>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  flexWrap="wrap"
-                  alignItems="center"
-                >
-                  <Box component="span" fontWeight={600}>
-                    Учитывать препятствия при оптимизации:
-                  </Box>
-                  <Chip
-                    size="small"
+              <Grid container spacing={2}>
+                {/* Модель */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
                     variant="outlined"
-                    label={droneParams.considerObstacles ? "Да" : "Нет"}
-                    color={droneParams.considerObstacles ? "success" : "error"}
-                  />
-                </Stack>
-              </Stack>
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Модель
+                    </Typography>
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.model || "Не задана"}
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Рабочая скорость */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Рабочая скорость
+                    </Typography>
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.speed.toFixed(2)} м/с
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Время работы батареи */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Время работы батареи
+                    </Typography>
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.batteryTime.toFixed(2)} мин
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Время зависания */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Время зависания для фото
+                    </Typography>
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.hoverTime.toFixed(2)} с
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Устойчивость к ветру */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Устойчивость к ветру
+                    </Typography>
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.windResistance.toFixed(2)} м/с
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Учитывать препятствия */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Учитывать препятствия
+                    </Typography>
+
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={droneParams.considerObstacles ? "Да" : "Нет"}
+                      color={
+                        droneParams.considerObstacles ? "success" : "error"
+                      }
+                    />
+                  </Card>
+                </Grid>
+              </Grid>
             )}
 
             {/* ----------------- Камера ----------------- */}
             {droneTab === 1 && droneParams && (
-              <Stack spacing={1}>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Вертикальный угол обзора (FOV):
-                  </Box>{" "}
-                  {droneParams.uavCameraParams.fov.toFixed(2)}°
-                </Typography>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Разрешение по ширине:
-                  </Box>{" "}
-                  {droneParams.uavCameraParams.resolutionWidth.toFixed(2)} px
-                </Typography>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Разрешение по высоте:
-                  </Box>{" "}
-                  {droneParams.uavCameraParams.resolutionHeight.toFixed(2)} px
-                </Typography>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  flexWrap="wrap"
-                  alignItems="center"
-                >
-                  <Box component="span" fontWeight={600}>
-                    Данные взяты из справочника:
-                  </Box>
-                  <Chip
-                    size="small"
+              <Grid container spacing={2}>
+                {/* Вертикальный угол обзора */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
                     variant="outlined"
-                    label={
-                      droneParams.uavCameraParams.useFromReference
-                        ? "Да"
-                        : "Нет"
-                    }
-                    color={
-                      droneParams.uavCameraParams.useFromReference
-                        ? "success"
-                        : "error"
-                    }
-                  />
-                </Stack>
-              </Stack>
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Вертикальный угол обзора (FOV)
+                    </Typography>
+
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.uavCameraParams.fov.toFixed(2)}°
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Разрешение по ширине */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Разрешение по ширине
+                    </Typography>
+
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.uavCameraParams.resolutionWidth.toFixed(0)}{" "}
+                      px
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Разрешение по высоте */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Разрешение по высоте
+                    </Typography>
+
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.uavCameraParams.resolutionHeight.toFixed(0)}{" "}
+                      px
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Данные из справочника */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Данные взяты из справочника
+                    </Typography>
+
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={
+                        droneParams.uavCameraParams.useFromReference
+                          ? "Да"
+                          : "Нет"
+                      }
+                      color={
+                        droneParams.uavCameraParams.useFromReference
+                          ? "success"
+                          : "error"
+                      }
+                    />
+                  </Card>
+                </Grid>
+              </Grid>
             )}
 
             {/* ----------------- Съёмка ----------------- */}
             {droneTab === 2 && droneParams && (
-              <Stack spacing={1}>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Расстояние от камеры до объекта на базовом слое:
-                  </Box>{" "}
-                  {droneParams.distance.toFixed(2)} м
-                </Typography>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Планируемое расстояние от камеры до объекта:
-                  </Box>{" "}
-                  {droneParams.plannedDistance.toFixed(2)} м
-                </Typography>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Базовая ширина кадра:
-                  </Box>{" "}
-                  {droneParams.frameWidthBase.toFixed(2)} м
-                </Typography>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Базовая высота кадра:
-                  </Box>{" "}
-                  {droneParams.frameHeightBase.toFixed(2)} м
-                </Typography>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Планируемая ширина кадра:
-                  </Box>{" "}
-                  {droneParams.frameWidthPlanned.toFixed(2)} м
-                </Typography>
-                <Typography>
-                  <Box component="span" fontWeight={600}>
-                    Планируемая высота кадра:
-                  </Box>{" "}
-                  {droneParams.frameHeightPlanned.toFixed(2)} м
-                </Typography>
-              </Stack>
+              <Grid container spacing={2}>
+                {/* Расстояние до объекта (базовый слой) */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Расстояние до объекта (базовый слой)
+                    </Typography>
+
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.distance.toFixed(2)} м
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Планируемое расстояние */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Планируемое расстояние до объекта
+                    </Typography>
+
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.plannedDistance.toFixed(2)} м
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Базовая ширина кадра */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Базовая ширина кадра
+                    </Typography>
+
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.frameWidthBase.toFixed(2)} м
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Базовая высота кадра */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Базовая высота кадра
+                    </Typography>
+
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.frameHeightBase.toFixed(2)} м
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Планируемая ширина кадра */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Планируемая ширина кадра
+                    </Typography>
+
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.frameWidthPlanned.toFixed(2)} м
+                    </Typography>
+                  </Card>
+                </Grid>
+
+                {/* Планируемая высота кадра */}
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Планируемая высота кадра
+                    </Typography>
+
+                    <Typography variant="h6" fontWeight={600}>
+                      {droneParams.frameHeightPlanned.toFixed(2)} м
+                    </Typography>
+                  </Card>
+                </Grid>
+              </Grid>
             )}
           </Box>
         </Stack>
@@ -452,7 +690,16 @@ const FlightSchemaPage: React.FC<Props> = ({
         <Divider />
 
         {/* Пользовательская траектория */}
-        <Stack spacing={2}>
+        <Stack
+          spacing={2}
+          sx={{
+            borderColor: "divider",
+            borderWidth: 1,
+            borderStyle: "solid",
+            borderRadius: 1,
+            p: 2,
+          }}
+        >
           <Typography variant="h6">Пользовательская траектория</Typography>
 
           <Stack direction="row" spacing={2}>
@@ -486,11 +733,15 @@ const FlightSchemaPage: React.FC<Props> = ({
               <Tabs
                 value={userTrajectoryTab}
                 onChange={(_, v) => setUserTrajectoryTab(v)}
-                sx={{ mb: 2 }}
+                sx={{
+                  borderBottom: 1,
+                  borderColor: "divider",
+                  mb: 1,
+                }}
               >
-                <Tab label="Препятствия" />
-                <Tab label="Линия взлёта" />
-                <Tab label="Точки" />
+                <Tab label="Препятствия" iconPosition="start" />
+                <Tab label="Линия взлёта" iconPosition="start" />
+                <Tab label="Точки" iconPosition="start" />
               </Tabs>
 
               {/* Контейнер с прокруткой на всю оставшуюся высоту */}
@@ -535,7 +786,16 @@ const FlightSchemaPage: React.FC<Props> = ({
         <Divider />
 
         {/* Место и погодные условия полёта */}
-        <Stack spacing={2}>
+        <Stack
+          spacing={2}
+          sx={{
+            borderColor: "divider",
+            borderWidth: 1,
+            borderStyle: "solid",
+            borderRadius: 1,
+            p: 2,
+          }}
+        >
           <Typography variant="h6">Место и погодные условия полёта</Typography>
 
           <Stack direction="row" spacing={2}>
@@ -694,12 +954,22 @@ const FlightSchemaPage: React.FC<Props> = ({
         <Divider />
 
         {/* Оптимизация траектории */}
-        <Stack spacing={2}>
+        <Stack
+          spacing={2}
+          sx={{
+            borderColor: "divider",
+            borderWidth: 1,
+            borderStyle: "solid",
+            borderRadius: 1,
+            p: 2,
+          }}
+        >
           <Typography variant="h6">Оптимизация траектории</Typography>
 
           <Tabs
             value={optimizationTab}
             onChange={(_, v) => setOptimizationTab(v)}
+            sx={{ borderBottom: 1, borderColor: "divider" }}
           >
             <Tab label="Метод 1" />
             <Tab label="Метод 2" />
@@ -724,10 +994,23 @@ const FlightSchemaPage: React.FC<Props> = ({
         <Divider />
 
         {/* Раскадровка */}
-        <Stack spacing={2}>
+        <Stack
+          spacing={2}
+          sx={{
+            borderColor: "divider",
+            borderWidth: 1,
+            borderStyle: "solid",
+            borderRadius: 1,
+            p: 2,
+          }}
+        >
           <Typography variant="h6">Раскадровка</Typography>
 
-          <Tabs value={storyboardTab} onChange={(_, v) => setStoryboardTab(v)}>
+          <Tabs
+            value={storyboardTab}
+            onChange={(_, v) => setStoryboardTab(v)}
+            sx={{ borderBottom: 1, borderColor: "divider" }}
+          >
             <Tab label="Точечная" />
             <Tab label="Рекомендуемая" />
             <Tab label="Оптимальная" />
@@ -868,7 +1151,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                     </Box>
                   </Stack>
                   <Box
-                    sx={{overflowX: "auto", overflowY: "hidden"}} // добавляем горизонтальный скролл
+                    sx={{ overflowX: "auto", overflowY: "hidden" }} // добавляем горизонтальный скролл
                   >
                     <Box>
                       <StoryboardTimeline frames={framesUrlsPointBased} />
@@ -921,7 +1204,16 @@ const FlightSchemaPage: React.FC<Props> = ({
         <Divider />
 
         {/* Сравнение оптимизаций */}
-        <Stack spacing={2} pb={5}>
+        <Stack
+          spacing={2}
+          sx={{
+            borderColor: "divider",
+            borderWidth: 1,
+            borderStyle: "solid",
+            borderRadius: 1,
+            p: 2,
+          }}
+        >
           <Typography variant="h6">Сравнение оптимизаций</Typography>
 
           <Stack direction="row" spacing={2}>
@@ -933,6 +1225,8 @@ const FlightSchemaPage: React.FC<Props> = ({
             </Box>
           </Stack>
         </Stack>
+
+        <Box height="15px"></Box>
       </Stack>
     </PageContainer>
   );
