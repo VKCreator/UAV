@@ -5,8 +5,11 @@ import { useNavigate } from "react-router";
 import { useSearchParams } from "react-router";
 import { Fab, Zoom, useScrollTrigger } from "@mui/material";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 
+import { api
+  
+ } from "../../api/client";
 export default function TrajectoryDetails() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -33,6 +36,24 @@ export default function TrajectoryDetails() {
   const handleClick = () => {
     containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  useEffect(() => {
+    const verifyToken = async () => {
+      try {
+        const result = await api.auth.check();
+
+        if (!result) {
+          navigate("/login");
+        }
+      } catch (error) {
+        api.auth.logout();
+        navigate("/login");
+      }
+    };
+
+    verifyToken();
+  }, [navigate]);
+
   return (
     <Box
       sx={{ height: "100%", overflow: "auto", maxHeight: "100%" }}

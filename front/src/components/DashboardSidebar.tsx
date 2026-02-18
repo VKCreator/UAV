@@ -25,6 +25,10 @@ import MenuIcon from "@mui/icons-material/Menu";
 import MenuOpenIcon from "@mui/icons-material/MenuOpen";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import Avatar from "@mui/material/Avatar";
+import { api } from "../api/client";
+import { useNavigate } from "react-router";
 
 export interface DashboardSidebarProps {
   logo?: React.ReactNode;
@@ -45,6 +49,7 @@ export default function DashboardSidebar({
   menuOpen,
   onToggleMenu,
 }: DashboardSidebarProps) {
+  const navigate = useNavigate();
   const theme = useTheme();
 
   const { pathname } = useLocation();
@@ -117,7 +122,7 @@ export default function DashboardSidebar({
     (newExpanded: boolean) => () => {
       setExpanded(newExpanded);
     },
-    [setExpanded]
+    [setExpanded],
   );
 
   const handlePageItemClick = React.useCallback(
@@ -126,15 +131,15 @@ export default function DashboardSidebar({
         setExpandedItemIds((previousValue) =>
           previousValue.includes(itemId)
             ? previousValue.filter(
-                (previousValueItemId) => previousValueItemId !== itemId
+                (previousValueItemId) => previousValueItemId !== itemId,
               )
-            : [...previousValue, itemId]
+            : [...previousValue, itemId],
         );
       } else if (!isOverSmViewport && !hasNestedNavigation) {
         setExpanded(false);
       }
     },
-    [mini, setExpanded, isOverSmViewport]
+    [mini, setExpanded, isOverSmViewport],
   );
 
   const hasDrawerTransitions =
@@ -248,21 +253,81 @@ export default function DashboardSidebar({
             sx={{
               mt: "auto",
               p: 2,
-              textAlign: "center",
-              justifyContent: mini ? "center" : "space-between",
               borderTop: "1px solid",
               borderColor: "divider",
               color: "text.secondary",
               fontSize: "0.75rem",
               fontWeight: 500,
-              opacity: 0.7,
+              opacity: 0.9,
               display: "flex",
               flexDirection: "column",
-              alignItems: mini ? "center" : "flex-start",
-              gap: 0.5,
+              gap: 1,
             }}
           >
-            v17.02.2026
+            {/* Пользовательский блок */}
+            <Stack
+              direction={mini ? "column" : "row"}
+              alignItems="center"
+              justifyContent={mini ? "center" : "space-between"}
+              gap={1}
+              sx={{ width: "100%" }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Avatar
+                  alt="Username"
+                  // src="/path/to/avatar.jpg" // можно убрать src, тогда будут инициалы
+                  sx={{ width: 32, height: 32 }}
+                >
+                  U
+                </Avatar>
+                {!mini && (
+                  <Box>
+                    <Typography variant="body2" noWrap>
+                      User
+                    </Typography>
+                    <Typography variant="caption" noWrap sx={{ opacity: 0.7 }}>
+                      mail@mail.com
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+
+              
+                <Tooltip title="Выйти" enterDelay={500}>
+                  <IconButton
+                  component="span"
+                    size="small"
+                    aria-label="Выйти"
+                    onClick={async () => {
+                      try {
+                        await api.auth.logout();
+                        // navigate("/");
+                        window.location.href = "/";
+                      } catch (error) {
+                        console.error("Ошибка при выходе", error);
+                      }
+                    }}
+                  >
+                    <LogoutRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              
+            </Stack>
+
+            {/* Версия
+            <Box
+              sx={{
+                textAlign: "center",
+                justifyContent: mini ? "center" : "space-between",
+                fontSize: "0.75rem",
+                fontWeight: 500,
+                opacity: 0.7,
+                borderTop: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              v17.02.2026
+            </Box> */}
           </Box>
         </Box>
       </React.Fragment>
@@ -276,7 +341,7 @@ export default function DashboardSidebar({
       disableCollapsibleSidebar,
       logo,
       pathname,
-    ]
+    ],
   );
 
   const getDrawerSharedSx = React.useCallback(
@@ -298,7 +363,7 @@ export default function DashboardSidebar({
         },
       };
     },
-    [expanded, mini]
+    [expanded, mini],
   );
 
   const sidebarContextValue = React.useMemo(() => {

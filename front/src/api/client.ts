@@ -74,6 +74,68 @@ interface ApiResponse<T> {
 
 // Сервисы для разных сущностей
 export const api = {
+  // Аутентификация
+  auth: {
+    login: async (username: string, password: string) => {
+      // Создаем контроллер для прерывания запроса
+      const controller = new AbortController();
+      const timeout = setTimeout(() => {
+        controller.abort(); // отменяем запрос через 5 секунд
+      }, 5000); // 5000 мс = 5 секунд
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+          signal: controller.signal, // привязываем контроллер к fetch
+        });
+
+        clearTimeout(timeout); // очищаем таймаут, если запрос завершился вовремя
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          const error = new Error(data.message || "Ошибка входа.");
+          (error as any).status = res.status;
+          throw error;
+        }
+
+        localStorage.setItem("token", data.token);
+        return { token: data.token, status: res.status };
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          // специальная обработка таймаута
+          const timeoutError = new Error("Превышено время ожидания запроса.");
+          (timeoutError as any).status = 408; // 408 Request Timeout
+          throw timeoutError;
+        }
+        throw err;
+      }
+    },
+    logout: () => {
+      localStorage.removeItem("token"); // выход
+    },
+    getToken: () => localStorage.getItem("token"),
+    check: async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        return;
+      }
+
+      const res = await fetch(`${API_BASE_URL}/protected`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return data.message;
+      } else {
+        localStorage.removeItem("token"); // некорректный или истёкший токен
+        return;
+      }
+    },
+  },
   // Дроны
   drones: {
     getAll: () => request<Drone[]>("/api/drones"),

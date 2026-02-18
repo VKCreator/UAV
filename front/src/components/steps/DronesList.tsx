@@ -85,6 +85,23 @@ export default function DronesList() {
     navigate("/drones/new");
   }, [navigate]);
 
+  React.useEffect(() => {
+    const verifyToken = async () => {
+      try {
+        const result = await api.auth.check(); 
+
+        if (!result) {
+          navigate("/login");
+        }
+      } catch (error) {
+        api.auth.logout();
+        navigate("/login");
+      }
+    };
+
+    verifyToken();
+  }, [navigate]);
+
   // Колонки таблицы
   const columns = React.useMemo<GridColDef[]>(
     () => [

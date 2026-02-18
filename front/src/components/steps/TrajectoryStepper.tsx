@@ -360,6 +360,10 @@ const TrajectoryStepper: React.FC<{
   }, [points]);
 
   React.useEffect(() => {
+    clearOptimalStoryboards();
+  }, [opt1TrajectoryData]);
+
+  React.useEffect(() => {
     console.warn(
       "droneParams.frameHeightBase changed",
       droneParams.frameHeightBase,

@@ -175,6 +175,24 @@ export default function TrajectoryList() {
     navigate("/trajectories/new");
   }, [navigate]);
 
+  // Асинхронная проверка токена
+  React.useEffect(() => {
+    const verifyToken = async () => {
+      try {
+        const result = await api.auth.check(); // Проверка токена через api.auth.check()
+
+        if (!result) {
+          navigate("/login");
+        }
+      } catch (error) {
+        api.auth.logout();
+        navigate("/login");
+      }
+    };
+
+    verifyToken();
+  }, [navigate]); // Добавляем navigate в зависимости, чтобы проверка происходила при каждом переходе
+
   const handleView = React.useCallback(
     (id: string) => {
       navigate(
@@ -215,6 +233,7 @@ export default function TrajectoryList() {
                 objectFit: "contain",
                 borderRadius: 2,
               }}
+              loading="lazy"
             />
           ) : (
             <Typography variant="body2" color="text.secondary">

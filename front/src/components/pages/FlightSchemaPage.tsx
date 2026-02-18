@@ -147,8 +147,8 @@ const FlightSchemaPage: React.FC<Props> = ({
           </IconButton>
         </Tooltip>
       }
-      pr={28}
-      pl={28}
+      pr={25}
+      pl={25}
     >
       <Stack spacing={4}>
         {/* Информация о базовом слое */}
@@ -1011,13 +1011,19 @@ const FlightSchemaPage: React.FC<Props> = ({
             onChange={(_, v) => setStoryboardTab(v)}
             sx={{ borderBottom: 1, borderColor: "divider" }}
           >
-            <Tab label="Точечная" />
-            <Tab label="Рекомендуемая" />
-            <Tab label="Оптимальная" />
+            <Tab label="Точечная" disabled={storyboardsData && !storyboardsData.point.applied} />
+            <Tab
+              label="Рекомендуемая"
+              disabled={storyboardsData && !storyboardsData.recommended.applied}
+            />
+            <Tab
+              label="Оптимальная"
+              disabled={storyboardsData && !storyboardsData.optimal.applied}
+            />
           </Tabs>
 
           <Box flex={1} minHeight={400} maxHeight={400}>
-            {storyboardTab === 0 && (
+            {storyboardTab === 0 && storyboardsData && storyboardsData.point.applied && (
               <Box display="flex" flexDirection="row" height="100%" gap={2}>
                 {/* Левая панель: SceneViewer */}
                 <Box
@@ -1057,99 +1063,86 @@ const FlightSchemaPage: React.FC<Props> = ({
                   justifyContent={"space-between"}
                   overflow="auto"
                 >
-                  <Stack spacing={1.5}>
+                  <Box display="flex" flexDirection="column" gap={1}>
                     <Typography variant="subtitle1">
                       Свойства раскадровки
                     </Typography>
 
-                    <Box
-                      display="flex"
-                      justifyContent="space-between"
-                      alignItems="center"
-                      gap={1}
-                    >
-                      <Box display="flex" alignItems="center" gap={2}>
-                        <Box
+                    <Grid container spacing={2}>
+                      {/* Количество кадров */}
+                      <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                        <Card
+                          variant="outlined"
                           sx={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            bgcolor: "#004e9e",
+                            p: 2,
+                            height: "100%",
+                            backgroundColor: "transparent",
                           }}
-                        />
-                        <Typography variant="body2" color="text.secondary">
-                          Количество кадров
-                        </Typography>
-                      </Box>
-                      <Typography variant="body2" fontWeight={500}>
-                        {storyboardsData?.point.count_frames
-                          ? `${storyboardsData.point.count_frames} шт.`
-                          : "—"}
-                      </Typography>
-                    </Box>
-
-                    <Box
-                      display="flex"
-                      justifyContent="space-between"
-                      alignItems="center"
-                      gap={1}
-                    >
-                      <Box display="flex" alignItems="center" gap={2}>
-                        <Box
-                          sx={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            bgcolor: "#004e9e",
-                          }}
-                        />
-                        <Typography variant="body2" color="text.secondary">
-                          Объём памяти
-                        </Typography>
-                      </Box>
-                      <Typography variant="body2" fontWeight={500}>
-                        {storyboardsData?.point.disk_space
-                          ? `${formatFileSize(storyboardsData.point.disk_space)}`
-                          : "—"}
-                      </Typography>
-                    </Box>
-
-                    <Box
-                      display="flex"
-                      justifyContent="space-between"
-                      alignItems="center"
-                      gap={1}
-                    >
-                      <Box display="flex" alignItems="center" gap={2}>
-                        <Box
-                          sx={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            bgcolor: "#004e9e",
-                          }}
-                        />
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          display="flex"
-                          alignItems="center"
                         >
-                          Время полёта
-                          <HelpIconTooltip title="Время полёта от кадра к кадру с зависанием." />
-                          {/* <Tooltip title="Время от кадра к кадру" arrow>
-                                          <HelpIcon fontSize="small" sx={{ cursor: "help" }} />
-                                        </Tooltip> */}
-                        </Typography>
-                      </Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Количество кадров
+                          </Typography>
 
-                      <Typography variant="body2" fontWeight={500}>
-                        {storyboardsData?.point.total_flight_time
-                          ? `${storyboardsData.point.total_flight_time.toFixed(2)} с.`
-                          : "—"}
-                      </Typography>
-                    </Box>
-                  </Stack>
+                          <Typography variant="h6" fontWeight={600}>
+                            {storyboardsData?.point.count_frames
+                              ? `${storyboardsData.point.count_frames} шт.`
+                              : "—"}
+                          </Typography>
+                        </Card>
+                      </Grid>
+
+                      {/* Объём памяти */}
+                      <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                        <Card
+                          variant="outlined"
+                          sx={{
+                            p: 2,
+                            height: "100%",
+                            backgroundColor: "transparent",
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary">
+                            Объём памяти
+                          </Typography>
+
+                          <Typography variant="h6" fontWeight={600}>
+                            {storyboardsData?.point.disk_space
+                              ? formatFileSize(storyboardsData.point.disk_space)
+                              : "—"}
+                          </Typography>
+                        </Card>
+                      </Grid>
+
+                      {/* Время полёта */}
+                      <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                        <Card
+                          variant="outlined"
+                          sx={{
+                            p: 2,
+                            height: "100%",
+                            backgroundColor: "transparent",
+                          }}
+                        >
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            display="flex"
+                            alignItems="center"
+                            gap={0}
+                          >
+                            Время полёта
+                            <HelpIconTooltip title="Время полёта от кадра к кадру с зависанием." />
+                          </Typography>
+
+                          <Typography variant="h6" fontWeight={600}>
+                            {storyboardsData?.point.total_flight_time
+                              ? `${storyboardsData.point.total_flight_time.toFixed(2)} с`
+                              : "—"}
+                          </Typography>
+                        </Card>
+                      </Grid>
+                    </Grid>
+                  </Box>
                   <Box
                     sx={{ overflowX: "auto", overflowY: "hidden" }} // добавляем горизонтальный скролл
                   >
@@ -1159,6 +1152,10 @@ const FlightSchemaPage: React.FC<Props> = ({
                   </Box>
                 </Box>
               </Box>
+            )}
+
+            {storyboardTab === 0 && storyboardsData && !storyboardsData.point.applied && (
+              <Placeholder label="Данные точечной раскадровки отсутствуют." />
             )}
 
             {storyboardTab === 1 && (
