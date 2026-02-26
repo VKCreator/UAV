@@ -15,28 +15,26 @@ import { Link } from "react-router";
 import { format } from "date-fns";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import PageContainer from "../PageContainer";
-import SearchIcon from "@mui/icons-material/Search";
-import AddIcon from '@mui/icons-material/Add';
 
-// Пример данных для метрик и БПЛА
-const droneMetrics = {
-  totalDrones: 10,
-  avgBatteryTime: "40 минут",
-  windResistance: "15 м/с",
-};
+import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import AirIcon from "@mui/icons-material/Air";
+import FlightIcon from "@mui/icons-material/Flight";
+import RouteIcon from "@mui/icons-material/Route";
+import ScheduleIcon from "@mui/icons-material/Schedule";
+import TuneIcon from "@mui/icons-material/Tune";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+
+import { useEffect, useState, useMemo } from "react";
+import { CircularProgress } from "@mui/material";
+import { api, Drone } from "../../api/client";
 
 const flightPlanMetrics = {
-  totalPlans: 50,
+  totalPlans: 25,
   avgFlightTime: "1 час",
   popularOptimizationMethod: "low-d",
 };
-
-// Пример данных для БПЛА и схем полётов
-const drones = [
-  { name: "БПЛА 1", detailsLink: "/drones" },
-  { name: "БПЛА 2", detailsLink: "/drones" },
-  { name: "БПЛА 3", detailsLink: "/drones" },
-];
 
 const flightPlans = [
   {
@@ -60,24 +58,38 @@ const flightPlans = [
 const MetricCard = ({
   title,
   value,
+  icon,
 }: {
   title: string;
   value: string | number;
+  icon: React.ReactNode;
 }) => (
-  <Card
-    variant="outlined"
-    // sx={{
-    //   p: 2,
-    //   height: "100%",
-    //   backgroundColor: "transparent",
-    // }}
-  >
-    <Typography variant="body2" color="text.secondary">
-      {title}
-    </Typography>
-    <Typography variant="h6" fontWeight={600}>
-      {value}
-    </Typography>
+  <Card variant="outlined">
+    <Box display="flex" alignItems="center" gap={2}>
+      <Box
+        sx={{
+          bgcolor: "white",
+          borderRadius: "50%",
+          width: 40,
+          height: 40,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          color: "#014488",
+        }}
+      >
+        {icon}
+      </Box>
+      <Box>
+        <Typography variant="body2" color="text.secondary">
+          {title}
+        </Typography>
+        <Typography variant="h6" fontWeight={600}>
+          {value}
+        </Typography>
+      </Box>
+    </Box>
   </Card>
 );
 
@@ -124,9 +136,57 @@ const DashboardsPage = () => {
       ? "Добрый день"
       : "Добрый вечер";
 
-  let data = JSON.parse(localStorage.getItem("userData") || "");
+  let data = null;
+  try {
+    data = JSON.parse(localStorage.getItem("userData") || "null");
+  } catch {
+    data = null;
+  }
 
   const username = data ? data.first_name : "Username";
+
+  const [drones, setDrones] = useState<Drone[]>([]);
+  const [dronesLoading, setDronesLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDrones = async () => {
+      try {
+        // Читаем из кэша
+        const cached = localStorage.getItem("drones-cache-v1");
+        if (cached) {
+          setDrones(JSON.parse(cached));
+          setDronesLoading(false);
+        }
+
+        // Всё равно запрашиваем свежие данные
+        const response = await api.drones.getAll();
+        setDrones(response);
+        localStorage.setItem("drones-cache-v1", JSON.stringify(response));
+      } catch (error) {
+        console.error("Ошибка загрузки квадрокоптеров:", error);
+      } finally {
+        setDronesLoading(false);
+      }
+    };
+
+    fetchDrones();
+  }, []);
+
+  const avgBatteryTime = useMemo(() => {
+    if (drones.length === 0) return 0;
+    return Math.round(
+      drones.reduce((sum, drone) => sum + (drone.battery_life ?? 0), 0) /
+        drones.length,
+    );
+  }, [drones]);
+
+  const avgWindResistance = useMemo(() => {
+    if (drones.length === 0) return 0;
+    return Math.round(
+      drones.reduce((sum, drone) => sum + (drone.max_wind_resistance ?? 0), 0) /
+        drones.length,
+    );
+  }, [drones]);
 
   return (
     <PageContainer
@@ -138,7 +198,10 @@ const DashboardsPage = () => {
             </Typography>
           </Grid>
           <Grid sx={{ xs: 2 }} textAlign="right">
-            <Avatar sx={{ bgcolor: "#014488" }}>U</Avatar>
+            <Avatar sx={{ bgcolor: "#014488" }}>
+              {" "}
+              {username?.charAt(0).toUpperCase() ?? "U"}
+            </Avatar>
           </Grid>
         </Grid>
       }
@@ -163,19 +226,22 @@ const DashboardsPage = () => {
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
                   title="Количество БПЛА"
-                  value={droneMetrics.totalDrones}
+                  value={drones.length}
+                  icon={<FlightIcon fontSize="large" />}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
                   title="Среднее время работы аккумулятора"
-                  value={droneMetrics.avgBatteryTime}
+                  value={avgBatteryTime ? `${avgBatteryTime} мин` : "—"}
+                  icon={<AccessTimeIcon fontSize="large" />}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
-                  title="Сопротивляемость ветру"
-                  value={droneMetrics.windResistance}
+                  title="Среднее значение сопротивляемости ветру"
+                  value={avgWindResistance ? `${avgWindResistance} м/c` : "—"}
+                  icon={<AirIcon fontSize="large" />}
                 />
               </Grid>
             </Grid>
@@ -186,7 +252,17 @@ const DashboardsPage = () => {
               sx={{ marginTop: 4, mb: 1 }}
             >
               <Grid>
-                <Typography variant="h6">Справочник квадрокоптеров</Typography>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="h6">
+                    Справочник квадрокоптеров
+                  </Typography>
+                  <Tooltip title="Список всех доступных квадрокоптеров">
+                    <InfoOutlinedIcon
+                      fontSize="small"
+                      sx={{ color: "text.secondary", cursor: "pointer" }}
+                    />
+                  </Tooltip>
+                </Box>
               </Grid>
               <Grid>
                 <Tooltip title="Просмотреть все">
@@ -197,15 +273,45 @@ const DashboardsPage = () => {
               </Grid>
             </Grid>
             <Grid container spacing={2}>
-              {drones.map((drone, index) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }} key={index}>
-                  <CardWithDetails
-                    title={drone.name}
-                    link={drone.detailsLink}
-                  />
+              {dronesLoading ? (
+                <Grid size={{ xs: 12 }}>
+                  <Box display="flex" justifyContent="center" py={2}>
+                    <CircularProgress size={24} />
+                  </Box>
                 </Grid>
-              ))}
+              ) : drones.length === 0 ? (
+                <Grid size={{ xs: 12 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    textAlign="center"
+                  >
+                    Квадрокоптеры не найдены
+                  </Typography>
+                </Grid>
+              ) : (
+                drones.slice(0, 3).map((drone, index) => (
+                  <Grid
+                    size={{ xs: 12, sm: 6, md: 4, lg: 4 }}
+                    key={drone.id ?? index}
+                  >
+                    <CardWithDetails title={drone.model} link={`/drones`} />
+                  </Grid>
+                ))
+              )}
             </Grid>
+
+            <Box display="flex" justifyContent="center" sx={{ mt: 2 }}>
+              <Button
+                component={Link}
+                to="/drones"
+                endIcon={<ChevronRightIcon />}
+                variant="text"
+                size="small"
+              >
+                Показать все квадрокоптеры ({drones.length})
+              </Button>
+            </Box>
           </Card>
         </Box>
 
@@ -226,18 +332,21 @@ const DashboardsPage = () => {
                 <MetricCard
                   title="Количество схем"
                   value={flightPlanMetrics.totalPlans}
+                  icon={<RouteIcon fontSize="large" />}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
                   title="Среднее время полёта"
                   value={flightPlanMetrics.avgFlightTime}
+                  icon={<ScheduleIcon fontSize="large" />}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
                   title="Популярный метод оптимизации"
                   value={flightPlanMetrics.popularOptimizationMethod}
+                  icon={<TuneIcon fontSize="large" />}
                 />
               </Grid>
             </Grid>
@@ -249,7 +358,17 @@ const DashboardsPage = () => {
               sx={{ marginTop: 4, mb: 1 }}
             >
               <Grid>
-                <Typography variant="h6">Последние созданные схемы</Typography>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="h6">
+                    Последние созданные схемы
+                  </Typography>
+                  <Tooltip title="Список последних созданных схем полётов">
+                    <InfoOutlinedIcon
+                      fontSize="small"
+                      sx={{ color: "text.secondary", cursor: "pointer" }}
+                    />
+                  </Tooltip>
+                </Box>
               </Grid>
               <Grid>
                 <Tooltip title="Просмотреть все">
@@ -258,7 +377,11 @@ const DashboardsPage = () => {
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Создать схему">
-                  <IconButton color="primary" component={Link} to="/trajectories/new">
+                  <IconButton
+                    color="primary"
+                    component={Link}
+                    to="/trajectories/new"
+                  >
                     <AddIcon />
                   </IconButton>
                 </Tooltip>
@@ -272,6 +395,17 @@ const DashboardsPage = () => {
                 </Grid>
               ))}
             </Grid>
+            <Box display="flex" justifyContent="center" sx={{ mt: 2 }}>
+              <Button
+                component={Link}
+                to="/trajectories"
+                endIcon={<ChevronRightIcon />}
+                variant="text"
+                size="small"
+              >
+                Показать все схемы ({flightPlanMetrics.totalPlans})
+              </Button>
+            </Box>
           </Card>
         </Box>
       </Box>

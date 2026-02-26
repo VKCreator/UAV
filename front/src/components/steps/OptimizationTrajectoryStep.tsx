@@ -87,6 +87,8 @@ interface OptimizationTrajectoryStepProps {
 
   selection: any;
   setSelection: React.Dispatch<React.SetStateAction<any>>;
+
+  flightLineY: number;
 }
 
 const colors = [
@@ -128,6 +130,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   setPointsRecommended,
   selection,
   setSelection,
+  flightLineY
 }) => {
   const [activeImage, setActiveImage] = React.useState(0);
   const [image] = useImage(imageData.imageUrl);
@@ -196,6 +199,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     const payload = {
       width_m,
       height_m,
+      lineY: (image.height - flightLineY) * meterPerPixelY,
       points: pointsInMeters,
       speed: droneParams.speed,
       hoverTime: droneParams.hoverTime,
@@ -222,6 +226,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
           ...taxon,
           color: colors[index % colors.length],
         })),
+        C: data.C
       };
 
       setTrajectoryData(preparedData);
@@ -588,6 +593,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             setObstacles={() => {}}
             trajectoryData={getTrajectoryData()}
             setTrajectoryData={setTrajectoryData}
+            flightLineY={flightLineY}
           />
         </DialogContent>
       </Dialog>

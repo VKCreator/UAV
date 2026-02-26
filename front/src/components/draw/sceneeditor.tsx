@@ -67,6 +67,9 @@ interface SceneEditorProps {
 
   trajectoryData: any;
   setTrajectoryData: (data: any) => void;
+
+  flightLineY: number;
+  setFlightLineY: (y: any) => void;
 }
 
 const TAXON_POINT_RADIUS = 10;
@@ -84,6 +87,8 @@ const SceneEditor: FC<SceneEditorProps> = ({
   trajectoryData,
   setTrajectoryData,
   droneParams,
+  flightLineY,
+  setFlightLineY,
 }) => {
   const [showGrid, setShowGrid] = useLocalStorage<boolean>("isShowGrid", true);
   const [showUserTrajectory, setShowUserTrajectory] = useLocalStorage<boolean>(
@@ -115,7 +120,6 @@ const SceneEditor: FC<SceneEditorProps> = ({
   const [uavLineConfigured, setUavLineConfigured] = useState(false); // статус
 
   const [lineY, setLineY] = useState<number | null>(null);
-  const [acceptLineY, setAcceptLineY] = useState<number | null>(null);
 
   const stageRef = useRef<any>(null);
 
@@ -234,6 +238,11 @@ const SceneEditor: FC<SceneEditorProps> = ({
       return;
     }
 
+    let linePositionY = flightLineY!;
+
+    // Проверяем, не в неинформативной ли зоне
+    if (yOnImage >= linePositionY && yOnImage <= image.height) return;
+
     const newPoint = { x: xOnImage, y: yOnImage };
     if (toolMode === "points") {
       setPoints([...points, newPoint]);
@@ -321,7 +330,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
   const handleStageClick = () => {
     if (toolMode === "line" && lineY !== null) {
       setUavLineConfigured(true);
-      setAcceptLineY(lineY);
+      setFlightLineY((lineY - imageY) / scaleToFit);
       console.info((lineY - imageY) / scaleToFit);
       // setToolMode("pan");
     }
@@ -355,10 +364,9 @@ const SceneEditor: FC<SceneEditorProps> = ({
   useEffect(() => {
     if (!image || !scaleToFit) return;
 
-    setAcceptLineY(imageY + image.height * scaleToFit);
-  }, [image, imageY, scaleToFit]);
+    if (!flightLineY) setFlightLineY(image.height);
+  }, []);
 
-  
   return (
     <Box display="flex" flexDirection="column" height="100%" width="100%">
       <Box
@@ -423,7 +431,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                   </ToggleButton>
                 </Tooltip>
 
-                <Tooltip title="Расстановка препятствий" arrow>
+                <Tooltip title="Размещение препятствий" arrow>
                   <ToggleButton value="polygons">
                     <ChangeHistoryIcon />
                   </ToggleButton>
@@ -495,7 +503,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                       setShowUavLine(e.target.checked);
                     }}
                     size="small"
-                    disabled={acceptLineY == null}
+                    disabled={flightLineY == null}
                   />
                 </Tooltip>
               </Box>
@@ -522,7 +530,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                   <IconButton
                     size="small"
                     onClick={() => {
-                      setAcceptLineY(imageY + image!.height * scaleToFit);
+                      setFlightLineY(image!.height);
                       setUavLineConfigured(false);
                     }}
                     aria-label="Сбросить"
@@ -830,53 +838,6 @@ const SceneEditor: FC<SceneEditorProps> = ({
                   />
                 )}
 
-                {showUavLine && acceptLineY !== null && image && (
-                  <>
-                    {/* Линия */}
-                    <Line
-                      points={[
-                        imageX,
-                        acceptLineY,
-                        imageX + image.width * scaleToFit,
-                        acceptLineY,
-                      ]}
-                      stroke="orange"
-                      strokeWidth={2}
-                    />
-
-                    {/* Серая зона */}
-                    <Rect
-                      x={imageX}
-                      y={acceptLineY}
-                      width={image.width * scaleToFit}
-                      height={
-                        image.height * scaleToFit - (acceptLineY - imageY)
-                      }
-                      fill="rgba(128, 128, 128, 0.3)"
-                      listening={false}
-                    />
-
-                    {/* Текст */}
-                    {
-                      <Text
-                        x={imageX}
-                        y={
-                          acceptLineY +
-                          (image.height * scaleToFit - (acceptLineY - imageY)) /
-                            2 -
-                          10
-                        }
-                        width={image.width * scaleToFit}
-                        text="Неинформативная зона"
-                        align="center"
-                        fontSize={16}
-                        fill="rgba(255,255,255,0.8)"
-                        listening={false}
-                      />
-                    }
-                  </>
-                )}
-
                 {showUserTrajectory &&
                   points.length > 1 &&
                   points.map((point, i) => {
@@ -1107,6 +1068,30 @@ const SceneEditor: FC<SceneEditorProps> = ({
                     );
                   })}
 
+                {showTaxonTrajectory &&
+                  image &&
+                  trajectoryData?.C?.map(
+                    (point: [number, number], index: number) => {
+                      console.error(point, index);
+                      const meterPerPixelX = width_m / image.width;
+                      const meterPerPixelY = height_m / image.height;
+
+                      // Преобразуем координаты в пиксели
+                      let x = point[0] / meterPerPixelX;
+                      let y = image.height - point[1] / meterPerPixelY;
+                      console.info(x, y);
+                      return (
+                        <Circle
+                          key={`unvisited-point-${index}`}
+                          x={x * scaleToFit + imageX} // Координата X
+                          y={y * scaleToFit + imageY} // Координата Y
+                          radius={10} // Радиус точки
+                          fill="red" // Цвет точки
+                        />
+                      );
+                    },
+                  )}
+
                 {showObstacles &&
                   obstacles.map((poly) => {
                     const isHovered = hoveredObstacleId === poly.id;
@@ -1144,13 +1129,55 @@ const SceneEditor: FC<SceneEditorProps> = ({
                             key={`${poly.id}-vertex-${index}`}
                             x={point.x * scaleToFit + imageX}
                             y={point.y * scaleToFit + imageY}
-                            radius={6}
+                            radius={3}
                             fill={`${poly.color}`}
                           />
                         ))}
                       </Fragment>
                     );
                   })}
+
+                {showUavLine && flightLineY !== null && image && (
+                  <Fragment key="line">
+                    <Line
+                      points={[
+                        imageX,
+                        flightLineY * scaleToFit + imageY,
+                        imageX + image.width * scaleToFit,
+                        flightLineY * scaleToFit + imageY,
+                      ]}
+                      stroke="orange"
+                      strokeWidth={2}
+                    />
+
+                    <Rect
+                      x={imageX}
+                      y={flightLineY * scaleToFit + imageY}
+                      width={image.width * scaleToFit}
+                      height={(image.height - flightLineY) * scaleToFit}
+                      fill="rgba(128, 128, 128, 0.3)"
+                      listening={false}
+                    />
+
+                    {flightLineY < image.height - 0.01 && (
+                      <Text
+                        x={imageX}
+                        y={
+                          flightLineY * scaleToFit +
+                          imageY +
+                          ((image.height - flightLineY) * scaleToFit) / 2 -
+                          10
+                        }
+                        width={image.width * scaleToFit}
+                        text="Неинформативная зона"
+                        align="center"
+                        fontSize={16}
+                        fill="rgba(255,255,255,0.8)"
+                        listening={false}
+                      />
+                    )}
+                  </Fragment>
+                )}
 
                 {toolMode === "polygons" && currentPolygon.length > 0 && (
                   <>

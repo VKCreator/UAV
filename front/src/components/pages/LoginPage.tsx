@@ -15,11 +15,17 @@ import {
   CardContent,
   Tooltip,
 } from "@mui/material";
-import { Visibility, VisibilityOff, Person, Lock } from "@mui/icons-material";
+import {
+  Visibility,
+  VisibilityOff,
+  Person,
+  Lock,
+  Notifications,
+} from "@mui/icons-material";
 import { api } from "../../api/client";
 import AppIcon from "../AppIcon";
 
-import jwt_decode from "jwt-decode"
+import useNotifications from "../../hooks/useNotifications/useNotifications";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -28,8 +34,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const navigate = useNavigate();
+  const notifications = useNotifications();
+
   const usernameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,10 +50,19 @@ export default function LoginPage() {
     try {
       setLoading(true);
       await api.auth.login(username, password);
-      navigate("/dashboards");
+      notifications.show("Вход успешно выполнен", {
+        severity: "success",
+        autoHideDuration: 3000,
+      });
+      setSuccess(true); // показываем overlay
+      setTimeout(() => {
+        navigate("/dashboards");
+      }, 600); // небольшая пауза для плавности
     } catch (err: any) {
       if (err.status === 401) {
         setError("Неверное имя пользователя или пароль.");
+        setPassword("");
+        usernameRef.current?.focus();
       } else if (err.status === 500) {
         setError("Ошибка на сервере.");
       } else {
@@ -95,7 +113,7 @@ export default function LoginPage() {
           gap={2}
         >
           {/* Карточка с формой */}
-          <Fade in={!loading} timeout={1000}>
+          <Fade in={true} timeout={1000}>
             <Card
               sx={{
                 width: "100%",
@@ -209,8 +227,13 @@ export default function LoginPage() {
                     type="submit"
                     sx={{ mt: 2 }}
                     disabled={!username || !password || loading}
+                    startIcon={
+                      loading ? (
+                        <CircularProgress size={16} color="inherit" />
+                      ) : null
+                    }
                   >
-                    Войти
+                    {loading ? "Выполняется вход..." : "Войти"}
                   </Button>
                   <Typography
                     variant="body2"
@@ -230,7 +253,26 @@ export default function LoginPage() {
           </Fade>
         </Box>
       </Container>
-      <Fade in={loading} timeout={300}>
+
+      <Fade in={success} timeout={300}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            bgcolor: "rgba(255, 255, 255, 1)",
+            zIndex: 10,
+          }}
+        >
+          <CircularProgress size={60} />
+        </Box>
+      </Fade>
+      {/* <Fade in={loading} timeout={500}>
         <Box
           sx={{
             display: "flex",
@@ -247,7 +289,7 @@ export default function LoginPage() {
         >
           <CircularProgress size={60} />
         </Box>
-      </Fade>
+      </Fade> */}
     </Box>
   );
 }

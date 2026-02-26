@@ -50,6 +50,9 @@ interface BuildTrajectoryStepProps {
   setDroneParams: (params: any) => void;
 
   drones: Drone[];
+
+  flightLineY: number;
+  setFlightLineY: (flightLineY: any) => void;
 }
 
 const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
@@ -63,6 +66,8 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   droneParams,
   setDroneParams,
   drones,
+  flightLineY,
+  setFlightLineY,
 }) => {
   const { confirm } = useDialogs();
   const notifications = useNotifications();
@@ -282,6 +287,8 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
             setObstacles={setObstacles}
             trajectoryData={null}
             setTrajectoryData={setTrajectoryData}
+            flightLineY={flightLineY}
+            setFlightLineY={setFlightLineY}
           />
         </DialogContent>
       </Dialog>
@@ -299,6 +306,8 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
             setObstacles={setObstacles}
             trajectoryData={null}
             setTrajectoryData={setTrajectoryData}
+            flightLineY={flightLineY}
+            setFlightLineY={setFlightLineY}
           />
         </DialogContent>
       </Dialog>

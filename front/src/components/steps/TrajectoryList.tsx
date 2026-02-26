@@ -68,7 +68,7 @@ export default function TrajectoryList() {
     rowCount: number;
   }>({ rows: [], rowCount: 0 });
 
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<Error | null>(null);
 
   const METHOD_CONFIG: Record<string, MethodConfig> = {
@@ -152,10 +152,20 @@ export default function TrajectoryList() {
   // Загрузка данных (тестовые данные)
   const loadData = React.useCallback(async () => {
     setError(null);
-    setIsLoading(true);
+
+    // Читаем из кэша
+    const cached = localStorage.getItem("schemas-cache-v1");
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      setRowsState({ rows: parsed, rowCount: parsed.length });
+    } else {
+      setIsLoading(true);
+    }
+
     try {
       const response = await api.schemas.getAll();
       setRowsState({ rows: response, rowCount: response.length });
+      localStorage.setItem("schemas-cache-v1", JSON.stringify(response));
     } catch (fetchError) {
       setError(fetchError as Error);
     } finally {

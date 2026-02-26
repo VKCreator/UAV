@@ -76,6 +76,8 @@ const TrajectoryStepper: React.FC<{
   // Step 2
   const [points, setPoints] = React.useState<Point[]>([]);
   const [obstacles, setObstacles] = React.useState<Polygon[]>([]);
+  const [flightLineY, setFlightLineY] = React.useState<number | null>(null);
+  
   const [droneParams, setDroneParams] = React.useState<DroneParams>({
     selectedDroneId: undefined,
     frameHeightBase: 0,
@@ -98,6 +100,7 @@ const TrajectoryStepper: React.FC<{
     model: "unknown",
   });
 
+  
   // Step 3
   const [opt1TrajectoryData, setOpt1TrajectoryData] =
     React.useState<Opt1TrajectoryData | null>(null);
@@ -641,6 +644,8 @@ const TrajectoryStepper: React.FC<{
             setObstacles={setObstacles}
             trajectoryData={opt1TrajectoryData}
             setTrajectoryData={setOpt1TrajectoryData}
+            flightLineY={flightLineY}
+            setFlightLineY={setFlightLineY}
             droneParams={droneParams}
             setDroneParams={setDroneParams}
             drones={drones}
@@ -673,6 +678,7 @@ const TrajectoryStepper: React.FC<{
             setPointsRecommended={setPointsRecommended}
             selection={selection}
             setSelection={setSelection}
+            flightLineY={flightLineY}
           />
         );
       case 3:

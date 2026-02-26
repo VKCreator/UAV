@@ -21,8 +21,8 @@ import NotificationsProvider from "./hooks/useNotifications/NotificationsProvide
 import DialogsProvider from "./hooks/useDialogs/DialogsProvider";
 import AppTheme from "./theme/AppTheme";
 import { datePickersCustomizations } from "./theme/customizations";
-import CircularProgress from '@mui/material/CircularProgress';
-import Box from '@mui/material/Box';
+import CircularProgress from "@mui/material/CircularProgress";
+import Box from "@mui/material/Box";
 import { api } from "./api/client";
 import DashboardsPage from "./components/pages/DashboardsPage";
 
@@ -31,44 +31,41 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const navigate = useNavigate();
 
-  // Асинхронная проверка токена
   useEffect(() => {
     const verifyToken = async () => {
+      // Быстрая проверка — если токена нет, сразу редиректим
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setIsAuthenticated(false);
+        return;
+      }
+
+      // Токен есть — пускаем сразу, проверяем в фоне
+      setIsAuthenticated(true);
+
       try {
-        const result = await api.auth.check(); // Проверка токена через api.auth.check()
-        setIsAuthenticated(!!result); // Если результат существует, токен валиден
-      } catch (error) {
-        // В случае ошибки (например, токен невалидный), удаляем токен и ставим false
+        const result = await api.auth.check();
+        if (!result) {
+          localStorage.removeItem("token");
+          setIsAuthenticated(false);
+        }
+      } catch {
         localStorage.removeItem("token");
         setIsAuthenticated(false);
       }
     };
 
     verifyToken();
-  }, [navigate]); // Добавляем navigate в зависимости, чтобы проверка происходила при каждом переходе
+  }, [navigate]);
 
-  // Пока идет проверка токена, показываем загрузку
   if (isAuthenticated === null) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh", // Центрирует по вертикали
-        }}
-      >
-        <CircularProgress size={60} />
-      </Box>
-    );
+    return null; // Вместо спиннера — просто пустой экран (мгновенно)
   }
 
-  // Если токен невалиден или отсутствует, редиректим на страницу логина
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // Если токен валиден, рендерим дочерние компоненты
   return children;
 }
 

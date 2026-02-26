@@ -407,7 +407,7 @@ const SceneShower = forwardRef<
           alignItems="center"
           bgcolor="#f4f6f8"
           overflow="auto"
-          sx={{background: "#D3D3D399"}}
+          sx={{ background: "#D3D3D399" }}
           borderRadius={1}
           style={{ cursor: "pointer" }}
           onClick={(e) => {
@@ -663,6 +663,30 @@ const SceneShower = forwardRef<
                       </Fragment>
                     );
                   })}
+
+                {showTaxonTrajectory &&
+                  image &&
+                  trajectoryData?.C?.map(
+                    (point: [number, number], index: number) => {
+                      console.error(point, index);
+                      const meterPerPixelX = width_m / image.width;
+                      const meterPerPixelY = height_m / image.height;
+
+                      // Преобразуем координаты в пиксели
+                      let x = point[0] / meterPerPixelX;
+                      let y = image.height - point[1] / meterPerPixelY;
+                      console.info(x, y);
+                      return (
+                        <Circle
+                          key={`unvisited-point-${index}`}
+                          x={x * scaleToFit + imageX} // Координата X
+                          y={y * scaleToFit + imageY} // Координата Y
+                          radius={5} // Радиус точки
+                          fill="red" // Цвет точки
+                        />
+                      );
+                    },
+                  )}
 
                 {(loading || isLoadingOptimization) && (
                   <>
