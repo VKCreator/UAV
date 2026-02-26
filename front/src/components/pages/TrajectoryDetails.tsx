@@ -22,7 +22,10 @@ export default function TrajectoryDetails() {
 
   const handleClose = () => {
     // navigate(-1); // назад
-    navigate(`/trajectories?page=${page}&pageSize=${pageSize}`);
+
+    if (page && pageSize)
+      navigate(`/trajectories?page=${page}&pageSize=${pageSize}`);
+    else navigate(-1)
   };
   // создаём ref для контейнера
   const containerRef = useRef<HTMLDivElement>(null);

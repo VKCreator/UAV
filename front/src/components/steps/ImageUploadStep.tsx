@@ -190,7 +190,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      "image/*": [".jpeg", ".jpg", ".png"],
+      "image/*": [".jpeg", ".jpg", ".png", ".heic"],
     },
     maxFiles: 1,
     maxSize: 30 * 1024 * 1024, // 30 МБ

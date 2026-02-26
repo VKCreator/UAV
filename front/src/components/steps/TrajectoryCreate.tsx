@@ -14,68 +14,12 @@ import Tooltip from "@mui/material/Tooltip";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 
 type ValidationResult = {
-  issues: { message: string; path: (keyof CoalReceiptInput)[] }[];
+  issues: { message: string; path: (keyof any)[] }[];
 };
-
-// Тип входных данных для валидации
-interface CoalReceiptInput {
-  supplierId?: number;
-  cokeBrandId?: number;
-  shakhtogroupId?: number;
-  naturalSheetId?: number;
-  wagonCount?: number;
-  weightInTons?: number;
-  receiptDate?: string; // ISO string
-}
-
-export function validateCoalReceipt(
-  coalReceipt: Partial<CoalReceiptInput>,
-): ValidationResult {
-  let issues: ValidationResult["issues"] = [];
-
-  return { issues };
-}
-
-// // Начальные значения формы
-// const INITIAL_FORM_VALUES: Partial<CoalReceiptFormState["values"]> = {
-//   wagonCount: 1,
-//   weightInTons: 1,
-//   receiptDate: new Date().toISOString(), // UTC
-// };
 
 export default function TrajectoryCreate() {
   const navigate = useNavigate();
   const notifications = useNotifications();
-
-  // const [formState, setFormState] = React.useState<CoalReceiptFormState>(
-  //   () => ({
-  //     values: INITIAL_FORM_VALUES,
-  //     errors: {},
-  //   })
-  // );
-
-  // const formValues = formState.values;
-  // const formErrors = formState.errors;
-
-  // const setFormValues = React.useCallback(
-  //   (newFormValues: Partial<CoalReceiptFormState["values"]>) => {
-  //     setFormState((prevState) => ({
-  //       ...prevState,
-  //       values: newFormValues,
-  //     }));
-  //   },
-  //   []
-  // );
-
-  // const setFormErrors = React.useCallback(
-  //   (newFormErrors: Partial<CoalReceiptFormState["errors"]>) => {
-  //     setFormState((prevState) => ({
-  //       ...prevState,
-  //       errors: newFormErrors,
-  //     }));
-  //   },
-  //   []
-  // );
 
   const handleClose = React.useCallback(() => {
     navigate("/");
@@ -97,30 +41,6 @@ export default function TrajectoryCreate() {
 
     verifyToken();
   }, [navigate]);
-
-  // const handleFormFieldChange = React.useCallback(
-  //   (name: keyof CoalReceiptFormState["values"], value: FormFieldValue) => {
-  //     const validateField = async (
-  //       values: Partial<CoalReceiptFormState["values"]>
-  //     ) => {
-  //       const { issues } = validateCoalReceipt(values);
-  //       setFormErrors({
-  //         ...formErrors,
-  //         [name]: issues?.find((issue) => issue.path?.[0] === name)?.message,
-  //       });
-  //     };
-
-  //     const newFormValues = { ...formValues, [name]: value };
-  //     setFormValues(newFormValues);
-  //     validateField(newFormValues);
-  //   },
-  //   [formValues, formErrors, setFormErrors, setFormValues]
-  // );
-
-  // const handleFormReset = React.useCallback(() => {
-  //   setFormValues(INITIAL_FORM_VALUES);
-  //   setFormErrors({});
-  // }, [setFormValues, setFormErrors]);
 
   const handleFormSubmit = React.useCallback(async () => {
     // const { issues } = validateCoalReceipt([]);
@@ -157,7 +77,7 @@ export default function TrajectoryCreate() {
 
   return (
     <StepperContainer
-      title="Создание новой схемы полётов"
+      title="Создание новой схемы полёта"
       // actions={
       //   <Stack direction="row" alignItems="center" spacing={1}>
       //     <Tooltip title="Закрыть" placement="bottom" enterDelay={1000}>

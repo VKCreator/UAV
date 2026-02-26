@@ -15,6 +15,7 @@ import {
   DialogActions,
   Tooltip,
   CircularProgress,
+  Badge,
 } from "@mui/material";
 
 import EditIcon from "@mui/icons-material/Edit";
@@ -51,12 +52,14 @@ const TrajectoryStepper: React.FC<{
   const notifications = useNotifications();
 
   const { confirm } = useDialogs();
+  const { prompt } = useDialogs();
 
   const [activeStep, setActiveStep] = React.useState(0);
-  const [schemaName, setSchemaName] = React.useState("Схема 1");
+  const [schemaName, setSchemaName] = React.useState("Новая схема полёта БПЛА");
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [dialogValue, setDialogValue] = React.useState("");
   const [error, setError] = React.useState("");
+  const isDefaultName = schemaName === "Новая схема полёта БПЛА";
 
   // Step 1
   const [files, setFiles] = React.useState<File[]>([]);
@@ -247,6 +250,21 @@ const TrajectoryStepper: React.FC<{
         return;
       }
 
+      if (isDefaultName) {
+        const shouldCreateSchema = await confirm(
+          "Название схемы полётов задано по умолчанию. Вы действительно желаете создать схему?",
+          {
+            title: "Предупреждение", // Заголовок окна
+            okText: "Да", // Кнопка подтверждения
+            cancelText: "Нет"
+          },
+        );
+
+        if (!shouldCreateSchema) {
+          return;
+        }
+      }
+
       const formData = new FormData();
 
       formData.append("schemaName", schemaName);
@@ -314,14 +332,11 @@ const TrajectoryStepper: React.FC<{
   };
 
   const handleBackClick = React.useCallback(async () => {
-    const shouldNavigate = await confirm(
-      "Вы хотите прервать создание схемы полетов?",
-      {
-        title: "Подтверждение", // Заголовок окна
-        okText: "Да", // Кнопка подтверждения
-        cancelText: "Нет", // Кнопка отмены
-      },
-    );
+    const shouldNavigate = await confirm("Вы хотите прервать создание схемы полёта?", {
+      title: "Подтверждение", // Заголовок окна
+      okText: "Да", // Кнопка подтверждения
+      cancelText: "Нет", // Кнопка отмены
+    });
 
     if (shouldNavigate) {
       navigate("/trajectories");
@@ -494,7 +509,7 @@ const TrajectoryStepper: React.FC<{
         const requestedId = Number(droneParams?.selectedDroneId);
 
         const selectedDrone = Number.isFinite(requestedId)
-          ? (dronesData.find((d) => d.id === requestedId) ?? dronesData[0])
+          ? dronesData.find((d) => d.id === requestedId) ?? dronesData[0]
           : dronesData[0];
 
         if (!selectedDrone) return;
@@ -598,10 +613,10 @@ const TrajectoryStepper: React.FC<{
     activeStep === 0 && imageUrl === ""
       ? "Для шага 2 нужно загрузить базовый слой"
       : activeStep === 1 && points.length === 0
-        ? "Для шага 3 требуется построение пользовательской траектории"
-        : activeStep === 2 && opt1TrajectoryData === null
-          ? "Для шага 4 требуется оптимизация пользовательской траектории"
-          : "";
+      ? "Для шага 3 требуется построение пользовательской траектории"
+      : activeStep === 2 && opt1TrajectoryData === null
+      ? "Для шага 4 требуется оптимизация пользовательской траектории"
+      : "";
 
   const renderStepContent = () => {
     switch (activeStep) {
@@ -740,23 +755,49 @@ const TrajectoryStepper: React.FC<{
 
       <Box
         sx={{
-          flexShrink: 0,
           display: "flex",
           alignItems: "center",
           gap: 1,
-          pl: 2,
+          pl: 3,
+          // m: "auto"
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 400 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 500,
+          }}
+        >
           Название:
         </Typography>
-        <Typography variant="h6" sx={{ fontWeight: 300 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 300,
+          }}
+        >
           {schemaName}
         </Typography>
+
         <Tooltip title="Изменить">
-          <IconButton size="small" onClick={handleOpenDialog}>
-            <EditIcon fontSize="small" color="action" />
-          </IconButton>
+          <Badge
+            color="warning"
+            variant="dot"
+            overlap="circular"
+            badgeContent="!"
+            invisible={!isDefaultName}
+          >
+            <IconButton
+              size="small"
+              onClick={handleOpenDialog}
+              sx={{
+                opacity: 0.6,
+                "&:hover": { opacity: 1 },
+              }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Badge>
         </Tooltip>
       </Box>
 

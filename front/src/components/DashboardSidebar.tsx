@@ -26,6 +26,7 @@ import MenuOpenIcon from "@mui/icons-material/MenuOpen";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import HomeIcon from "@mui/icons-material/Home";
 import Avatar from "@mui/material/Avatar";
 import { api } from "../api/client";
 import { useNavigate } from "react-router";
@@ -228,9 +229,16 @@ export default function DashboardSidebar({
               width: mini ? MINI_DRAWER_WIDTH : "auto",
             }}
           >
-            <DashboardSidebarHeaderItem>Полёты</DashboardSidebarHeaderItem>
             <DashboardSidebarPageItem
-              id="coals-receipt"
+              id="home"
+              title="Главная"
+              icon={<HomeIcon />}
+              href="/dashboards"
+              selected={!!matchPath("/dashboards/*", pathname)}
+            />
+            {/* <DashboardSidebarHeaderItem>Полёты</DashboardSidebarHeaderItem> */}
+            <DashboardSidebarPageItem
+              id="flight-schemas"
               title="Схемы полётов"
               icon={<MapRoundedIcon />}
               href="/trajectories"
@@ -241,14 +249,13 @@ export default function DashboardSidebar({
             <DashboardSidebarDividerItem />
             <DashboardSidebarHeaderItem>Справочники</DashboardSidebarHeaderItem>
             <DashboardSidebarPageItem
-              id="natural-sheets"
+              id="drones"
               title="Квадрокоптеры"
               icon={<LocalAirportRoundedIcon />}
               href="/drones"
               selected={!!matchPath("/drones/*", pathname)}
             />
           </List>
-
           <Box
             sx={{
               mt: "auto",
@@ -258,10 +265,11 @@ export default function DashboardSidebar({
               color: "text.secondary",
               fontSize: "0.75rem",
               fontWeight: 500,
-              opacity: 0.9,
+              opacity: 1,
               display: "flex",
               flexDirection: "column",
               gap: 1,
+              width: mini ? MINI_DRAWER_WIDTH : "auto",
             }}
           >
             {/* Пользовательский блок */}
@@ -272,18 +280,18 @@ export default function DashboardSidebar({
               gap={1}
               sx={{ width: "100%" }}
             >
-              <Stack direction="row" alignItems="center" spacing={1}>
+              <Stack direction="row" alignItems="center" spacing={1.5}>
                 <Avatar
                   alt="Username"
                   // src="/path/to/avatar.jpg" // можно убрать src, тогда будут инициалы
-                  sx={{ width: 32, height: 32 }}
+                  sx={{ width: 32, height: 32, bgcolor: "#014488" }}
                 >
                   U
                 </Avatar>
                 {!mini && (
                   <Box>
                     <Typography variant="body2" noWrap>
-                      User
+                      Username
                     </Typography>
                     <Typography variant="caption" noWrap sx={{ opacity: 0.7 }}>
                       mail@mail.com
@@ -292,26 +300,24 @@ export default function DashboardSidebar({
                 )}
               </Stack>
 
-              
-                <Tooltip title="Выйти" enterDelay={500}>
-                  <IconButton
+              <Tooltip title="Выйти" enterDelay={500}>
+                <IconButton
                   component="span"
-                    size="small"
-                    aria-label="Выйти"
-                    onClick={async () => {
-                      try {
-                        await api.auth.logout();
-                        // navigate("/");
-                        window.location.href = "/";
-                      } catch (error) {
-                        console.error("Ошибка при выходе", error);
-                      }
-                    }}
-                  >
-                    <LogoutRoundedIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              
+                  size="small"
+                  aria-label="Выйти"
+                  onClick={async () => {
+                    try {
+                      await api.auth.logout();
+                      // navigate("/");
+                      window.location.href = "/";
+                    } catch (error) {
+                      console.error("Ошибка при выходе", error);
+                    }
+                  }}
+                >
+                  <LogoutRoundedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Stack>
 
             {/* Версия

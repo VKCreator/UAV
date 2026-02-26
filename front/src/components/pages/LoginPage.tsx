@@ -13,10 +13,13 @@ import {
   InputAdornment,
   Card,
   CardContent,
+  Tooltip,
 } from "@mui/material";
-import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { Visibility, VisibilityOff, Person, Lock } from "@mui/icons-material";
 import { api } from "../../api/client";
 import AppIcon from "../AppIcon";
+
+import jwt_decode from "jwt-decode"
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -24,6 +27,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
 
   const navigate = useNavigate();
   const usernameRef = useRef<HTMLInputElement>(null);
@@ -37,7 +41,7 @@ export default function LoginPage() {
     try {
       setLoading(true);
       await api.auth.login(username, password);
-      navigate("/trajectories");
+      navigate("/dashboards");
     } catch (err: any) {
       if (err.status === 401) {
         setError("Неверное имя пользователя или пароль.");
@@ -60,81 +64,172 @@ export default function LoginPage() {
     setShowPassword((prev) => !prev);
   };
 
+  // useEffect(() => {
+  //   setLoading(true);
+
+  //   const timer = setTimeout(() => {
+  //     setLoading(false);
+  //     usernameRef.current?.focus();
+  //   }, 500); // например 500мс для эффекта загрузки
+
+  //   return () => clearTimeout(timer);
+  // }, []);
+
   return (
-    <Container maxWidth="xs" sx={{ position: "relative" }}>
-      <Box
-        display="flex"
-        flexDirection="column"
-        alignItems="center"
-        justifyContent="center"
-        minHeight="100vh"
-        gap={2}
-      >
-        {/* Карточка с формой */}
-        <Card sx={{ width: "100%", p: 4, pt: 5, pb: 7, boxShadow: 5 }}>
-          <CardContent>
-            {/* Иконка с названием по центру */}
-            <AppIcon />
-            {/* Заголовок "Вход" слева */}
-            <Typography variant="h4" sx={{ mt: 2, mb: 2, textAlign: "left" }}>
-              Вход
-            </Typography>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #f5f7fa 0%, #e4ecf3 100%)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <Container maxWidth="xs" sx={{ position: "relative" }}>
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          minHeight="100vh"
+          gap={2}
+        >
+          {/* Карточка с формой */}
+          <Fade in={!loading} timeout={1000}>
+            <Card
+              sx={{
+                width: "100%",
+                p: 4,
+                pt: 5,
+                pb: 5,
+                boxShadow: 5,
+                borderRadius: 3,
+              }}
+            >
+              <CardContent>
+                {/* Иконка с названием по центру */}
+                <AppIcon />
+                {/* Заголовок "Вход" слева */}
+                <Typography
+                  variant="h5"
+                  sx={{ mt: 2, mb: 2, textAlign: "left" }}
+                >
+                  Вход
+                </Typography>
 
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
+                {error && (
+                  <Alert severity="error" sx={{ mb: 2, alignItems: "center" }}>
+                    {error}
+                  </Alert>
+                )}
 
-            <form onSubmit={handleSubmit}>
-              <TextField
-                label="Имя пользователя"
-                required
-                fullWidth
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value);
-                  setError("");
-                }}
-                margin="normal"
-                inputRef={usernameRef}
-              />
-              <TextField
-                label="Пароль"
-                required
-                type={showPassword ? "text" : "password"}
-                fullWidth
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError("");
-                }}
-                margin="normal"
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton onClick={togglePasswordVisibility} edge="end">
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <Button
-                variant="contained"
-                color="primary"
-                fullWidth
-                type="submit"
-                sx={{ mt: 3 }}
-                disabled={!username || !password || loading}
-              >
-                Войти
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </Box>
-
+                <form onSubmit={handleSubmit}>
+                  <TextField
+                    label="Имя пользователя"
+                    required
+                    fullWidth
+                    value={username}
+                    onChange={(e) => {
+                      setUsername(e.target.value);
+                      setError("");
+                    }}
+                    placeholder="Введите логин..."
+                    margin="normal"
+                    inputRef={usernameRef}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person color="action" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <TextField
+                    label="Пароль"
+                    required
+                    type={showPassword ? "text" : "password"}
+                    fullWidth
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setError("");
+                    }}
+                    onKeyDown={(e) => {
+                      setCapsLock(e.getModifierState("CapsLock"));
+                    }}
+                    onKeyUp={(e) => {
+                      setCapsLock(e.getModifierState("CapsLock"));
+                    }}
+                    onBlur={() => {
+                      setCapsLock(false);
+                    }}
+                    placeholder="Введите пароль..."
+                    margin="normal"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock color="action" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Tooltip
+                            title={
+                              showPassword ? "Скрыть пароль" : "Показать пароль"
+                            }
+                          >
+                            <IconButton
+                              onClick={togglePasswordVisibility}
+                              edge="end"
+                            >
+                              {showPassword ? (
+                                <VisibilityOff />
+                              ) : (
+                                <Visibility />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  {capsLock && (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ ml: 1 }}
+                    >
+                      Caps Lock включён
+                    </Typography>
+                  )}
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    type="submit"
+                    sx={{ mt: 2 }}
+                    disabled={!username || !password || loading}
+                  >
+                    Войти
+                  </Button>
+                  <Typography
+                    variant="body2"
+                    align="left"
+                    sx={{
+                      mt: 4,
+                      color: "#757575",
+                      fontSize: "0.8rem",
+                      opacity: 0.8,
+                    }}
+                  >
+                    Версия: 2026.2.26
+                  </Typography>
+                </form>
+              </CardContent>
+            </Card>
+          </Fade>
+        </Box>
+      </Container>
       <Fade in={loading} timeout={300}>
         <Box
           sx={{
@@ -153,6 +248,6 @@ export default function LoginPage() {
           <CircularProgress size={60} />
         </Box>
       </Fade>
-    </Container>
+    </Box>
   );
 }

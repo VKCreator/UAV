@@ -358,6 +358,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
     setAcceptLineY(imageY + image.height * scaleToFit);
   }, [image, imageY, scaleToFit]);
 
+  
   return (
     <Box display="flex" flexDirection="column" height="100%" width="100%">
       <Box
@@ -856,21 +857,23 @@ const SceneEditor: FC<SceneEditorProps> = ({
                     />
 
                     {/* Текст */}
-                    {  (<Text
-                      x={imageX}
-                      y={
-                        acceptLineY +
-                        (image.height * scaleToFit - (acceptLineY - imageY)) /
-                          2 -
-                        10
-                      }
-                      width={image.width * scaleToFit}
-                      text="Неинформативная зона"
-                      align="center"
-                      fontSize={16}
-                      fill="rgba(255,255,255,0.8)"
-                      listening={false}
-                    />)}
+                    {
+                      <Text
+                        x={imageX}
+                        y={
+                          acceptLineY +
+                          (image.height * scaleToFit - (acceptLineY - imageY)) /
+                            2 -
+                          10
+                        }
+                        width={image.width * scaleToFit}
+                        text="Неинформативная зона"
+                        align="center"
+                        fontSize={16}
+                        fill="rgba(255,255,255,0.8)"
+                        listening={false}
+                      />
+                    }
                   </>
                 )}
 
@@ -1109,30 +1112,43 @@ const SceneEditor: FC<SceneEditorProps> = ({
                     const isHovered = hoveredObstacleId === poly.id;
 
                     return (
-                      <Line
-                        key={poly.id}
-                        points={poly.points.flatMap((p) => [
-                          p.x * scaleToFit + imageX,
-                          p.y * scaleToFit + imageY,
-                        ])}
-                        closed
-                        fill={isHovered ? `${poly.color}55` : `${poly.color}20`}
-                        stroke={poly.color}
-                        strokeWidth={isHovered ? 3 : 2}
-                        onMouseEnter={(e) => {
-                          const stage = e.target.getStage();
-                          stage!.container().style.cursor = "pointer";
-                          setHoveredObstacleId(poly.id);
-                        }}
-                        onMouseLeave={(e) => {
-                          const stage = e.target.getStage();
-                          stage!.container().style.cursor = getCursor();
-                          setHoveredObstacleId(null);
-                        }}
-                        onContextMenu={(e) => {
-                          e.evt.preventDefault();
-                        }}
-                      />
+                      <Fragment key={poly.id}>
+                        <Line
+                          points={poly.points.flatMap((p) => [
+                            p.x * scaleToFit + imageX,
+                            p.y * scaleToFit + imageY,
+                          ])}
+                          closed
+                          fill={
+                            isHovered ? `${poly.color}55` : `${poly.color}20`
+                          }
+                          stroke={poly.color}
+                          strokeWidth={isHovered ? 3 : 2}
+                          onMouseEnter={(e) => {
+                            const stage = e.target.getStage();
+                            stage!.container().style.cursor = "pointer";
+                            setHoveredObstacleId(poly.id);
+                          }}
+                          onMouseLeave={(e) => {
+                            const stage = e.target.getStage();
+                            stage!.container().style.cursor = getCursor();
+                            setHoveredObstacleId(null);
+                          }}
+                          onContextMenu={(e) => {
+                            e.evt.preventDefault();
+                          }}
+                        />
+
+                        {poly.points.map((point, index) => (
+                          <Circle
+                            key={`${poly.id}-vertex-${index}`}
+                            x={point.x * scaleToFit + imageX}
+                            y={point.y * scaleToFit + imageY}
+                            radius={6}
+                            fill={`${poly.color}`}
+                          />
+                        ))}
+                      </Fragment>
                     );
                   })}
 

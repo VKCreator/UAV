@@ -16,6 +16,7 @@ import {
   DialogActions,
   IconButton,
   Divider,
+  Alert,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Tooltip } from "@mui/material";
@@ -35,7 +36,7 @@ import { Drone } from "../../api/client";
 
 interface BuildTrajectoryStepProps {
   imageData: ImageData;
-  
+
   points: Point[];
   setPoints: React.Dispatch<React.SetStateAction<Point[]>>;
 
@@ -61,8 +62,8 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   setTrajectoryData,
   droneParams,
   setDroneParams,
-  drones
-}) => { 
+  drones,
+}) => {
   const { confirm } = useDialogs();
   const notifications = useNotifications();
 
@@ -98,6 +99,10 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   const downloadScene = () => {
     scenePreviewRef.current?.handleDownload();
   };
+
+  const isResolutionMatch =
+    droneParams.uavCameraParams.resolutionWidth === imageData.width &&
+    droneParams.uavCameraParams.resolutionHeight === imageData.height;
 
   return (
     <Box sx={{ p: 2 }}>
@@ -217,6 +222,13 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                 </IconButton>
               </Tooltip>
             </Box>
+
+            {!isResolutionMatch && (
+              <Alert severity="warning" sx={{ alignItems: "center", mt: 2 }}>
+                Обратите внимание, что разрешение камеры выбранного БПЛА не
+                совпадают с разрешением базового слоя.
+              </Alert>
+            )}
           </Paper>
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>

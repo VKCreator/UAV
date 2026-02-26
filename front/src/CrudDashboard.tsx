@@ -24,6 +24,7 @@ import { datePickersCustomizations } from "./theme/customizations";
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 import { api } from "./api/client";
+import DashboardsPage from "./components/pages/DashboardsPage";
 
 // -------- ProtectedRoute --------
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -102,10 +103,14 @@ const router = createHashRouter([
         path: "/drones",
         Component: DronesList,
       },
+      {
+        path: "/dashboards",
+        Component: DashboardsPage,
+      },
       // fallback для внутренних маршрутов Dashboard
       {
         path: "*",
-        Component: TrajectoriesList,
+        Component: DashboardsPage,
       },
     ],
   },

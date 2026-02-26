@@ -43,6 +43,7 @@ export const buttonCustomizations: Components<Theme> = {
         "&:hover": {
           backgroundColor: "rgba(76, 134, 175, 0.04)",
         },
+        boxShadow: "0px 0px 0px 0px"
       },
     },
   },

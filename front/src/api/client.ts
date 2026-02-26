@@ -1,4 +1,6 @@
 // src/api/client.ts
+import { jwtDecode } from "jwt-decode";
+
 const API_BASE_URL = "http://nmstuvtip.ddns.net:5000";
 
 // Универсальная функция для HTTP-запросов
@@ -94,7 +96,8 @@ export const api = {
         clearTimeout(timeout); // очищаем таймаут, если запрос завершился вовремя
 
         const data = await res.json();
-
+        
+        console.info(data)
         if (!res.ok) {
           const error = new Error(data.message || "Ошибка входа.");
           (error as any).status = res.status;
@@ -102,6 +105,19 @@ export const api = {
         }
 
         localStorage.setItem("token", data.token);
+
+        const decodedToken = jwtDecode(data.token);
+
+        username = decodedToken.user;
+        const firstName = decodedToken.first_name;
+        const lastName = decodedToken.last_name;
+        const email = decodedToken.email;
+        const isActive = decodedToken.active;
+
+        localStorage.setItem("userData", JSON.stringify(decodedToken))
+        
+        console.log(username, firstName, lastName, email, isActive);
+
         return { token: data.token, status: res.status };
       } catch (err: any) {
         if (err.name === "AbortError") {

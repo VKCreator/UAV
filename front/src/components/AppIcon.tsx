@@ -22,7 +22,7 @@ const AppIcon: React.FC<AppIconProps> = ({
   return (
     // Оборачиваем в Link → кликабельный переход
     <Link
-      to="/trajectories"
+      to="/dashboards"
       style={{
         textDecoration: "none", // убираем подчёркивание
         display: "inline-block",
