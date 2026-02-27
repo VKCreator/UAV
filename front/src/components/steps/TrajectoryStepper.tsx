@@ -16,11 +16,14 @@ import {
   Tooltip,
   CircularProgress,
   Badge,
+  Fab,
+  Zoom,
 } from "@mui/material";
 
 import EditIcon from "@mui/icons-material/Edit";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 
 import { useDialogs } from "../../hooks/useDialogs/useDialogs";
@@ -31,7 +34,6 @@ import ImageUploadStep from "./ImageUploadStep";
 import BuildTrajectoryStep from "./BuildTrajectoryStep";
 import OptimizationTrajectoryStep from "./OptimizationTrajectoryStep";
 import CompareOptimizationMethodsStep from "./CompareOptimizationMethodsStep";
-
 import FlightSchemaPage from "../pages/FlightSchemaPage";
 
 import type { ExifData } from "./common.types";
@@ -40,71 +42,145 @@ import type { DroneParams, Weather } from "../../types/uav.types";
 import type { Opt1TrajectoryData } from "../../types/optTrajectory.types";
 import type { Storyboards } from "../../types/storyboards.types";
 
-import { Fab, Zoom, useScrollTrigger } from "@mui/material";
-import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { api, Drone } from "../../api/client";
 
-const TrajectoryStepper: React.FC<{
-  onSubmit: () => void;
-  onReset: () => void;
-}> = ({ onSubmit, onReset }) => {
+// ─── Константы ───────────────────────────────────────────────────────────────
+
+const DEFAULT_SCHEMA_NAME = "Новая схема полёта БПЛА";
+const DRONES_CACHE_KEY = "drones-cache-v1";
+const SCHEMA_NAME_MAX_LENGTH = 50;
+
+const INITIAL_DRONE_PARAMS: DroneParams = {
+  selectedDroneId: undefined,
+  frameHeightBase: 0,
+  frameWidthBase: 0,
+  frameHeightPlanned: 0,
+  frameWidthPlanned: 0,
+  distance: 75,
+  plannedDistance: 15,
+  considerObstacles: true,
+  uavCameraParams: {
+    fov: 77,
+    resolutionWidth: 5472,
+    resolutionHeight: 3648,
+    useFromReference: true,
+  },
+  speed: 5,
+  batteryTime: 30,
+  hoverTime: 5,
+  windResistance: 15,
+  model: "unknown",
+};
+
+const INITIAL_WEATHER: Weather = {
+  windSpeed: 10,
+  windDirection: 180,
+  useWeatherApi: true,
+  position: {
+    lat: 53.4260327, // ММК
+    lon: 59.0531761,
+  },
+};
+
+const EMPTY_STORYBOARD_ENTRY = {
+  count_frames: null,
+  disk_space: null,
+  total_flight_time: null,
+  applied: false,
+};
+
+const INITIAL_STORYBOARDS: Storyboards = {
+  point: { ...EMPTY_STORYBOARD_ENTRY },
+  recommended: { ...EMPTY_STORYBOARD_ENTRY },
+  optimal: { ...EMPTY_STORYBOARD_ENTRY },
+};
+
+const STEPS = [
+  "Загрузка базового слоя",
+  "Построение траектории",
+  "Оптимизация траектории",
+  "Сравнение траекторий",
+];
+
+// ─── Утилиты ─────────────────────────────────────────────────────────────────
+
+/**
+ * Вычисляет размер кадра по расстоянию и углу обзора камеры.
+ * Вынесена за пределы компонента — чистая функция, не зависит от состояния.
+ */
+const calculateFrameSize = (distance: number, fovDeg: number): number => {
+  const fovRad = (fovDeg * Math.PI) / 180;
+  return 2 * distance * Math.tan(fovRad / 2);
+};
+
+/**
+ * Вычисляет размеры кадра (высоту и ширину) по параметрам камеры и расстоянию.
+ */
+const computeFrameDimensions = (
+  distance: number,
+  fov: number,
+  resolutionWidth: number,
+  resolutionHeight: number,
+): { height: number; width: number } => {
+  const height = calculateFrameSize(distance, fov);
+  const width = height * (resolutionWidth / resolutionHeight);
+  return { height, width };
+};
+
+// ─── Компонент ───────────────────────────────────────────────────────────────
+
+const TrajectoryStepper = () => {
   const navigate = useNavigate();
   const notifications = useNotifications();
-
   const { confirm } = useDialogs();
-  const { prompt } = useDialogs();
+
+  // ── UI-состояние ──────────────────────────────────────────────────────────
 
   const [activeStep, setActiveStep] = React.useState(0);
-  const [schemaName, setSchemaName] = React.useState("Новая схема полёта БПЛА");
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [dialogValue, setDialogValue] = React.useState("");
-  const [error, setError] = React.useState("");
-  const isDefaultName = schemaName === "Новая схема полёта БПЛА";
+  const [openPreviewPage, setPreviewPage] = React.useState(false);
+  const [isCreating, setIsCreating] = React.useState(false);
+  const [isFadingOut, setIsFadingOut] = React.useState(false);
 
-  // Step 1
+  // ── Название схемы ────────────────────────────────────────────────────────
+
+  const [schemaName, setSchemaName] = React.useState(DEFAULT_SCHEMA_NAME);
+  const [isNameDialogOpen, setIsNameDialogOpen] = React.useState(false);
+  const [nameDialogValue, setNameDialogValue] = React.useState("");
+  const [nameDialogError, setNameDialogError] = React.useState("");
+  const isDefaultName = schemaName === DEFAULT_SCHEMA_NAME;
+
+  // ── Шаг 1: изображение ───────────────────────────────────────────────────
+
   const [files, setFiles] = React.useState<File[]>([]);
   const [exifData, setExifData] = React.useState<ExifData[]>([]);
-  const [imageUrl, setImageUrl] = React.useState<string>("");
+  const [imageUrl, setImageUrl] = React.useState("");
 
-  const imageData = {
-    imageUrl,
-    fileName: files[0]?.name || "",
-    width: exifData[0]?.width || 0,
-    height: exifData[0]?.height || 0,
-  };
+  const imageData = React.useMemo(
+    () => ({
+      imageUrl,
+      fileName: files[0]?.name ?? "",
+      width: exifData[0]?.width ?? 0,
+      height: exifData[0]?.height ?? 0,
+    }),
+    [imageUrl, files, exifData],
+  );
 
-  // Step 2
+  // ── Шаг 2: схема полётов ─────────────────────────────────────────────────
+
   const [points, setPoints] = React.useState<Point[]>([]);
   const [obstacles, setObstacles] = React.useState<Polygon[]>([]);
-  const [flightLineY, setFlightLineY] = React.useState<number | null>(null);
-  
-  const [droneParams, setDroneParams] = React.useState<DroneParams>({
-    selectedDroneId: undefined,
-    frameHeightBase: 0,
-    frameWidthBase: 0,
-    frameHeightPlanned: 0,
-    frameWidthPlanned: 0,
-    distance: 75,
-    plannedDistance: 15,
-    considerObstacles: true,
-    uavCameraParams: {
-      fov: 77,
-      resolutionWidth: 5472,
-      resolutionHeight: 3648,
-      useFromReference: true,
-    },
-    speed: 5,
-    batteryTime: 30,
-    hoverTime: 5,
-    windResistance: 15,
-    model: "unknown",
-  });
+  const [flightLineY, setFlightLineY] = React.useState<number>(0);
+  const [droneParams, setDroneParams] =
+    React.useState<DroneParams>(INITIAL_DRONE_PARAMS);
+  const [drones, setDrones] = React.useState<Drone[]>([]);
 
-  
-  // Step 3
+  // ── Шаг 3: оптимизация ───────────────────────────────────────────────────
+
   const [opt1TrajectoryData, setOpt1TrajectoryData] =
     React.useState<Opt1TrajectoryData | null>(null);
-  const [opt2TrajectoryData, setOpt2TrajectoryData] = React.useState<any>(null);
+
+  const [weatherConditions, setWeatherConditions] =
+    React.useState<Weather>(INITIAL_WEATHER);
 
   const [selection, setSelection] = React.useState<{
     x: number;
@@ -113,280 +189,234 @@ const TrajectoryStepper: React.FC<{
     height: number;
   } | null>(null);
 
-  const initWeather: Weather = {
-    windSpeed: 10,
-    windDirection: 180,
-    useWeatherApi: true,
-    position: {
-      lat: 53.4260327, // ММК
-      lon: 59.0531761,
-    },
-  };
-  const [weatherConditions, setWeatherConditions] =
-    React.useState<Weather>(initWeather);
+  // ── Раскадровки ──────────────────────────────────────────────────────────
 
-  const [storyboardsData, setStoryboardsData] = React.useState<Storyboards>({
-    point: {
-      count_frames: null,
-      disk_space: null,
-      total_flight_time: null,
-      applied: false,
-    },
-    recommended: {
-      count_frames: null,
-      disk_space: null,
-      total_flight_time: null,
-      applied: false,
-    },
-    optimal: {
-      count_frames: null,
-      disk_space: null,
-      total_flight_time: null,
-      applied: false,
-    },
-  });
+  const [storyboardsData, setStoryboardsData] =
+    React.useState<Storyboards>(INITIAL_STORYBOARDS);
 
-  const [framesUrlsPointBased, setFramesUrlsPointBased] = React.useState<any>(
+  const [framesUrlsPointBased, setFramesUrlsPointBased] = React.useState<
+    string[]
+  >([]);
+  const [framesUrlsRecommended, setFramesUrlsRecommended] = React.useState<
+    string[]
+  >([]);
+  const [framesUrlsOptimal, setFramesUrlsOptimal] = React.useState<string[]>(
     [],
   );
-  const [framesUrlsRecommended, setFramesUrlsRecommended] = React.useState<any>(
-    [],
-  );
-  const [framesUrlsOptimal, setFramesUrlsOptimal] = React.useState<any>([]);
+  const [pointsRecommended, setPointsRecommended] = React.useState<Point[]>([]);
 
-  const [pointsRecommended, setPointsRecommended] = React.useState<any[]>([]);
+  // ── Очистка раскадровок ───────────────────────────────────────────────────
+  //
+  // Функции обёрнуты в useCallback, чтобы иметь стабильные ссылки
+  // и не вызывать лишних срабатываний useEffect, которые их используют.
 
-  // Очистка point-based раскадровки
-  const clearPointBasedStoryboards = () => {
+  const clearPointBasedStoryboards = React.useCallback(() => {
     setStoryboardsData((prev) => ({
       ...prev,
-      point: {
-        count_frames: null,
-        disk_space: null,
-        total_flight_time: null,
-        applied: false,
-      },
+      point: { ...EMPTY_STORYBOARD_ENTRY },
     }));
-    framesUrlsPointBased.forEach((url: string) => URL.revokeObjectURL(url)); // освобождаем память от старых URL
-    setFramesUrlsPointBased([]);
-  };
+    setFramesUrlsPointBased((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
+  }, []);
 
-  // Очистка recommended раскадровки
-  const clearRecommendedStoryboards = () => {
+  const clearRecommendedStoryboards = React.useCallback(() => {
     setStoryboardsData((prev) => ({
       ...prev,
-      recommended: {
-        count_frames: null,
-        disk_space: null,
-        total_flight_time: null,
-        applied: false,
-      },
+      recommended: { ...EMPTY_STORYBOARD_ENTRY },
     }));
-    framesUrlsRecommended.forEach((url: string) => URL.revokeObjectURL(url)); // освобождаем память от старых URL
-    setFramesUrlsRecommended([]);
-    setPointsRecommended([]); // если хочешь сбрасывать точки тоже
-    setSelection(null); // сбрасываем выделение
-  };
+    setFramesUrlsRecommended((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
+    setPointsRecommended([]);
+    setSelection(null);
+  }, []);
 
-  // Очистка optimal раскадровки
-  const clearOptimalStoryboards = () => {
+  const clearOptimalStoryboards = React.useCallback(() => {
     setStoryboardsData((prev) => ({
       ...prev,
-      optimal: {
-        count_frames: null,
-        disk_space: null,
-        total_flight_time: null,
-        applied: false,
-      },
+      optimal: { ...EMPTY_STORYBOARD_ENTRY },
     }));
-    framesUrlsOptimal.forEach((url: string) => URL.revokeObjectURL(url)); // освобождаем память от старых URL
-    setFramesUrlsOptimal([]);
-  };
+    setFramesUrlsOptimal((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
+  }, []);
 
-  const clearAllStoryboards = () => {
+  const clearAllStoryboards = React.useCallback(() => {
     clearPointBasedStoryboards();
     clearRecommendedStoryboards();
     clearOptimalStoryboards();
-  };
-
-  // Step 4
-  const [openPreviewPage, setPreviewPage] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-  const [fadeOut, setFadeOut] = React.useState(false); // Состояние для анимации
-
-  const handleImageUpload = (newFiles: File[], newExif: ExifData[]) => {
-    setFiles(newFiles);
-    setExifData(newExif);
-    setPoints([]);
-    setObstacles([]);
-    setOpt1TrajectoryData(null);
-
-    clearAllStoryboards();
-
-    if (imageUrl) {
-      URL.revokeObjectURL(imageUrl);
-      setImageUrl(String());
-    }
-  };
-
-  const handleImageDelete = () => {
-    setFiles([]);
-    setExifData([]);
-    setPoints([]);
-    setObstacles([]);
-    setOpt1TrajectoryData(null);
-
-    clearAllStoryboards();
-
-    if (imageUrl) {
-      URL.revokeObjectURL(imageUrl);
-      setImageUrl(String());
-    }
-  };
-
-  const handleCreateSchema = React.useCallback(async () => {
-    try {
-      if (!files[0]) {
-        notifications.show("Не выбрано изображение", {
-          severity: "error",
-        });
-        return;
-      }
-
-      if (isDefaultName) {
-        const shouldCreateSchema = await confirm(
-          "Название схемы полётов задано по умолчанию. Вы действительно желаете создать схему?",
-          {
-            title: "Предупреждение", // Заголовок окна
-            okText: "Да", // Кнопка подтверждения
-            cancelText: "Нет"
-          },
-        );
-
-        if (!shouldCreateSchema) {
-          return;
-        }
-      }
-
-      const formData = new FormData();
-
-      formData.append("schemaName", schemaName);
-      formData.append("image", files[0]); // сам файл
-      formData.append("pointsCount", String(points.length));
-      formData.append("distance", String(droneParams.distance));
-      formData.append("flightTime", String(15));
-      formData.append("method", "METHOD_1");
-      formData.append("isWeatherConditions", String(true));
-
-      setLoading(true); // Включаем спиннер
-
-      await api.schemas.create(formData);
-
-      setFadeOut(true);
-      // Ждём окончания анимации, затем отключаем спиннер
-      setTimeout(() => {
-        setLoading(false); // Скрываем спиннер
-        navigate("/trajectories"); // Переход на другую страницу
-        notifications.show("Схема полётов создана", {
-          severity: "success",
-          autoHideDuration: 3000,
-        });
-      }, 1000); // Задержка перед навигацией (по времени, равному анимации)
-
-      navigate("/trajectories");
-    } catch (error) {
-      setLoading(false); // Скрываем спиннер
-      notifications.show(
-        `Не удалось создать схему. Причина: ${(error as Error).message}`,
-        {
-          severity: "error",
-          autoHideDuration: 5000,
-        },
-      );
-    }
   }, [
-    schemaName,
-    files,
-    points.length,
-    droneParams.distance,
-    navigate,
-    notifications,
+    clearPointBasedStoryboards,
+    clearRecommendedStoryboards,
+    clearOptimalStoryboards,
   ]);
 
-  const steps = [
-    "Загрузка базового слоя",
-    "Построение траектории",
-    "Оптимизация траектории",
-    "Сравнение траекторий",
-  ];
-
-  const handleNext = () => {
-    if (activeStep < steps.length - 1) {
-      setActiveStep(activeStep + 1);
-    }
-  };
-
-  const handleBack = () => {
-    if (activeStep > 0) {
-      setActiveStep(activeStep - 1);
-    } else {
-      handleBackClick();
-    }
-  };
-
-  const handleBackClick = React.useCallback(async () => {
-    const shouldNavigate = await confirm("Вы хотите прервать создание схемы полёта?", {
-      title: "Подтверждение", // Заголовок окна
-      okText: "Да", // Кнопка подтверждения
-      cancelText: "Нет", // Кнопка отмены
-    });
-
-    if (shouldNavigate) {
-      navigate("/trajectories");
-    }
-  }, [navigate, confirm]);
-
-  const handleOpenDialog = () => {
-    setDialogValue(schemaName);
-    setError("");
-    setIsDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-    setError("");
-  };
-
-  const handleSaveSchemaName = () => {
-    if (!dialogValue.trim()) {
-      setError("Название схемы обязательно");
-      return;
-    }
-    if (dialogValue.length > 50) {
-      setError("Название не должно превышать 50 символов");
-      return;
-    }
-
-    setSchemaName(dialogValue.trim());
-    handleCloseDialog();
-  };
-
   React.useEffect(() => {
-    console.warn("points changed", points);
-    clearPointBasedStoryboards();
-    clearOptimalStoryboards();
-  }, [points]);
+    return () => {
+      console.warn("clear images");
+      framesUrlsPointBased.forEach((url) => URL.revokeObjectURL(url));
+      framesUrlsRecommended.forEach((url) => URL.revokeObjectURL(url));
+      framesUrlsOptimal.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
 
-  React.useEffect(() => {
-    clearOptimalStoryboards();
-  }, [opt1TrajectoryData]);
+  // ── Сброс состояния сцены ─────────────────────────────────────────────────
 
-  React.useEffect(() => {
-    console.warn(
-      "droneParams.frameHeightBase changed",
-      droneParams.frameHeightBase,
-    );
+  const resetSceneState = React.useCallback(() => {
+    setPoints([]);
+    setObstacles([]);
+    setOpt1TrajectoryData(null);
     clearAllStoryboards();
+  }, [clearAllStoryboards]);
+
+  // ── Управление URL изображения ────────────────────────────────────────────
+  //
+  // URL создаётся и отзывается только в одном месте — этом useEffect.
+  // handleImageUpload и handleImageDelete больше не трогают imageUrl напрямую,
+  // чтобы избежать двойного revokeObjectURL.
+
+  React.useEffect(() => {
+    if (files.length === 0) {
+      setImageUrl("");
+      return;
+    }
+
+    const url = URL.createObjectURL(files[0]);
+    setImageUrl(url);
+
+    return () => {
+      console.warn("clear images");
+      URL.revokeObjectURL(url);
+    };
+  }, [files]);
+
+  React.useEffect(() => {
+    setFlightLineY(imageData.height);
+  }, [imageData]);
+
+  // ── Обработчики изображения ───────────────────────────────────────────────
+
+  const handleImageUpload = React.useCallback(
+    (newFiles: File[], newExif: ExifData[]) => {
+      setFiles(newFiles);
+      setExifData(newExif);
+      resetSceneState();
+    },
+    [resetSceneState],
+  );
+
+  const handleImageDelete = React.useCallback(() => {
+    setFiles([]);
+    setExifData([]);
+    resetSceneState();
+  }, [resetSceneState]);
+
+  // ── Пересчёт размеров кадра при смене параметров дрона/расстояния ─────────
+  //
+  // Два отдельных эффекта для базового и планируемого расстояния.
+  // calculateFrameSize вынесена за компонент — не нужна в deps.
+
+  React.useEffect(() => {
+    const { distance, uavCameraParams } = droneParams;
+    if (!distance || !uavCameraParams) return;
+
+    const { height, width } = computeFrameDimensions(
+      distance,
+      uavCameraParams.fov,
+      uavCameraParams.resolutionWidth,
+      uavCameraParams.resolutionHeight,
+    );
+
+    setDroneParams((prev) => ({
+      ...prev,
+      frameHeightBase: height,
+      frameWidthBase: width,
+    }));
+    // Намеренно не включаем droneParams целиком, чтобы не зациклиться.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [droneParams.distance, droneParams.uavCameraParams]);
+
+  React.useEffect(() => {
+    const { plannedDistance, uavCameraParams } = droneParams;
+    if (!plannedDistance || !uavCameraParams) return;
+
+    const { height, width } = computeFrameDimensions(
+      plannedDistance,
+      uavCameraParams.fov,
+      uavCameraParams.resolutionWidth,
+      uavCameraParams.resolutionHeight,
+    );
+
+    setDroneParams((prev) => ({
+      ...prev,
+      frameHeightPlanned: height,
+      frameWidthPlanned: width,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [droneParams.plannedDistance, droneParams.uavCameraParams]);
+
+  // ── Сброс результатов при изменении параметров кадра ─────────────────────
+  //
+  // Разделён на два эффекта по зонам ответственности:
+  // один следит за размерами кадра, другой — за остальными параметрами дрона.
+
+  const prevFrameRef = React.useRef({
+    frameHeightBase: droneParams.frameHeightBase,
+    frameWidthBase: droneParams.frameWidthBase,
+    frameHeightPlanned: droneParams.frameHeightPlanned,
+    frameWidthPlanned: droneParams.frameWidthPlanned,
+  });
+
+  React.useEffect(() => {
+    const prev = prevFrameRef.current;
+    const {
+      frameHeightBase,
+      frameWidthBase,
+      frameHeightPlanned,
+      frameWidthPlanned,
+    } = droneParams;
+
+    const frameChanged =
+      prev.frameHeightBase !== frameHeightBase ||
+      prev.frameWidthBase !== frameWidthBase ||
+      prev.frameHeightPlanned !== frameHeightPlanned ||
+      prev.frameWidthPlanned !== frameWidthPlanned;
+
+    if (!frameChanged) return;
+
+    prevFrameRef.current = {
+      frameHeightBase,
+      frameWidthBase,
+      frameHeightPlanned,
+      frameWidthPlanned,
+    };
+
+    const hasAppliedStoryboards =
+      storyboardsData.point.applied ||
+      storyboardsData.optimal.applied ||
+      storyboardsData.recommended.applied;
+
+    if (opt1TrajectoryData !== null) {
+      setOpt1TrajectoryData(null);
+      notifications.show(
+        "Изменены параметры съёмки. Результаты оптимизации очищены.",
+        { severity: "info", autoHideDuration: 5000 },
+      );
+    }
+
+    if (hasAppliedStoryboards) {
+      clearAllStoryboards();
+      notifications.show(
+        "Изменены параметры БПЛА. Результаты раскадровок очищены.",
+        { severity: "info", autoHideDuration: 5000 },
+      );
+    }
+    // storyboardsData намеренно не в deps — читаем через ref-снимок при входе в эффект
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     droneParams.frameHeightBase,
     droneParams.frameWidthBase,
@@ -394,92 +424,60 @@ const TrajectoryStepper: React.FC<{
     droneParams.frameWidthPlanned,
   ]);
 
+  const isFirstRender = React.useRef(true);
+
   React.useEffect(() => {
-    console.info("new image");
-    if (files.length > 0) {
-      const url = URL.createObjectURL(files[0]);
-      setImageUrl(url);
-
-      return () => {
-        console.info("useEffect", "clear memory");
-        URL.revokeObjectURL(url);
-
-        console.warn("Очищена память!");
-        clearAllStoryboards();
-      };
+    // Пропускаем первый рендер — на маунте сбрасывать нечего
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
-  }, [files]);
 
-  const DRONES_CACHE_KEY = "drones-cache-v1";
-  const [drones, setDrones] = React.useState<Drone[]>([]);
-
-  const calculateFrameSize = (d: number, f: number) => {
-    const fovRad = (f * Math.PI) / 180;
-    return 2 * d * Math.tan(fovRad / 2);
-  };
-
-  React.useEffect(() => {
-    if (droneParams.distance && droneParams.uavCameraParams) {
-      const height = calculateFrameSize(
-        droneParams.distance,
-        droneParams.uavCameraParams.fov,
-      );
-
-      setDroneParams((prev) => ({
-        ...prev,
-        frameHeightBase: height,
-        frameWidthBase:
-          height *
-          (droneParams.uavCameraParams.resolutionWidth /
-            droneParams.uavCameraParams.resolutionHeight),
-      }));
-    }
-  }, [droneParams.distance, droneParams.uavCameraParams]);
-
-  React.useEffect(() => {
-    if (droneParams.plannedDistance && droneParams.uavCameraParams) {
-      const height = calculateFrameSize(
-        droneParams.plannedDistance,
-        droneParams.uavCameraParams.fov,
-      );
-      setDroneParams((prev) => ({
-        ...prev,
-        frameHeightPlanned: height,
-        frameWidthPlanned:
-          height *
-          (droneParams.uavCameraParams.resolutionWidth /
-            droneParams.uavCameraParams.resolutionHeight),
-      }));
-    }
-  }, [droneParams.plannedDistance, droneParams.uavCameraParams]);
-
-  React.useEffect(() => {
-    if (opt1TrajectoryData != null) {
-      notifications.show(
-        "Изменены параметры съёмки. Результаты оптимизации очищены.",
-        {
-          severity: "info",
-          autoHideDuration: 5000,
-        },
-      );
+    if (opt1TrajectoryData !== null) {
       setOpt1TrajectoryData(null);
+      notifications.show(
+        "Изменены параметры полёта. Результаты оптимизации очищены.",
+        { severity: "info", autoHideDuration: 5000 },
+      );
     }
 
-    if (
+    const hasAppliedStoryboards =
       storyboardsData.point.applied ||
       storyboardsData.optimal.applied ||
-      storyboardsData.recommended.applied
-    ) {
-      notifications.show(
-        "Изменены параметры БПЛА. Результаты раскадровок очищены.",
-        {
-          severity: "info",
-          autoHideDuration: 5000,
-        },
-      );
+      storyboardsData.recommended.applied;
+
+    if (hasAppliedStoryboards) {
       clearAllStoryboards();
+      notifications.show(
+        "Изменены параметры полёта. Результаты раскадровок очищены.",
+        { severity: "info", autoHideDuration: 5000 },
+      );
     }
-  }, [droneParams]);
+  }, [
+    // Параметры дрона, влияющие на расчёт траектории
+    droneParams.speed,
+    droneParams.batteryTime,
+    droneParams.hoverTime,
+    droneParams.windResistance,
+    droneParams.considerObstacles,
+    // Погодные условия
+    weatherConditions.windSpeed,
+    weatherConditions.windDirection,
+  ]);
+
+  // ── Сброс раскадровок при смене точек и траектории ───────────────────────
+
+  React.useEffect(() => {
+    clearPointBasedStoryboards();
+    clearOptimalStoryboards();
+    // points — массив, сравнение по ссылке корректно: setPoints всегда даёт новый массив
+  }, [points, clearPointBasedStoryboards, clearOptimalStoryboards]);
+
+  React.useEffect(() => {
+    clearOptimalStoryboards();
+  }, [opt1TrajectoryData, clearOptimalStoryboards]);
+
+  // ── Загрузка дронов ───────────────────────────────────────────────────────
 
   React.useEffect(() => {
     let isMounted = true;
@@ -487,7 +485,6 @@ const TrajectoryStepper: React.FC<{
     const fetchDrones = async () => {
       try {
         const cached = sessionStorage.getItem(DRONES_CACHE_KEY);
-
         let dronesData: Drone[];
 
         if (cached) {
@@ -497,27 +494,16 @@ const TrajectoryStepper: React.FC<{
           sessionStorage.setItem(DRONES_CACHE_KEY, JSON.stringify(dronesData));
         }
 
-        if (!isMounted) return;
-
-        if (!dronesData.length) {
-          // setLoading(false);
-          return;
-        }
+        if (!isMounted || !dronesData.length) return;
 
         setDrones(dronesData);
 
-        // ----------------------------
-        // Определяем какой дрон выбрать
-        // ----------------------------
         const requestedId = Number(droneParams?.selectedDroneId);
-
         const selectedDrone = Number.isFinite(requestedId)
           ? dronesData.find((d) => d.id === requestedId) ?? dronesData[0]
           : dronesData[0];
 
         if (!selectedDrone) return;
-
-        const newSelectedId = String(selectedDrone.id);
 
         const newCameraParams = {
           fov: selectedDrone.fov_vertical,
@@ -526,60 +512,52 @@ const TrajectoryStepper: React.FC<{
           useFromReference: true,
         };
 
-        const newUavParams = {
+        const baseFrame = computeFrameDimensions(
+          INITIAL_DRONE_PARAMS.distance,
+          newCameraParams.fov,
+          newCameraParams.resolutionWidth,
+          newCameraParams.resolutionHeight,
+        );
+
+        const plannedFrame = computeFrameDimensions(
+          INITIAL_DRONE_PARAMS.plannedDistance,
+          newCameraParams.fov,
+          newCameraParams.resolutionWidth,
+          newCameraParams.resolutionHeight,
+        );
+
+        setDroneParams((prev) => ({
+          ...prev,
+          selectedDroneId: String(selectedDrone.id),
+          uavCameraParams: newCameraParams,
           speed: (selectedDrone.min_speed ?? 0) * 5,
           batteryTime: selectedDrone.battery_life ?? 0,
           windResistance: selectedDrone.max_wind_resistance ?? 0,
           model: selectedDrone.model,
-        };
-
-        let frameHeightBase = calculateFrameSize(
-          droneParams.distance,
-          droneParams.uavCameraParams.fov,
-        );
-
-        let frameWidthBase =
-          frameHeightBase *
-          (droneParams.uavCameraParams.resolutionWidth /
-            droneParams.uavCameraParams.resolutionHeight);
-
-        let frameHeightPlanned = calculateFrameSize(
-          droneParams.plannedDistance,
-          droneParams.uavCameraParams.fov,
-        );
-        let frameWidthPlanned =
-          frameHeightPlanned *
-          (droneParams.uavCameraParams.resolutionWidth /
-            droneParams.uavCameraParams.resolutionHeight);
-
-        setDroneParams((prev) => ({
-          ...prev,
-          selectedDroneId: newSelectedId,
-          uavCameraParams: newCameraParams,
-          ...newUavParams,
-          frameHeightBase,
-          frameWidthBase,
-          frameHeightPlanned,
-          frameWidthPlanned,
+          frameHeightBase: baseFrame.height,
+          frameWidthBase: baseFrame.width,
+          frameHeightPlanned: plannedFrame.height,
+          frameWidthPlanned: plannedFrame.width,
         }));
-      } catch (error) {
+      } catch {
+        if (!isMounted) return;
         notifications.show("Не удалось загрузить список БПЛА", {
           severity: "error",
           autoHideDuration: 3000,
         });
-      } finally {
-        if (isMounted) {
-          // setLoading(false);
-        }
       }
     };
 
     fetchDrones();
 
     return () => {
-      isMounted = false; // защита от memory leak
+      isMounted = false;
     };
+    // Запускается один раз при монтировании
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Загрузка погоды ───────────────────────────────────────────────────────
 
   React.useEffect(() => {
     if (!weatherConditions.position) return;
@@ -590,13 +568,12 @@ const TrajectoryStepper: React.FC<{
           weatherConditions.position.lat,
           weatherConditions.position.lon,
         );
-
         setWeatherConditions((prev) => ({
           ...prev,
           windSpeed: data.current_weather.windspeed,
           windDirection: data.current_weather.winddirection,
         }));
-      } catch (err) {
+      } catch {
         notifications.show("Не удалось получить данные о погоде.", {
           severity: "error",
           autoHideDuration: 5000,
@@ -605,21 +582,148 @@ const TrajectoryStepper: React.FC<{
     };
 
     fetchWeather();
+    // Запускается один раз при монтировании
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isDisabled =
-    (activeStep === 0 && imageUrl === "") ||
-    (activeStep === 1 && (points.length === 0 || drones.length === 0)) ||
-    (activeStep == 2 && opt1TrajectoryData == null);
+  // ── Навигация по шагам ────────────────────────────────────────────────────
 
-  const tooltipTitle =
-    activeStep === 0 && imageUrl === ""
-      ? "Для шага 2 нужно загрузить базовый слой"
-      : activeStep === 1 && points.length === 0
-      ? "Для шага 3 требуется построение пользовательской траектории"
-      : activeStep === 2 && opt1TrajectoryData === null
-      ? "Для шага 4 требуется оптимизация пользовательской траектории"
-      : "";
+  const handleNext = React.useCallback(() => {
+    setActiveStep((prev) => Math.min(prev + 1, STEPS.length - 1));
+  }, []);
+
+  const handleBack = React.useCallback(async () => {
+    if (activeStep > 0) {
+      setActiveStep((prev) => prev - 1);
+      return;
+    }
+
+    const shouldLeave = await confirm(
+      "Вы хотите прервать создание схемы полёта?",
+      { title: "Подтверждение", okText: "Да", cancelText: "Нет" },
+    );
+
+    if (shouldLeave) {
+      navigate("/trajectories");
+    }
+  }, [activeStep, confirm, navigate]);
+
+  // ── Создание схемы ────────────────────────────────────────────────────────
+
+  const handleCreateSchema = React.useCallback(async () => {
+    if (!files[0]) {
+      notifications.show("Не выбрано изображение", { severity: "error" });
+      return;
+    }
+
+    if (isDefaultName) {
+      const confirmed = await confirm(
+        "Название схемы полётов задано по умолчанию. Вы действительно желаете создать схему?",
+        { title: "Предупреждение", okText: "Да", cancelText: "Нет" },
+      );
+      if (!confirmed) return;
+    }
+
+    const formData = new FormData();
+    formData.append("schemaName", schemaName);
+    formData.append("image", files[0]);
+    formData.append("pointsCount", String(points.length));
+    formData.append("distance", String(droneParams.distance));
+    formData.append("flightTime", String(15));
+    formData.append("method", "METHOD_1");
+    formData.append("isWeatherConditions", String(true));
+
+    setIsCreating(true);
+
+    try {
+      await api.schemas.create(formData);
+
+      setIsFadingOut(true);
+
+      // Ждём завершения анимации исчезновения, затем переходим на следующую страницу
+      setTimeout(() => {
+        setIsCreating(false);
+        notifications.show("Схема полётов создана", {
+          severity: "success",
+          autoHideDuration: 3000,
+        });
+        navigate("/trajectories");
+      }, 1000);
+    } catch (err) {
+      setIsCreating(false);
+      setIsFadingOut(false);
+      notifications.show(
+        `Не удалось создать схему. Причина: ${(err as Error).message}`,
+        { severity: "error", autoHideDuration: 5000 },
+      );
+    }
+  }, [
+    files,
+    isDefaultName,
+    schemaName,
+    points.length,
+    droneParams.distance,
+    confirm,
+    notifications,
+    navigate,
+  ]);
+
+  // ── Диалог переименования схемы ───────────────────────────────────────────
+
+  const handleOpenNameDialog = React.useCallback(() => {
+    setNameDialogValue(schemaName);
+    setNameDialogError("");
+    setIsNameDialogOpen(true);
+  }, [schemaName]);
+
+  const handleCloseNameDialog = React.useCallback(() => {
+    setIsNameDialogOpen(false);
+    setNameDialogError("");
+  }, []);
+
+  const handleSaveSchemaName = React.useCallback(() => {
+    const trimmed = nameDialogValue.trim();
+    if (!trimmed) {
+      setNameDialogError("Название схемы обязательно");
+      return;
+    }
+    if (trimmed.length > SCHEMA_NAME_MAX_LENGTH) {
+      setNameDialogError(
+        `Название не должно превышать ${SCHEMA_NAME_MAX_LENGTH} символов`,
+      );
+      return;
+    }
+    setSchemaName(trimmed);
+    handleCloseNameDialog();
+  }, [nameDialogValue, handleCloseNameDialog]);
+
+  // ── Кнопка «Далее»: состояние блокировки и подсказка ─────────────────────
+
+  const { isNextDisabled, nextTooltip } = React.useMemo(() => {
+    if (activeStep === 0 && !imageUrl) {
+      return {
+        isNextDisabled: true,
+        nextTooltip: "Для шага 2 нужно загрузить базовый слой",
+      };
+    }
+    if (activeStep === 1 && (points.length === 0 || drones.length === 0)) {
+      return {
+        isNextDisabled: true,
+        nextTooltip:
+          "Для шага 3 требуется построение пользовательской траектории",
+      };
+    }
+    if (activeStep === 2 && opt1TrajectoryData === null) {
+      return {
+        isNextDisabled: true,
+        nextTooltip:
+          "Для шага 4 требуется оптимизация пользовательской траектории",
+      };
+    }
+    return { isNextDisabled: false, nextTooltip: "" };
+  }, [activeStep, imageUrl, points.length, drones.length, opt1TrajectoryData]);
+
+  // ── Содержимое шага ───────────────────────────────────────────────────────
 
   const renderStepContent = () => {
     switch (activeStep) {
@@ -633,7 +737,6 @@ const TrajectoryStepper: React.FC<{
             initialImageUrl={imageUrl}
           />
         );
-
       case 1:
         return (
           <BuildTrajectoryStep
@@ -651,7 +754,6 @@ const TrajectoryStepper: React.FC<{
             drones={drones}
           />
         );
-
       case 2:
         return (
           <OptimizationTrajectoryStep
@@ -682,42 +784,23 @@ const TrajectoryStepper: React.FC<{
           />
         );
       case 3:
-        return <CompareOptimizationMethodsStep />;
-
+        return <CompareOptimizationMethodsStep  trajectoryData={opt1TrajectoryData} />;
       default:
-        return (
-          <Paper sx={{ p: 3, height: "2000px" }}>
-            <Typography variant="h6" gutterBottom>
-              {steps[activeStep]}
-            </Typography>
-            <Typography>Содержимое шага {activeStep + 1}</Typography>
-          </Paper>
-        );
+        return null;
     }
   };
+
+  // ── Кнопка «Наверх» в диалоге предпросмотра ───────────────────────────────
 
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const [triggerTarget, setTriggerTarget] = React.useState<HTMLElement | null>(
-    null,
-  );
 
-  // Когда ref инициализируется, сохраняем его в state
-  React.useEffect(() => {
-    if (containerRef.current) {
-      setTriggerTarget(containerRef.current);
-    }
+  const handleScrollToTop = React.useCallback(() => {
+    containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // триггер будет работать только когда target !== null
-  const trigger = useScrollTrigger({
-    disableHysteresis: true,
-    threshold: 100,
-    target: triggerTarget || undefined,
-  });
-
-  const handleClick = () => {
-    containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <Box
@@ -727,79 +810,54 @@ const TrajectoryStepper: React.FC<{
         flexDirection: "column",
         height: "calc(100vh - 90px)",
         overflow: "hidden",
-        // position: "relative",
+        position: "relative",
       }}
     >
-      {/* Спиннер */}
-      {loading && (
+      {/* Оверлей загрузки при создании схемы */}
+      {isCreating && (
         <Box
           sx={{
             position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
+            inset: 0,
             display: "flex",
+            flexDirection: "column",
             justifyContent: "center",
             alignItems: "center",
-            backgroundColor: "rgba(255, 255, 255, 0.7)", // Полупрозрачный фон
-            zIndex: 9999, // Спиннер будет поверх всего контента
-            flexDirection: "column",
-            opacity: fadeOut ? 0 : 1, // Плавное исчезновение
-            transition: "opacity 1s ease", // Плавное исчезновение за 1 секунды
+            backgroundColor: "rgba(255, 255, 255, 0.7)",
+            zIndex: 9999,
+            opacity: isFadingOut ? 0 : 1,
+            transition: "opacity 1s ease",
           }}
         >
           <CircularProgress />
           <Typography
             variant="h6"
-            sx={{ mt: 2, color: "#014488ff", fontWeight: 500 }} // отступ сверху, цвет и жирность
+            sx={{ mt: 2, color: "#014488", fontWeight: 500 }}
           >
             Пожалуйста, подождите...
           </Typography>
         </Box>
       )}
 
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-          pl: 3,
-          // m: "auto"
-        }}
-      >
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 500,
-          }}
-        >
+      {/* Заголовок: название схемы */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pl: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: 500 }}>
           Название:
         </Typography>
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 300,
-          }}
-        >
+        <Typography variant="h6" sx={{ fontWeight: 300 }}>
           {schemaName}
         </Typography>
-
         <Tooltip title="Изменить">
           <Badge
             color="warning"
             variant="dot"
             overlap="circular"
-            badgeContent="!"
             invisible={!isDefaultName}
           >
             <IconButton
               size="small"
-              onClick={handleOpenDialog}
-              sx={{
-                opacity: 0.6,
-                "&:hover": { opacity: 1 },
-              }}
+              onClick={handleOpenNameDialog}
+              sx={{ opacity: 0.6, "&:hover": { opacity: 1 } }}
             >
               <EditIcon fontSize="small" />
             </IconButton>
@@ -808,24 +866,20 @@ const TrajectoryStepper: React.FC<{
       </Box>
 
       {/* Степпер */}
-      <Box sx={{ pt: 2, pb: 0, pl: 0, pr: 0, flexShrink: 0, overflow: "auto" }}>
+      <Box sx={{ pt: 2, flexShrink: 0, overflow: "auto" }}>
         <Stepper
           activeStep={activeStep}
           alternativeLabel
           sx={{
             "& .MuiStepIcon-root": {
-              "&.Mui-active": {
-                color: "#014488ff", // активный шаг
-              },
-              "&.Mui-completed": {
-                color: "#014488ff", // завершённый шаг
-              },
+              "&.Mui-active": { color: "#014488" },
+              "&.Mui-completed": { color: "#014488" },
             },
             borderBottom: "1px solid #e0e0e0",
-            paddingBottom: 2,
+            pb: 2,
           }}
         >
-          {steps.map((label) => (
+          {STEPS.map((label) => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
             </Step>
@@ -833,16 +887,10 @@ const TrajectoryStepper: React.FC<{
         </Stepper>
       </Box>
 
-      <Box
-        sx={{
-          flex: 1,
-          overflowY: "auto",
-          p: 1,
-        }}
-      >
-        {renderStepContent()}
-      </Box>
+      {/* Контент шага */}
+      <Box sx={{ flex: 1, overflowY: "auto", p: 1 }}>{renderStepContent()}</Box>
 
+      {/* Навигационные кнопки */}
       <Box
         sx={{
           p: 2,
@@ -853,7 +901,6 @@ const TrajectoryStepper: React.FC<{
         }}
       >
         <Button
-          // disabled={activeStep === 0}
           onClick={handleBack}
           variant="outlined"
           startIcon={<KeyboardArrowLeftIcon />}
@@ -861,57 +908,47 @@ const TrajectoryStepper: React.FC<{
           Назад
         </Button>
 
-        <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="space-between"
-          gap={1.5}
-        >
-          {/* Левая кнопка: Просмотр схемы */}
-          {activeStep === 3 && (
+        <Box display="flex" alignItems="center" gap={1.5}>
+          {activeStep === STEPS.length - 1 && (
             <Button
               variant="outlined"
               color="primary"
-              onClick={() => {
-                setPreviewPage(true);
-              }} // функция для открытия полной схемы
+              onClick={() => setPreviewPage(true)}
               startIcon={<VisibilityIcon />}
             >
               Просмотр схемы
             </Button>
           )}
 
-          {/* Правая кнопка: Далее/Создать */}
           <Tooltip
-            title={isDisabled ? tooltipTitle : ""}
+            title={nextTooltip}
             arrow
-            disableHoverListener={!isDisabled}
+            disableHoverListener={!isNextDisabled}
           >
             <span>
               <Button
                 onClick={
-                  activeStep === steps.length - 1
+                  activeStep === STEPS.length - 1
                     ? handleCreateSchema
                     : handleNext
                 }
                 variant="contained"
                 color="primary"
                 endIcon={<KeyboardArrowRightIcon />}
-                disabled={isDisabled}
+                disabled={isNextDisabled}
               >
-                {activeStep === steps.length - 1 ? "Создать" : "Далее"}
+                {activeStep === STEPS.length - 1 ? "Создать" : "Далее"}
               </Button>
             </span>
           </Tooltip>
         </Box>
       </Box>
 
+      {/* Диалог: переименование схемы */}
       <Dialog
-        open={isDialogOpen}
-        onClose={(event, reason) => {
-          if (reason !== "backdropClick") {
-            handleCloseDialog();
-          }
+        open={isNameDialogOpen}
+        onClose={(_, reason) => {
+          if (reason !== "backdropClick") handleCloseNameDialog();
         }}
         maxWidth="sm"
         fullWidth
@@ -925,46 +962,45 @@ const TrajectoryStepper: React.FC<{
             type="text"
             fullWidth
             variant="outlined"
-            value={dialogValue}
+            value={nameDialogValue}
             onChange={(e) => {
-              const newValue = e.target.value;
-              setDialogValue(newValue);
-              if (newValue.trim() !== "") {
-                setError("");
-              } else setError("Название схемы обязательно");
+              const value = e.target.value;
+              setNameDialogValue(value);
+              setNameDialogError(
+                value.trim() ? "" : "Название схемы обязательно",
+              );
             }}
-            error={!!error}
-            helperText={error}
-            inputProps={{
-              maxLength: 50,
-            }}
+            error={!!nameDialogError}
+            helperText={nameDialogError}
+            inputProps={{ maxLength: SCHEMA_NAME_MAX_LENGTH }}
           />
-          {!error && (
+          {!nameDialogError && (
             <Typography
               variant="caption"
               color="textSecondary"
-              align="right"
               sx={{ pl: "14px" }}
             >
-              Количество символов: {dialogValue.length}/50
+              Количество символов: {nameDialogValue.length}/
+              {SCHEMA_NAME_MAX_LENGTH}
             </Typography>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog} variant="outlined">
+          <Button onClick={handleCloseNameDialog} variant="outlined">
             Отмена
           </Button>
           <Button
             onClick={handleSaveSchemaName}
             variant="contained"
             color="primary"
-            disabled={!!error}
+            disabled={!!nameDialogError}
           >
             Сохранить
           </Button>
         </DialogActions>
       </Dialog>
 
+      {/* Диалог: полноэкранный предпросмотр схемы */}
       <Dialog
         fullScreen
         open={openPreviewPage}
@@ -977,9 +1013,7 @@ const TrajectoryStepper: React.FC<{
           <FlightSchemaPage
             imageData={imageData}
             exifData={exifData}
-            onClose={() => {
-              setPreviewPage(false);
-            }}
+            onClose={() => setPreviewPage(false)}
             weatherConditions={weatherConditions}
             droneParams={droneParams}
             points={points}
@@ -997,26 +1031,20 @@ const TrajectoryStepper: React.FC<{
             storyboardsData={storyboardsData}
             framesUrlsPointBased={framesUrlsPointBased}
           />
-          <Zoom in={true}>
+
+          <Zoom in>
             <Box
-              onClick={handleClick}
+              onClick={handleScrollToTop}
               role="presentation"
-              sx={{
-                position: "fixed",
-                bottom: 24,
-                right: 32,
-                zIndex: 1000,
-              }}
+              sx={{ position: "fixed", bottom: 24, right: 32, zIndex: 1000 }}
             >
               <Tooltip title="Наверх" arrow>
                 <Fab
                   size="small"
-                  aria-label="scroll back to top"
+                  aria-label="Наверх"
                   sx={{
-                    bgcolor: "#004E9E", // фон кнопки
-                    "&:hover": {
-                      bgcolor: "#004E9E", // фон при наведении
-                    },
+                    bgcolor: "#004E9E",
+                    "&:hover": { bgcolor: "#004E9E" },
                   }}
                 >
                   <KeyboardArrowUpIcon sx={{ fill: "white" }} />

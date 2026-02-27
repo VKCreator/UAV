@@ -37,6 +37,7 @@ import { TrajectorySchema } from "../../api/client";
 import { russianLocale } from "../../constants";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 import { api } from "../../api/client";
+import ClearIcon from "@mui/icons-material/Clear";
 
 const BASE_URL = "http://nmstuvtip.ddns.net:5000";
 
@@ -380,6 +381,13 @@ export default function TrajectoryList() {
               startAdornment: (
                 <InputAdornment position="start">
                   <SearchIcon />
+                </InputAdornment>
+              ),
+              endAdornment: searchText && (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearchText("")}>
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
                 </InputAdornment>
               ),
             }}

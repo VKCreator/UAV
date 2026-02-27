@@ -32,6 +32,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ManageSearchIcon from "@mui/icons-material/ManageSearch";
+import InfoIcon from "@mui/icons-material/Info";
+import FlightSchemaLegendDialog from "../ui-widgets/FlightSchemaLegendDialog";
 
 import type { Point, Polygon, ImageData } from "../draw/scene.types";
 import type {
@@ -141,6 +143,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   const [openOptimizationDetailDialog, setOpenOptimizationDetailDialog] =
     React.useState(false);
 
+  const [isLegendOpen, setIsLegendOpen] = React.useState(false);
+
   const [optimizationMethod, setOptimizationMethod] = React.useState<
     "small" | "large"
   >("small");
@@ -248,8 +252,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
   const trajectoryTitles = [
     "Пользовательская",
-    "Оптимизированная (МКТ)",
-    "Оптимизированная (БКТ)",
+    "Оптимум (МКТ)",
+    "Оптимум (БКТ)",
   ];
 
   const handleNext = () => {
@@ -277,6 +281,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showUserTrajectory={true}
             showObstacles={true}
             showTaxonTrajectory={false}
+            flightLineY={flightLineY}
           />
         );
       case 2:
@@ -296,6 +301,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showObstacles={true}
             showTaxonTrajectory={true}
             isLoadingOptimization={isLoadingOptimization}
+            flightLineY={flightLineY}
           />
         );
       case 3:
@@ -315,6 +321,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showObstacles={true}
             showTaxonTrajectory={false}
             isLoadingOptimization={isLoadingOptimization}
+            flightLineY={flightLineY}
           />
         );
       default:
@@ -354,6 +361,17 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                 <Tooltip title="Просмотр схемы" enterDelay={500}>
                   <IconButton color="primary" onClick={() => setShowView(true)}>
                     <VisibilityIcon />
+                  </IconButton>
+                </Tooltip>
+
+                {/* Легенда */}
+                <Tooltip title="Легенда схемы" enterDelay={500}>
+                  <IconButton
+                    color="primary"
+                    onClick={() => setIsLegendOpen(true)}
+                    aria-label="Легенда"
+                  >
+                    <InfoIcon />
                   </IconButton>
                 </Tooltip>
 
@@ -658,6 +676,10 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
         open={openOptimizationDetailDialog}
         onClose={() => setOpenOptimizationDetailDialog(false)}
         trajectoryData={trajectoryData}
+      />
+      <FlightSchemaLegendDialog
+        open={isLegendOpen}
+        onClose={() => setIsLegendOpen(false)}
       />
     </Box>
   );

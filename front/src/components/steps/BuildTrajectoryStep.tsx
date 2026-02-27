@@ -28,6 +28,8 @@ import SceneShower from "../draw/SceneShower";
 
 import ModeEditIcon from "@mui/icons-material/ModeEdit";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import InfoIcon from "@mui/icons-material/Info";
+import FlightSchemaLegendDialog from "../ui-widgets/FlightSchemaLegendDialog";
 
 import type { Point, Polygon, ImageData } from "../draw/scene.types";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
@@ -75,6 +77,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   const [isEditorOpen, setEditorOpen] = React.useState(false);
   const [isViewerOpen, setViewerOpen] = React.useState(false);
   const [editorMode, setEditorMode] = React.useState<string>("pan");
+  const [isLegendOpen, setIsLegendOpen] = React.useState(false);
 
   const scenePreviewRef = useRef<{ handleDownload: () => void }>(null);
 
@@ -156,6 +159,17 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                   </IconButton>
                 </Tooltip>
 
+                {/* Легенда */}
+                <Tooltip title="Легенда схемы" enterDelay={500}>
+                  <IconButton
+                    color="primary"
+                    onClick={() => setIsLegendOpen(true)}
+                    aria-label="Легенда"
+                  >
+                    <InfoIcon />
+                  </IconButton>
+                </Tooltip>
+
                 <Tooltip title="Очистить схему" enterDelay={500}>
                   <span>
                     <IconButton
@@ -209,6 +223,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                 showUserTrajectory={true}
                 showObstacles={true}
                 showTaxonTrajectory={false}
+                flightLineY={flightLineY}
               />
             </Box>
             <Box display="flex" alignItems="center" sx={{ mt: 2, ml: 1 }}>
@@ -311,6 +326,11 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
           />
         </DialogContent>
       </Dialog>
+
+      <FlightSchemaLegendDialog
+        open={isLegendOpen}
+        onClose={() => setIsLegendOpen(false)}
+      />
     </Box>
   );
 };

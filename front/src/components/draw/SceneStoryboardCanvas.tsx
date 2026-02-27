@@ -14,8 +14,8 @@ import useImage from "use-image";
 
 import type { Point, Polygon, TrajectoryPoint } from "./scene.types";
 
-const STAGE_WIDTH = 1100;
-const STAGE_HEIGHT = 700;
+const STAGE_WIDTH = 1000;
+const STAGE_HEIGHT = 600;
 
 const TAXON_POINT_RADIUS = 10;
 const BASE_RADIUS = 4;

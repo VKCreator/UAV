@@ -10,6 +10,7 @@ import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { TextField, InputAdornment } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 
 import {
   DataGrid,
@@ -107,11 +108,10 @@ export default function DronesList() {
     query: string;
   }) => {
     if (!query.trim() || !value) return <span>{value}</span>;
- 
+
     const index = value.toLowerCase().indexOf(query.toLowerCase());
     if (index === -1) return <span>{value}</span>;
 
-    console.info(value.slice(index, index + query.length))
     return (
       <span>
         {value.slice(0, index)}
@@ -243,6 +243,13 @@ export default function DronesList() {
               startAdornment: (
                 <InputAdornment position="start">
                   <SearchIcon />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery && (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearchQuery("")}>
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
                 </InputAdornment>
               ),
             }}

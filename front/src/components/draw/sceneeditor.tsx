@@ -8,7 +8,7 @@ import {
   Checkbox,
   ToggleButton,
   ToggleButtonGroup,
-  FormControlLabel,
+  FormControlLabel,  
 } from "@mui/material";
 import {
   List,
@@ -37,6 +37,7 @@ import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
 import CheckIcon from "@mui/icons-material/Check";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import Tooltip from "@mui/material/Tooltip";
 import { DeleteButton } from "../ui-widgets/DeleteButton";
@@ -48,6 +49,8 @@ import { v4 as uuidv4 } from "uuid";
 import type { Point, Polygon, ImageData, TrajectoryPoint } from "./scene.types";
 
 import { useLocalStorage } from "../../hooks/useLocalStorage/useLocalStorage";
+
+import FlightSchemaLegendDialog from "../ui-widgets/FlightSchemaLegendDialog";
 
 const STAGE_WIDTH = 1100;
 const STAGE_HEIGHT = 700;
@@ -90,6 +93,8 @@ const SceneEditor: FC<SceneEditorProps> = ({
   flightLineY,
   setFlightLineY,
 }) => {
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
+
   const [showGrid, setShowGrid] = useLocalStorage<boolean>("isShowGrid", true);
   const [showUserTrajectory, setShowUserTrajectory] = useLocalStorage<boolean>(
     "isShowUserTrajectory",
@@ -682,7 +687,21 @@ const SceneEditor: FC<SceneEditorProps> = ({
             </Box>
 
             <Divider />
-
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Обозначения на схеме
+              </Typography>
+              <Tooltip title="Показать легенду" arrow>
+                <IconButton
+                  component="span"
+                  size="small"
+                  onClick={() => setIsLegendOpen(true)}
+                  aria-label="Легенда"
+                >
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
             {/* <Box>
               <Box
                 display="flex"
@@ -1072,22 +1091,39 @@ const SceneEditor: FC<SceneEditorProps> = ({
                   image &&
                   trajectoryData?.C?.map(
                     (point: [number, number], index: number) => {
-                      console.error(point, index);
                       const meterPerPixelX = width_m / image.width;
                       const meterPerPixelY = height_m / image.height;
 
                       // Преобразуем координаты в пиксели
                       let x = point[0] / meterPerPixelX;
                       let y = image.height - point[1] / meterPerPixelY;
-                      console.info(x, y);
+                      const cx = x * scaleToFit + imageX;
+                      const cy = y * scaleToFit + imageY;
+                      const r = 10;
+
                       return (
-                        <Circle
-                          key={`unvisited-point-${index}`}
-                          x={x * scaleToFit + imageX} // Координата X
-                          y={y * scaleToFit + imageY} // Координата Y
-                          radius={10} // Радиус точки
-                          fill="red" // Цвет точки
-                        />
+                        <Fragment key={`unvisited-${index}`}>
+                          {/* Круг-фон */}
+                          <Circle
+                            x={cx}
+                            y={cy}
+                            radius={r}
+                            fill="rgba(255, 107, 53, 0.15)"
+                            stroke="#FF6B35"
+                            strokeWidth={1.5}
+                          />
+                          {/* Крестик внутри */}
+                          <Line
+                            points={[cx - 4, cy - 4, cx + 4, cy + 4]}
+                            stroke="#FF6B35"
+                            strokeWidth={2}
+                          />
+                          <Line
+                            points={[cx + 4, cy - 4, cx - 4, cy + 4]}
+                            stroke="#FF6B35"
+                            strokeWidth={2}
+                          />
+                        </Fragment>
                       );
                     },
                   )}
@@ -1301,6 +1337,10 @@ const SceneEditor: FC<SceneEditorProps> = ({
           )}
         </Box>
       </Box>
+      <FlightSchemaLegendDialog
+        open={isLegendOpen}
+        onClose={() => setIsLegendOpen(false)}
+      />
     </Box>
   );
 };

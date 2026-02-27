@@ -30,23 +30,23 @@ const STAGE_HEIGHT = 400;
 const TAXON_POINT_RADIUS = 10;
 const BASE_RADIUS = 4;
 
-const colors = [
-  "#65b9f7", // яркий голубой
-  "#ff6b6b", // яркий красный
-  "#66a9ff", // яркий синий
-  "#ffdd57", // ярко-жёлто-оранжевый
-  "#65b9f7", // яркий голубой
-  "#9e69c4", // ярко-фиолетовый
-  "#64f3f1", // яркий циановый
-  "#f59fe1", // яркий лавандовый
-  "#f4e24d", // ярко-жёлтый
-  "#e38b5a", // тёплый бежевый
-  "#5e4a3a", // насыщенный коричневый
-  "#7a9f60", // ярко-зелёно-коричневый
-  "#a2b9d1", // светло-голубой
-  "#d1d1d1", // светло-серый
-  "#b8a25b", // жёлто-коричневый
-];
+// const colors = [
+//   "#65b9f7", // яркий голубой
+//   "#ff6b6b", // яркий красный
+//   "#66a9ff", // яркий синий
+//   "#ffdd57", // ярко-жёлто-оранжевый
+//   "#65b9f7", // яркий голубой
+//   "#9e69c4", // ярко-фиолетовый
+//   "#64f3f1", // яркий циановый
+//   "#f59fe1", // яркий лавандовый
+//   "#f4e24d", // ярко-жёлтый
+//   "#e38b5a", // тёплый бежевый
+//   "#5e4a3a", // насыщенный коричневый
+//   "#7a9f60", // ярко-зелёно-коричневый
+//   "#a2b9d1", // светло-голубой
+//   "#d1d1d1", // светло-серый
+//   "#b8a25b", // жёлто-коричневый
+// ];
 
 interface SceneShowerProps {
   imageData: ImageData;
@@ -63,6 +63,7 @@ interface SceneShowerProps {
   isLoadingOptimization?: boolean;
 
   showView: () => void;
+  flightLineY: number;
 }
 
 const SceneShower = forwardRef<
@@ -85,6 +86,7 @@ const SceneShower = forwardRef<
       isLoadingOptimization = false,
 
       showView,
+      flightLineY
     },
     ref,
   ) => {
@@ -268,7 +270,7 @@ const SceneShower = forwardRef<
         const meterPerPixelY = height_m / image.height;
 
         trajectoryData.B.forEach((taxon: any, idx: number) => {
-          const color = colors[idx % colors.length];
+          const color = taxon.color;
 
           const baseX = taxon.base[0] / meterPerPixelX;
           const baseY = image.height - taxon.base[1] / meterPerPixelY;
@@ -521,7 +523,7 @@ const SceneShower = forwardRef<
                 {showTaxonTrajectory &&
                   image &&
                   trajectoryData?.B?.map((taxon: any, idx: number) => {
-                    const color = colors[idx % colors.length];
+                    const color = taxon.color;
 
                     const meterPerPixelX = width_m / image.width;
                     const meterPerPixelY = height_m / image.height;
@@ -668,25 +670,84 @@ const SceneShower = forwardRef<
                   image &&
                   trajectoryData?.C?.map(
                     (point: [number, number], index: number) => {
-                      console.error(point, index);
                       const meterPerPixelX = width_m / image.width;
                       const meterPerPixelY = height_m / image.height;
 
                       // Преобразуем координаты в пиксели
                       let x = point[0] / meterPerPixelX;
                       let y = image.height - point[1] / meterPerPixelY;
-                      console.info(x, y);
+                      const cx = x * scaleToFit + imageX;
+                      const cy = y * scaleToFit + imageY;
+                      const r = 7;
+
                       return (
-                        <Circle
-                          key={`unvisited-point-${index}`}
-                          x={x * scaleToFit + imageX} // Координата X
-                          y={y * scaleToFit + imageY} // Координата Y
-                          radius={5} // Радиус точки
-                          fill="red" // Цвет точки
-                        />
+                        <Fragment key={`unvisited-${index}`}>
+                          {/* Круг-фон */}
+                          <Circle
+                            x={cx}
+                            y={cy}
+                            radius={r}
+                            fill="rgba(255, 107, 53, 0.15)"
+                            stroke="#FF6B35"
+                            strokeWidth={1.5}
+                          />
+                          {/* Крестик внутри */}
+                          <Line
+                            points={[cx - 4, cy - 4, cx + 4, cy + 4]}
+                            stroke="#FF6B35"
+                            strokeWidth={2}
+                          />
+                          <Line
+                            points={[cx + 4, cy - 4, cx - 4, cy + 4]}
+                            stroke="#FF6B35"
+                            strokeWidth={2}
+                          />
+                        </Fragment>
                       );
                     },
                   )}
+
+                {flightLineY !== null && image && (
+                  <Fragment key="line">
+                    <Line
+                      points={[
+                        imageX,
+                        flightLineY * scaleToFit + imageY,
+                        imageX + image.width * scaleToFit,
+                        flightLineY * scaleToFit + imageY,
+                      ]}
+                      stroke="orange"
+                      strokeWidth={2}
+                    />
+
+                    <Rect
+                      x={imageX}
+                      y={flightLineY * scaleToFit + imageY}
+                      width={image.width * scaleToFit}
+                      height={(image.height - flightLineY) * scaleToFit}
+                      fill="rgba(128, 128, 128, 0.3)"
+                      listening={false}
+                    />
+
+                    {flightLineY < image.height - 0.01 && (
+                      <Text
+                        x={imageX}
+                        y={
+                          flightLineY * scaleToFit +
+                          imageY +
+                          ((image.height - flightLineY) * scaleToFit) / 2 -
+                          10
+                        }
+                        width={image.width * scaleToFit}
+                        text="Неинформативная зона"
+                        align="center"
+                        fontSize={16}
+                        fill="rgba(255,255,255,0.8)"
+                        listening={false}
+                      />
+                    )}
+                  </Fragment>
+                )}
 
                 {(loading || isLoadingOptimization) && (
                   <>

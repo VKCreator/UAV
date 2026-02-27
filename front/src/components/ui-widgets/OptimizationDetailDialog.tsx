@@ -128,9 +128,9 @@ const TabContent: FC<{
   return (
     <Box>
       <Stack spacing={1} my={2}>
-        <Typography>
+        {/* <Typography>
           <b>Количество областей исследования:</b> {data.N_k} шт.
-        </Typography>
+        </Typography> */}
 
         <Typography>
           <b>Количество таксонов:</b> {data.B.length} шт.

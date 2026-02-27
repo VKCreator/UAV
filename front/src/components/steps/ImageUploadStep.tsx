@@ -7,9 +7,7 @@ import {
   Alert,
   Dialog,
   DialogContent,
-  DialogActions,
   DialogTitle,
-  Button,
   Tooltip,
   Checkbox,
   FormControlLabel,
@@ -20,7 +18,6 @@ import {
   TableHead,
   TableRow,
   Grid,
-  Divider,
   CircularProgress,
 } from "@mui/material";
 import { useDropzone, FileRejection } from "react-dropzone";
@@ -32,8 +29,180 @@ import CloseIcon from "@mui/icons-material/Close";
 import FindReplaceOutlinedIcon from "@mui/icons-material/FindReplaceOutlined";
 
 import useNotifications from "../../hooks/useNotifications/useNotifications";
-
 import type { ExifData } from "./common.types";
+
+import heic2any from "heic2any";
+
+// ─── Константы ────────────────────────────────────────────────────────────────
+
+const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 МБ
+
+// Группы полей EXIF для таблиц метаданных — объявлены вне компонента,
+// чтобы не пересоздаваться при каждом рендере.
+const EXIF_KEYS_GROUP_1: (keyof ExifData)[] = [
+  "fileName",
+  "fileSize",
+  "width",
+  "height",
+  "dateTime",
+  "make",
+];
+
+const EXIF_KEYS_GROUP_2: (keyof ExifData)[] = [
+  "model",
+  "orientation",
+  "xResolution",
+  "yResolution",
+  "resolutionUnit",
+  "software",
+];
+
+const EXIF_KEYS_GROUP_3: (keyof ExifData)[] = [
+  "focalLength",
+  "focalLengthIn35mmFormat",
+  "latitude",
+  "longitude",
+];
+
+// ─── Утилиты ─────────────────────────────────────────────────────────────────
+
+/**
+ * Форматирует размер файла в читаемую строку.
+ * Чистая функция — вынесена за компонент.
+ */
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
+
+/**
+ * Читает натуральные размеры изображения через HTMLImageElement.
+ * Используется как фолбэк, если EXIF не содержит данных о разрешении.
+ */
+const readImageDimensions = (
+  file: File,
+): Promise<{ width: number; height: number }> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(url);
+    };
+
+    img.onerror = () => {
+      reject(new Error("Не удалось загрузить изображение"));
+      URL.revokeObjectURL(url);
+    };
+
+    img.src = url;
+  });
+
+/**
+ * Конвертирует HEIC-файл в JPEG.
+ * Возвращает новый File с типом image/jpeg.
+ * Для не-HEIC файлов возвращает исходный файл без изменений.
+ */
+const convertHeicIfNeeded = async (file: File): Promise<File> => {
+  const isHeic =
+    file.type === "image/heic" ||
+    file.type === "image/heif" ||
+    file.name.toLowerCase().endsWith(".heic") ||
+    file.name.toLowerCase().endsWith(".heif");
+
+  if (!isHeic) return file;
+
+  const converted = await heic2any({
+    blob: file,
+    toType: "image/jpeg",
+    quality: 0.92,
+  });
+
+  // heic2any может вернуть Blob или Blob[] (если HEIC содержит несколько кадров)
+  const blob = Array.isArray(converted) ? converted[0] : converted;
+
+  // Создаём новый File с именем .jpg вместо .heic
+  const newName = file.name
+    .replace(/\.heic$/i, ".jpg")
+    .replace(/\.heif$/i, ".jpg");
+  return new File([blob], newName, { type: "image/jpeg" });
+};
+
+// ─── Вспомогательный компонент: таблица EXIF ─────────────────────────────────
+
+interface ExifTableProps {
+  data: ExifData;
+  keys: (keyof ExifData)[];
+  title: string;
+}
+
+/**
+ * Отображает группу EXIF-полей в виде таблицы.
+ * Вынесен в отдельный компонент, чтобы не объявлять функцию renderTable
+ * внутри родительского компонента при каждом рендере.
+ */
+const ExifTable: React.FC<ExifTableProps> = ({ data, keys, title }) => {
+  // Сохраняем порядок ключей согласно переданному массиву keys,
+  // а не порядку свойств объекта.
+  const rows = keys
+    .filter((key) => key in data)
+    .map((key) => ({ key, value: data[key] }));
+
+  if (rows.length === 0) return null;
+
+  const formatValue = (key: keyof ExifData, value: unknown): string => {
+    if (value === undefined || value === null || value === "") return "—";
+    if (key === "width" || key === "height") return `${value} px`;
+    return String(value);
+  };
+
+  const formatLabel = (key: string): string =>
+    key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
+
+  return (
+    <TableContainer
+      component={Paper}
+      sx={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        border: "1px solid #e0e0e0",
+        overflowY: "auto",
+      }}
+    >
+      <Table>
+        <TableHead sx={{ borderBottom: "1px solid" }}>
+          <TableRow>
+            <TableCell sx={{ fontWeight: "bold", width: "50%" }}>
+              {title}
+            </TableCell>
+            <TableCell sx={{ fontWeight: "bold", width: "50%" }}>
+              Значение
+            </TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map(({ key, value }) => (
+            <TableRow key={key}>
+              <TableCell component="th" scope="row">
+                {formatLabel(key)}
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+                {formatValue(key, value)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
+
+// ─── Интерфейс пропсов ────────────────────────────────────────────────────────
 
 interface ImageUploadStepProps {
   onUpload: (files: File[], exifData: ExifData[]) => void;
@@ -43,6 +212,8 @@ interface ImageUploadStepProps {
   initialImageUrl?: string;
 }
 
+// ─── Основной компонент ───────────────────────────────────────────────────────
+
 const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   onUpload,
   onDelete,
@@ -51,261 +222,160 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   initialImageUrl,
 }) => {
   const notifications = useNotifications();
-  const [files, setFiles] = React.useState<File[]>(initialFiles || []);
+
+  const [files, setFiles] = React.useState<File[]>(initialFiles ?? []);
   const [exifData, setExifData] = React.useState<ExifData[]>(
-    initialExifData || [],
+    initialExifData ?? [],
   );
-  const [loading, setLoading] = React.useState(false);
-
+  const [isLoadingExif, setIsLoadingExif] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [openPreview, setOpenPreview] = React.useState(false);
-  const [originalSize, setOriginalSize] = React.useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = React.useState(false);
+  const [showOriginalSize, setShowOriginalSize] = React.useState(false);
 
-  const imageUrl = initialImageUrl || "";
-
-  const onDrop = (acceptedFiles: File[], fileRejections: FileRejection[]) => {
-    if (fileRejections.length > 0) {
-      const rejection = fileRejections[0];
-      setError(`Ошибка: ${rejection.errors[0].message}`);
-      return;
-    }
-
-    const validFiles = acceptedFiles.filter((file) =>
-      file.type.startsWith("image/"),
-    );
-    if (validFiles.length === 0) return;
-
-    const file = validFiles[0];
-
-    setFiles([file]);
-    setError(null);
-
-    notifications.show("Изображение загружено", {
-      severity: "success",
-      autoHideDuration: 3000,
-    });
-
-    readExif(file);
-  };
-
-  const delay = (ms: number) =>
-    new Promise((resolve) => setTimeout(resolve, ms));
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) {
-      return `${bytes} B`;
-    } else if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(2)} KB`;
-    } else if (bytes < 1024 * 1024 * 1024) {
-      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-    } else {
-      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-    }
-  };
-
-  const readImageDimensions = (
-    file: File,
-  ): Promise<{ width: number; height: number }> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-
-      img.onload = () => {
-        resolve({ width: img.naturalWidth, height: img.naturalHeight });
-        URL.revokeObjectURL(url);
-      };
-
-      img.onerror = () => {
-        reject(new Error("Не удалось загрузить изображение"));
-        URL.revokeObjectURL(url);
-      };
-
-      img.crossOrigin = "anonymous";
-      img.src = url;
-    });
-  };
-
-  const readExif = async (file: File) => {
-    setLoading(true);
-
-    try {
-      // await delay(1500);
-
-      const exifr = await import("exifr");
-      const tags = await exifr.parse(file);
-
-      let width: number | undefined;
-      let height: number | undefined;
-
-      if (tags && tags.ImageWidth && tags.ImageHeight) {
-        width = tags.ImageWidth;
-        height = tags.ImageHeight;
-      } else {
-        const dimensions = await readImageDimensions(file);
-        width = dimensions.width;
-        height = dimensions.height;
-      }
-
-      const newExifData: ExifData = {
-        fileName: file.name,
-        fileSize: formatFileSize(file.size),
-        width,
-        height,
-        dateTime: tags?.DateTimeOriginal || tags?.DateTime,
-        make: tags?.Make,
-        model: tags?.Model,
-        orientation: tags?.Orientation,
-        xResolution: tags?.XResolution,
-        yResolution: tags?.YResolution,
-        resolutionUnit: tags?.ResolutionUnit,
-        software: tags?.Software,
-        focalLength: tags?.FocalLength,
-        focalLengthIn35mmFormat: tags?.FocalLengthIn35mmFormat,
-        latitude:
-          tags?.latitude && !isNaN(tags.latitude) ? String(tags.latitude) : "",
-        longitude:
-          tags?.longitude && !isNaN(tags.longitude)
-            ? String(tags.longitude)
-            : "",
-      };
-
-      setExifData([newExifData]);
-      onUpload([file], [newExifData]);
-    } catch (err) {
-      console.error("Ошибка при чтении EXIF или размеров:", err);
-      setError("Не удалось прочитать метаданные изображения");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = () => {
-    setFiles([]);
-    setExifData([]);
-    setError(null);
-
-    onDelete();
-  };
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      "image/*": [".jpeg", ".jpg", ".png", ".heic"],
-    },
-    maxFiles: 1,
-    maxSize: 30 * 1024 * 1024, // 30 МБ
-  });
+  // imageUrl управляется родителем через пропс — компонент не создаёт
+  // и не отзывает URL самостоятельно, чтобы избежать двойного revokeObjectURL.
+  const imageUrl = initialImageUrl ?? "";
 
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleOpenFileDialog = () => {
-    if (inputRef.current) {
-      inputRef.current.click();
-    }
-  };
+  // ── Чтение EXIF ────────────────────────────────────────────────────────────
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      onDrop([file], []);
-    }
-  };
+  const readExif = React.useCallback(
+    async (file: File) => {
+      setIsLoadingExif(true);
+      setError(null);
 
-  const handleOriginalSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setOriginalSize(e.target.checked);
-  };
+      try {
+        const exifr = await import("exifr");
+        const tags = await exifr.parse(file);
 
-  // Функция для создания таблицы
-  const renderTable = (
-    data: ExifData,
-    keys: (keyof ExifData)[],
-    title: string,
-  ) => {
-    const filteredData = Object.entries(data).filter(([key]) =>
-      keys.includes(key as keyof ExifData),
-    );
+        // Предпочитаем размеры из EXIF; если их нет — читаем через Image
+        let width: number;
+        let height: number;
 
-    if (filteredData.length === 0) return null;
+        if (tags?.ImageWidth && tags?.ImageHeight) {
+          width = tags.ImageWidth;
+          height = tags.ImageHeight;
+        } else {
+          ({ width, height } = await readImageDimensions(file));
+        }
 
-    return (
-      <TableContainer
-        component={Paper}
-        sx={{
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          border: "1px solid #e0e0e0",
-          overflowY: "auto",
-        }}
-      >
-        <Table>
-          <TableHead sx={{ borderBottom: "1px solid" }}>
-            <TableRow>
-              <TableCell sx={{ fontWeight: "bold", width: "50%" }}>
-                {title}
-              </TableCell>
-              <TableCell
-                sx={{
-                  fontWeight: "bold",
-                  width: "50%",
-                }}
-              >
-                Значение
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredData.map(([key, value]) => (
-              <TableRow key={key}>
-                <TableCell component="th" scope="row">
-                  {key.charAt(0).toUpperCase() +
-                    key.slice(1).replace(/([A-Z])/g, " $1")}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    whiteSpace: "normal",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {value === undefined || value === null || value === ""
-                    ? "—"
-                    : key === "width" || key === "height"
-                      ? `${value} px`
-                      : String(value)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    );
-  };
+        const newExifData: ExifData = {
+          fileName: file.name,
+          fileSize: formatFileSize(file.size),
+          width,
+          height,
+          // Предпочитаем дату съёмки, фолбэк — дата модификации файла
+          dateTime: tags?.DateTimeOriginal ?? tags?.DateTime,
+          make: tags?.Make,
+          model: tags?.Model,
+          orientation: tags?.Orientation,
+          xResolution: tags?.XResolution,
+          yResolution: tags?.YResolution,
+          resolutionUnit: tags?.ResolutionUnit,
+          software: tags?.Software,
+          focalLength: tags?.FocalLength,
+          focalLengthIn35mmFormat: tags?.FocalLengthIn35mmFormat,
+          // Координаты: exifr возвращает их в нижнем регистре после парсинга
+          latitude:
+            tags?.latitude != null && !Number.isNaN(tags.latitude)
+              ? String(tags.latitude)
+              : "",
+          longitude:
+            tags?.longitude != null && !Number.isNaN(tags.longitude)
+              ? String(tags.longitude)
+              : "",
+        };
 
-  const keysGroup1: (keyof ExifData)[] = [
-    "fileName",
-    "fileSize",
-    "width",
-    "height",
-    "dateTime",
-    "make",
-  ];
+        setExifData([newExifData]);
+        onUpload([file], [newExifData]);
+      } catch (err) {
+        console.error("Ошибка при чтении EXIF:", err);
+        setError("Не удалось прочитать метаданные изображения");
+      } finally {
+        setIsLoadingExif(false);
+      }
+    },
+    [onUpload],
+  );
 
-  const keysGroup2: (keyof ExifData)[] = [
-    "model",
-    "orientation",
-    "xResolution",
-    "yResolution",
-    "resolutionUnit",
-    "software",
-  ];
+  // ── Обработка загрузки файла ───────────────────────────────────────────────
 
-  const keysGroup3: (keyof ExifData)[] = [
-    "focalLength",
-    "focalLengthIn35mmFormat",
-    "latitude",
-    "longitude",
-  ];
+  const handleFileDrop = React.useCallback(
+    async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
+      if (fileRejections.length > 0) {
+        setError(`Ошибка: ${fileRejections[0].errors[0].message}`);
+        return;
+      }
+
+      const raw = acceptedFiles.find(
+        (f) =>
+          f.type.startsWith("image/") ||
+          f.name.toLowerCase().endsWith(".heic") ||
+          f.name.toLowerCase().endsWith(".heif"),
+      );
+      if (!raw) return;
+
+      setIsLoadingExif(true); // показываем спиннер сразу, конвертация может занять секунду
+
+      try {
+        const file = await convertHeicIfNeeded(raw);
+
+        setFiles([file]);
+        notifications.show("Изображение загружено", {
+          severity: "success",
+          autoHideDuration: 3000,
+        });
+
+        readExif(file);
+      } catch (err) {
+        console.error("Ошибка конвертации HEIC:", err);
+        setError("Не удалось конвертировать HEIC-изображение");
+        setIsLoadingExif(false);
+      }
+    },
+    [readExif, notifications],
+  );
+
+  // Обработчик для скрытого <input type="file"> (кнопка «Заменить»)
+  const handleInputChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        // Переиспользуем ту же логику, что и при drag-and-drop
+        handleFileDrop([file], []);
+      }
+      // Сбрасываем value, чтобы onChange сработал повторно при выборе того же файла
+      e.target.value = "";
+    },
+    [handleFileDrop],
+  );
+
+  const handleOpenFileDialog = React.useCallback(() => {
+    inputRef.current?.click();
+  }, []);
+
+  // ── Удаление ───────────────────────────────────────────────────────────────
+
+  const handleDelete = React.useCallback(() => {
+    setFiles([]);
+    setExifData([]);
+    setError(null);
+    onDelete();
+  }, [onDelete]);
+
+  // ── Dropzone ───────────────────────────────────────────────────────────────
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: handleFileDrop,
+    accept: { "image/*": [".jpeg", ".jpg", ".png", ".dng"] },
+    maxFiles: 1,
+    maxSize: MAX_FILE_SIZE,
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <Box
@@ -322,7 +392,8 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           <Typography variant="h6" gutterBottom>
             Информация о загруженном изображении
           </Typography>
-          {/* Карточка информации о файле */}
+
+          {/* Карточка файла */}
           <Paper
             elevation={0}
             sx={{
@@ -335,9 +406,12 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
               border: "1px solid #e0e0e0",
             }}
           >
-            {/* Иконка файла */}
+            {/* Миниатюра — открывает предпросмотр */}
             <Tooltip title="Просмотр">
               <Box
+                role="button"
+                aria-label="Открыть предпросмотр"
+                onClick={() => setIsPreviewOpen(true)}
                 sx={{
                   width: 64,
                   height: 64,
@@ -350,11 +424,9 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
                   cursor: "pointer",
                   overflow: "hidden",
                   border: "1px solid #e0e0e0",
-                  "&:hover": {
-                    backgroundColor: "#f0f0f0",
-                  },
+                  flexShrink: 0,
+                  "&:hover": { backgroundColor: "#f0f0f0" },
                 }}
-                onClick={() => setOpenPreview(true)}
               >
                 {imageUrl && (
                   <img
@@ -371,7 +443,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
               </Box>
             </Tooltip>
 
-            {/* Название файла */}
+            {/* Имя файла */}
             <Typography
               variant="body1"
               noWrap
@@ -381,57 +453,68 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             </Typography>
 
             {/* Размер файла */}
-            <Typography variant="caption" color="textSecondary" sx={{ mr: 2 }}>
-              {exifData.length > 0 ? exifData[0].fileSize : ""}
-            </Typography>
+            {exifData[0]?.fileSize && (
+              <Typography
+                variant="caption"
+                color="textSecondary"
+                sx={{ mr: 2, flexShrink: 0 }}
+              >
+                {exifData[0].fileSize}
+              </Typography>
+            )}
 
-            {/* Действия: глаз, удалить, заменить */}
-            <Box>
+            {/* Действия */}
+            <Box sx={{ flexShrink: 0 }}>
               <Tooltip title="Просмотр">
                 <IconButton
-                  onClick={() => setOpenPreview(true)}
+                  onClick={() => setIsPreviewOpen(true)}
                   size="medium"
                   color="primary"
                 >
-                  <VisibilityIcon fontSize="medium" />
+                  <VisibilityIcon />
                 </IconButton>
               </Tooltip>
+
               <Tooltip title="Удалить">
                 <IconButton onClick={handleDelete} size="medium" color="error">
-                  <DeleteIcon fontSize="medium" />
+                  <DeleteIcon />
                 </IconButton>
               </Tooltip>
+
               <Tooltip title="Заменить">
                 <IconButton
                   onClick={handleOpenFileDialog}
                   size="medium"
                   color="primary"
                 >
-                  <FindReplaceOutlinedIcon fontSize="medium" />
+                  <FindReplaceOutlinedIcon />
                 </IconButton>
               </Tooltip>
+
+              {/* Скрытый input — только для замены файла через кнопку.
+                  Drag-and-drop идёт через useDropzone и не использует этот input. */}
               <input
                 type="file"
                 ref={inputRef}
                 style={{ display: "none" }}
-                accept="image/png, image/jpeg"
+                accept="image/png, image/jpeg, image/dng"
                 onChange={handleInputChange}
               />
             </Box>
           </Paper>
 
-          {/* Заголовок метаданных */}
+          {/* Метаданные */}
           <Typography variant="h6" gutterBottom>
             Метаданные изображения
           </Typography>
+
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
 
-          {/* Таблицы в один ряд, одинаковой высоты и ширины */}
-          {loading ? (
+          {isLoadingExif ? (
             <Box
               sx={{
                 height: 500,
@@ -449,27 +532,31 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
                   size={{ xs: 12, md: 4 }}
                   sx={{ height: "100%", display: "flex" }}
                 >
-                  {renderTable(exifData[0], keysGroup1, "Основная информация")}
+                  <ExifTable
+                    data={exifData[0]}
+                    keys={EXIF_KEYS_GROUP_1}
+                    title="Основная информация"
+                  />
                 </Grid>
                 <Grid
                   size={{ xs: 12, md: 4 }}
                   sx={{ height: "100%", display: "flex" }}
                 >
-                  {renderTable(
-                    exifData[0],
-                    keysGroup2,
-                    "Параметры изображения",
-                  )}
+                  <ExifTable
+                    data={exifData[0]}
+                    keys={EXIF_KEYS_GROUP_2}
+                    title="Параметры изображения"
+                  />
                 </Grid>
                 <Grid
                   size={{ xs: 12, md: 4 }}
                   sx={{ height: "100%", display: "flex" }}
                 >
-                  {renderTable(
-                    exifData[0],
-                    keysGroup3,
-                    "Гео- и оптические данные",
-                  )}
+                  <ExifTable
+                    data={exifData[0]}
+                    keys={EXIF_KEYS_GROUP_3}
+                    title="Гео- и оптические данные"
+                  />
                 </Grid>
               </Grid>
             )
@@ -483,6 +570,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             </Alert>
           )}
 
+          {/* Зона загрузки */}
           <Box
             {...getRootProps()}
             sx={{
@@ -497,31 +585,27 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
               alignItems: "center",
               justifyContent: "center",
               flex: 1,
+              transition: "background-color 0.2s ease",
             }}
           >
             <input {...getInputProps()} />
             <FileUploadOutlinedIcon
-              sx={{ fontSize: 55, color: "#014488ff", mb: 1 }}
+              sx={{ fontSize: 55, color: "#014488", mb: 1 }}
             />
             <Typography variant="body1" sx={{ fontWeight: 500, mb: 0.5 }}>
               Перетащите изображение сюда
             </Typography>
             <Typography variant="caption" color="textSecondary">
-              или нажмите для выбора файла (JPG, PNG, не более 30Мб одно
-              изображение)
+              или нажмите для выбора файла (JPG, PNG, DNG, не более 30 МБ)
             </Typography>
           </Box>
         </>
       )}
 
-      {/* Диалог просмотра изображения */}
+      {/* Диалог предпросмотра */}
       <Dialog
-        open={openPreview}
-        onClose={(event, reason) => {
-          if (reason !== "backdropClick") {
-            setOpenPreview(false);
-          }
-        }}
+        open={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
         maxWidth="lg"
         fullWidth
         PaperProps={{
@@ -540,21 +624,17 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             alignItems: "center",
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            Просмотр загруженного изображения
-          </Box>
+          Просмотр загруженного изображения
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={originalSize}
-                  onChange={handleOriginalSizeChange}
+                  checked={showOriginalSize}
+                  onChange={(e) => setShowOriginalSize(e.target.checked)}
                   size="medium"
                   sx={{
-                    color: "#014488", // цвет unchecked
-                    "&.Mui-checked": {
-                      color: "#014488", // цвет checked
-                    },
+                    color: "#014488",
+                    "&.Mui-checked": { color: "#014488" },
                   }}
                 />
               }
@@ -563,87 +643,58 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
               }
             />
             <IconButton
-              onClick={() => setOpenPreview(false)}
+              onClick={() => setIsPreviewOpen(false)}
+              aria-label="Закрыть"
               sx={{ color: "gray" }}
             >
               <CloseIcon />
             </IconButton>
           </Box>
         </DialogTitle>
+
         <DialogContent
           sx={{
-            p: 0,
             display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
+            flexDirection: "column",
             flex: 1,
             overflow: "hidden",
-            m: 2,
+            p: 2,
           }}
         >
           <Box
             sx={{
+              flex: 1,
               display: "flex",
-              flexDirection: "column",
+              justifyContent: "center",
               alignItems: "center",
-              justifyContent: "space-between",
-              height: "100%",
+              overflow: showOriginalSize ? "auto" : "hidden",
               width: "100%",
-              overflow: "hidden",
             }}
           >
-            <Box
-              sx={{
-                flex: 1,
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                overflow: "auto",
-                width: "100%",
-                maxHeight: "calc(100% - 60px)",
-              }}
-            >
-              {originalSize ? (
-                <div
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    textAlign: "center",
-                    overflow: "auto",
-                  }}
-                >
-                  <img src={imageUrl} alt="Полноэкранный просмотр" style={{}} />
-                </div>
-              ) : (
-                <img
-                  src={imageUrl}
-                  alt="Полноэкранный просмотр"
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: "100%",
-                    objectFit: "contain",
-                  }}
-                />
-              )}
-            </Box>
-
-            {originalSize ? (
-              <Typography
-                variant="caption"
-                color="textSecondary"
-                sx={{
-                  mt: 1,
-                  textAlign: "center",
-                  mb: 1,
-                  fontSize: "0.75rem",
-                }}
-              >
-                Используйте полосы прокрутки для перемещения по изображению
-              </Typography>
-            ) : (
-              <></>
-            )}
+            <img
+              src={imageUrl}
+              alt="Полноэкранный просмотр"
+              style={
+                showOriginalSize
+                  ? {} // натуральный размер, скролл через родителя
+                  : {
+                      maxWidth: "100%",
+                      maxHeight: "100%",
+                      objectFit: "contain",
+                    }
+              }
+            />
           </Box>
+
+          {showOriginalSize && (
+            <Typography
+              variant="caption"
+              color="textSecondary"
+              sx={{ mt: 1, textAlign: "center" }}
+            >
+              Используйте полосы прокрутки для перемещения по изображению
+            </Typography>
+          )}
         </DialogContent>
       </Dialog>
     </Box>

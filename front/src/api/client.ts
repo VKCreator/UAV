@@ -108,16 +108,8 @@ export const api = {
 
         const decodedToken = jwtDecode(data.token);
 
-        username = decodedToken.user;
-        const firstName = decodedToken.first_name;
-        const lastName = decodedToken.last_name;
-        const email = decodedToken.email;
-        const isActive = decodedToken.active;
-
         localStorage.setItem("userData", JSON.stringify(decodedToken))
-        
-        console.log(username, firstName, lastName, email, isActive);
-
+      
         return { token: data.token, status: res.status };
       } catch (err: any) {
         if (err.name === "AbortError") {

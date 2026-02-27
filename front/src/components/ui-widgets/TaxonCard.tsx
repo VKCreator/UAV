@@ -61,9 +61,9 @@ export const TaxonCard = ({ taxon, index }: Props) => {
       </Stack>
 
       <Stack spacing={0.5} sx={{ mt: 1.5 }}>
-        <Typography variant="body2" color="text.secondary">
+        {/* <Typography variant="body2" color="text.secondary">
           Область исследования: №{taxon.region}
-        </Typography>
+        </Typography> */}
 
         <Typography>
           <b>База:</b> {formatPoint(taxon.base)}

@@ -1,4 +1,4 @@
-import { FC, useState, JSX, useEffect, useMemo, use } from "react";
+import { FC, useState, JSX, useEffect, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -230,6 +230,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
           autoHideDuration: 5000,
         },
       );
+      return;
     }
 
     const blobs = await Promise.all(
@@ -387,19 +388,20 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
       try {
         await extractOptimalFrames();
 
-        const pointsArray = trajectoryData.B[0].points.map((p: any) => {
-          // const xMeters = p.x / metersToPxWidth;
+        const flightTimes = await Promise.all(
+          trajectoryData.B.map((bItem: any) => {
+            const pointsArray = bItem.points.map((p: any) => [p[0], p[1]]);
+            return api.trajectory.getFlightTime(
+              pointsArray,
+              droneParams.speed,
+              droneParams.hoverTime,
+            );
+          }),
+        );
 
-          // // инвертируем Y и переводим в метры
-          // const yMeters = (imageData.height - p.y) / metersToPxHeight;
-
-          return [p[0], p[1]];
-        });
-
-        const flightTime = await api.trajectory.getFlightTime(
-          pointsArray,
-          droneParams.speed,
-          droneParams.hoverTime,
+        const totalFlightTime = flightTimes.reduce(
+          (sum, result) => sum + (result?.flight_time_sec ?? 0),
+          0,
         );
 
         setStoryboardsData((prev) => ({
@@ -407,7 +409,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
           optimal: {
             ...prev.optimal,
             applied: true,
-            total_flight_time: flightTime ? flightTime.flight_time_sec : null,
+            total_flight_time: totalFlightTime > 0 ? totalFlightTime : null,
           },
         }));
       } catch (e) {
@@ -431,7 +433,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
 
   const handleResetInterestArea = () => {
     if (isPointBased) {
-      framesUrlsPointBased.map((u: string) => URL.revokeObjectURL(u));
+      framesUrlsPointBased.forEach((u) => URL.revokeObjectURL(u));
       setFramesUrlsPointBased([]);
 
       setStoryboardsData((prev) => ({
@@ -447,7 +449,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     } else if (isRecommended) {
       setSelection(null);
 
-      framesUrlsRecommended.map((u: string) => URL.revokeObjectURL(u));
+      framesUrlsRecommended.forEach((u) => URL.revokeObjectURL(u));
       setFramesUrlsRecommended([]);
 
       setStoryboardsData((prev) => ({
@@ -461,7 +463,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
         },
       }));
     } else if (isOptimal) {
-      framesUrlsOptimal.map((u: string) => URL.revokeObjectURL(u));
+      framesUrlsOptimal.forEach((u) => URL.revokeObjectURL(u));
       setFramesUrlsOptimal([]);
 
       setStoryboardsData((prev) => ({
@@ -516,18 +518,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     });
   }, [droneParams.frameHeightPlanned]);
 
-  // useEffect(() => {
-  //   console.error("useEffect");
-  //   // if (storyboardsData.point_based.applied) handleApply();
-  //   setPointsRecommended(generateRecommendedGridInSelection());
-
-  //   return () => {
-  //     // framesUrlsPointBased.map((u: string) => URL.revokeObjectURL(u));
-  //     // setFramesUrlsPointBased([]);
-  //   };
-  // }, [img, selection]);
-
-  // Рекомендуемый метод
   const generateRecommendedGridInSelection = (selection: {
     x: number;
     y: number;
@@ -632,11 +622,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   // ]);
 
   const isDisabledApplyButton = () => {
-    if (isRecommended) {
-      return !selection;
-    } else if (isOptimal) {
-      return !trajectoryData;
-    }
+    if (isPointBased) return points.length === 0;
+    if (isRecommended) return !selection;
+    if (isOptimal) return !trajectoryData;
   };
 
   return (
@@ -1070,7 +1058,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
 
                     <Typography variant="body2" fontWeight={500}>
                       {activeStoryboardData?.total_flight_time
-                        ? `${activeStoryboardData.total_flight_time.toFixed(2)} с.`
+                        ? `${activeStoryboardData.total_flight_time.toFixed(
+                            2,
+                          )} с.`
                         : "—"}
                     </Typography>
                   </Box>
@@ -1239,43 +1229,50 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
           display="flex"
           flexDirection="column"
           bgcolor="#f4f6f8"
-          overflow="auto"
-          alignItems="center"
-          justifyContent="space-between"
-          gap={2}
-          pt={2}
+          overflow="hidden"
         >
-          <SceneCanvas
-            imageData={imageData}
-            points={points}
-            pointsRecommended={pointsRecommended}
-            pointsOptimal={pointsOptimal}
-            obstacles={obstacles}
-            trajectoryData={trajectoryData}
-            frameWidthPx={frameWidthPx}
-            frameHeightPx={frameHeightPx}
-            showPoints={isPointBased}
-            showObstacles={true}
-            showTaxons={activeType == "optimal"}
-            applyPointBasedStoryboard={
-              (activeStoryboardData?.applied || false) && activeType == "point"
-            }
-            applyRecommendedStoryboard={
-              (activeStoryboardData?.applied || false) && isRecommended
-            }
-            applyOptimalStoryboard={
-              (activeStoryboardData?.applied || false) &&
-              activeType == "optimal"
-            }
-            isSelecting={isSelecting}
-            activeType={activeType}
-            width_m={droneParams.frameWidthBase}
-            height_m={droneParams.frameHeightBase}
-            selection={selection}
-            setSelection={setSelection}
-          />
-
-          <StoryboardTimeline frames={getFrames()} />
+          <Box
+            flex={1}
+            overflow="auto"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            pt={2}
+          >
+            <SceneCanvas
+              imageData={imageData}
+              points={points}
+              pointsRecommended={pointsRecommended}
+              pointsOptimal={pointsOptimal}
+              obstacles={obstacles}
+              trajectoryData={trajectoryData}
+              frameWidthPx={frameWidthPx}
+              frameHeightPx={frameHeightPx}
+              showPoints={isPointBased}
+              showObstacles={true}
+              showTaxons={activeType == "optimal"}
+              applyPointBasedStoryboard={
+                (activeStoryboardData?.applied || false) &&
+                activeType == "point"
+              }
+              applyRecommendedStoryboard={
+                (activeStoryboardData?.applied || false) && isRecommended
+              }
+              applyOptimalStoryboard={
+                (activeStoryboardData?.applied || false) &&
+                activeType == "optimal"
+              }
+              isSelecting={isSelecting}
+              activeType={activeType}
+              width_m={droneParams.frameWidthBase}
+              height_m={droneParams.frameHeightBase}
+              selection={selection}
+              setSelection={setSelection}
+            />
+          </Box>
+          <Box flexShrink={0}>
+            <StoryboardTimeline frames={getFrames()} />
+          </Box>
         </Box>
       </Box>
     </Box>

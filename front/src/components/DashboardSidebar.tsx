@@ -30,6 +30,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import Avatar from "@mui/material/Avatar";
 import { api } from "../api/client";
 import { useNavigate } from "react-router";
+import { getUserFromStorage } from "../utils/auth";
 
 export interface DashboardSidebarProps {
   logo?: React.ReactNode;
@@ -54,6 +55,17 @@ export default function DashboardSidebar({
   const theme = useTheme();
 
   const { pathname } = useLocation();
+
+  const user = React.useMemo(() => getUserFromStorage(), []);
+
+  // Инициалы для аватара — первые буквы имени и фамилии
+  const avatarInitials = user
+    ? `${user.first_name[0]}`
+    : "U";
+
+  const displayName = user
+    ? `${user.first_name} ${user.last_name}`
+    : "Пользователь";
 
   const [expandedItemIds, setExpandedItemIds] = React.useState<string[]>([
     "directories",
@@ -282,19 +294,18 @@ export default function DashboardSidebar({
             >
               <Stack direction="row" alignItems="center" spacing={1.5}>
                 <Avatar
-                  alt="Username"
-                  // src="/path/to/avatar.jpg" // можно убрать src, тогда будут инициалы
-                  sx={{ width: 32, height: 32, bgcolor: "#014488" }}
+                  alt={displayName}
+                  sx={{ width: 36, height: 36, bgcolor: "#014488" }}
                 >
-                  U
+                  {avatarInitials}
                 </Avatar>
                 {!mini && (
                   <Box>
                     <Typography variant="body2" noWrap>
-                      Username
+                      {displayName}
                     </Typography>
                     <Typography variant="caption" noWrap sx={{ opacity: 0.7 }}>
-                      mail@mail.com
+                      {user?.email ?? ""}
                     </Typography>
                   </Box>
                 )}

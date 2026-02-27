@@ -722,6 +722,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                   showUserTrajectory={true}
                   showObstacles={true}
                   showTaxonTrajectory={false}
+                  flightLineY={0}
                 />
               ) : (
                 <Placeholder label="Фото / схема траектории" />
