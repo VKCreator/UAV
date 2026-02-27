@@ -178,30 +178,16 @@ export default function TrajectoryList() {
   }, [loadData]);
 
   const handleRefresh = React.useCallback(() => {
-    if (!isLoading) loadData();
+    if (!isLoading) {
+      localStorage.removeItem("schemas-cache-v1");
+      setIsLoading(true);
+      loadData();
+    }
   }, [isLoading, loadData]);
 
   const handleCreateClick = React.useCallback(() => {
     navigate("/trajectories/new");
   }, [navigate]);
-
-  // Асинхронная проверка токена
-  React.useEffect(() => {
-    const verifyToken = async () => {
-      try {
-        const result = await api.auth.check(); // Проверка токена через api.auth.check()
-
-        if (!result) {
-          navigate("/login");
-        }
-      } catch (error) {
-        api.auth.logout();
-        navigate("/login");
-      }
-    };
-
-    verifyToken();
-  }, [navigate]); // Добавляем navigate в зависимости, чтобы проверка происходила при каждом переходе
 
   const handleView = React.useCallback(
     (id: string) => {
@@ -440,6 +426,12 @@ export default function TrajectoryList() {
             onRowClick={(params, event) => {
               if ((event.target as HTMLElement).closest("button")) return;
               handleView(params.id.toString());
+            }}
+            slotProps={{
+              loadingOverlay: {
+                variant: "linear-progress",
+                noRowsVariant: "circular-progress",
+              },
             }}
             sx={{
               [`& .${gridClasses.columnHeader}, & .${gridClasses.cell}`]: {

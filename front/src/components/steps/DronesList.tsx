@@ -8,9 +8,6 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import VisibilityIcon from "@mui/icons-material/Visibility";
 import { TextField, InputAdornment } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 
@@ -31,6 +28,8 @@ export default function DronesList() {
   const navigate = useNavigate();
   const notifications = useNotifications();
 
+  const [searchQuery, setSearchQuery] = React.useState("");
+
   const [paginationModel, setPaginationModel] =
     React.useState<GridPaginationModel>({
       page: 0,
@@ -45,21 +44,27 @@ export default function DronesList() {
     rowCount: 0,
   });
 
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<Error | null>(null);
 
   // Загрузка данных
   const loadData = React.useCallback(async () => {
     setError(null);
-    setIsLoading(true);
+
+    // Читаем из кэша
+    const cached = localStorage.getItem("drones-cache-v1");
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      setRowsState({ rows: parsed, rowCount: parsed.length });
+    } else {
+      setIsLoading(true);
+    }
 
     try {
       const response = await api.drones.getAll();
-
-      setRowsState({
-        rows: response || [],
-        rowCount: (response || []).length,
-      });
+      const data = response || [];
+      setRowsState({ rows: data, rowCount: data.length });
+      localStorage.setItem("drones-cache-v1", JSON.stringify(data));
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Неизвестная ошибка"));
       notifications.show("Не удалось загрузить список дронов", {
@@ -77,6 +82,8 @@ export default function DronesList() {
 
   const handleRefresh = React.useCallback(() => {
     if (!isLoading) {
+      localStorage.removeItem("drones-cache-v1");
+      setIsLoading(true);
       loadData();
     }
   }, [isLoading, loadData]);
@@ -85,22 +92,36 @@ export default function DronesList() {
     navigate("/drones/new");
   }, [navigate]);
 
-  React.useEffect(() => {
-    const verifyToken = async () => {
-      try {
-        const result = await api.auth.check(); 
+  const filteredRows = React.useMemo(() => {
+    if (!searchQuery.trim()) return rowsState.rows;
+    return rowsState.rows.filter((row) =>
+      row.model?.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
+  }, [rowsState.rows, searchQuery]);
 
-        if (!result) {
-          navigate("/login");
-        }
-      } catch (error) {
-        api.auth.logout();
-        navigate("/login");
-      }
-    };
+  const HighlightedCell = ({
+    value,
+    query,
+  }: {
+    value: string;
+    query: string;
+  }) => {
+    if (!query.trim() || !value) return <span>{value}</span>;
+ 
+    const index = value.toLowerCase().indexOf(query.toLowerCase());
+    if (index === -1) return <span>{value}</span>;
 
-    verifyToken();
-  }, [navigate]);
+    console.info(value.slice(index, index + query.length))
+    return (
+      <span>
+        {value.slice(0, index)}
+        <span style={{ backgroundColor: "#fff176", borderRadius: 2 }}>
+          {value.slice(index, index + query.length)}
+        </span>
+        {value.slice(index + query.length)}
+      </span>
+    );
+  };
 
   // Колонки таблицы
   const columns = React.useMemo<GridColDef[]>(
@@ -111,10 +132,13 @@ export default function DronesList() {
         minWidth: 150,
         flex: 0.5,
         sortable: true,
+        renderCell: (params) => (
+          <HighlightedCell value={params.value ?? ""} query={searchQuery} />
+        ),
       },
       {
         field: "fov_vertical",
-        headerName: "Вертикальный угол обзора (°)",
+        headerName: "Вертикальный угол обзора, °",
         type: "number",
         minWidth: 120,
         flex: 0.2,
@@ -136,7 +160,7 @@ export default function DronesList() {
       },
       {
         field: "max_wind_resistance",
-        headerName: "Сопротивляемость ветру (м/с)",
+        headerName: "Сопротивляемость ветру, м/с",
         type: "number",
         minWidth: 120,
         flex: 0.5,
@@ -146,7 +170,7 @@ export default function DronesList() {
       },
       {
         field: "speedRange",
-        headerName: "Диапазон скорости (м/с)",
+        headerName: "Диапазон скорости, м/с",
         type: "number",
         minWidth: 160,
         flex: 0.5,
@@ -160,7 +184,7 @@ export default function DronesList() {
       },
       {
         field: "battery_life",
-        headerName: "Время полёта (мин)",
+        headerName: "Время полёта, мин",
         type: "number",
         minWidth: 100,
         flex: 0.4,
@@ -199,7 +223,7 @@ export default function DronesList() {
       //   },
       // },
     ],
-    [],
+    [searchQuery],
   );
 
   const pageTitle = "Квадрокоптеры";
@@ -210,6 +234,8 @@ export default function DronesList() {
       actions={
         <Stack direction="row" alignItems="center" spacing={1}>
           <TextField
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             size="small"
             placeholder="Поиск по модели..."
             variant="outlined"
@@ -254,7 +280,7 @@ export default function DronesList() {
           </Box>
         ) : (
           <DataGrid
-            rows={rowsState.rows}
+            rows={filteredRows}
             columns={columns}
             pagination
             paginationModel={paginationModel}
@@ -319,7 +345,7 @@ export default function DronesList() {
             }}
             slotProps={{
               loadingOverlay: {
-                variant: "circular-progress",
+                variant: "linear-progress",
                 noRowsVariant: "circular-progress",
               },
             }}

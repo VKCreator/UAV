@@ -20,4 +20,14 @@ export const spinnerCustomizations: Components<Theme> = {
       },
     },
   },
+  MuiLinearProgress: {
+    styleOverrides: {
+      root: {
+        backgroundColor: "#cce0f5", // цвет фона (светлая полоска)
+      },
+      bar: {
+        backgroundColor: "#004e9e", // цвет самой движущейся полоски
+      },
+    },
+  },
 };

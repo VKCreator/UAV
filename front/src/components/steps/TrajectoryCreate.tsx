@@ -25,23 +25,6 @@ export default function TrajectoryCreate() {
     navigate("/");
   }, [navigate]);
 
-  React.useEffect(() => {
-    const verifyToken = async () => {
-      try {
-        const result = await api.auth.check();
-
-        if (!result) {
-          navigate("/login");
-        }
-      } catch (error) {
-        api.auth.logout();
-        navigate("/login");
-      }
-    };
-
-    verifyToken();
-  }, [navigate]);
-
   const handleFormSubmit = React.useCallback(async () => {
     // const { issues } = validateCoalReceipt([]);
     // if (issues && issues.length > 0) {

@@ -239,7 +239,7 @@ const DashboardsPage = () => {
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
-                  title="Среднее значение сопротивляемости ветру"
+                  title="Средняя сопротивляемость ветру"
                   value={avgWindResistance ? `${avgWindResistance} м/c` : "—"}
                   icon={<AirIcon fontSize="large" />}
                 />

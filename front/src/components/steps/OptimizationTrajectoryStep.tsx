@@ -130,7 +130,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   setPointsRecommended,
   selection,
   setSelection,
-  flightLineY
+  flightLineY,
 }) => {
   const [activeImage, setActiveImage] = React.useState(0);
   const [image] = useImage(imageData.imageUrl);
@@ -226,7 +226,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
           ...taxon,
           color: colors[index % colors.length],
         })),
-        C: data.C
+        C: data.C,
       };
 
       setTrajectoryData(preparedData);

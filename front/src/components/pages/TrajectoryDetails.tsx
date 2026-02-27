@@ -40,23 +40,6 @@ export default function TrajectoryDetails() {
     containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  useEffect(() => {
-    const verifyToken = async () => {
-      try {
-        const result = await api.auth.check();
-
-        if (!result) {
-          navigate("/login");
-        }
-      } catch (error) {
-        api.auth.logout();
-        navigate("/login");
-      }
-    };
-
-    verifyToken();
-  }, [navigate]);
-
   return (
     <Box
       sx={{ height: "100%", overflow: "auto", maxHeight: "100%" }}
