@@ -7,11 +7,13 @@ import DashboardSidebar from "./DashboardSidebar";
 import AppIcon from "./AppIcon";
 import { useNavigate, useLocation } from "react-router";
 import { api } from "../api/client";
+import useNotifications from "../hooks/useNotifications/useNotifications";
 
 export default function DashboardLayout() {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const notifications = useNotifications();
 
   const [isDesktopNavigationExpanded, setIsDesktopNavigationExpanded] =
     React.useState(true);
@@ -53,6 +55,10 @@ export default function DashboardLayout() {
         const result = await api.auth.check();
         if (!result) {
           navigate("/login");
+          notifications.show("Сессия истекла. Повторно выполните вход", {
+            severity: "error",
+            autoHideDuration: 3000,
+          });
         }
       } catch {
         api.auth.logout();

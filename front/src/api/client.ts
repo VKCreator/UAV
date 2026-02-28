@@ -97,8 +97,8 @@ export const api = {
         clearTimeout(timeout); // очищаем таймаут, если запрос завершился вовремя
 
         const data = await res.json();
-        
-        console.info(data)
+
+        console.info(data);
         if (!res.ok) {
           const error = new Error(data.message || "Ошибка входа.");
           (error as any).status = res.status;
@@ -109,8 +109,8 @@ export const api = {
 
         const decodedToken = jwtDecode(data.token);
 
-        localStorage.setItem("userData", JSON.stringify(decodedToken))
-      
+        localStorage.setItem("userData", JSON.stringify(decodedToken));
+
         return { token: data.token, status: res.status };
       } catch (err: any) {
         if (err.name === "AbortError") {
@@ -157,9 +157,16 @@ export const api = {
   },
   // Схемы
   schemas: {
+    getAllFull: () => request<TrajectorySchema[]>("/api/schemasFull"),
     getAll: () => request<TrajectorySchema[]>("/api/schemas"),
+    getById: (id: number) => request<any>(`/api/schemasFull/${id}`),
     create: (formData: FormData) =>
       requestFormData<any>("/api/schemas", {
+        method: "POST",
+        body: formData,
+      }),
+    createFull: (formData: FormData) =>
+      requestFormData<any>("/api/schemasFull", {
         method: "POST",
         body: formData,
       }),

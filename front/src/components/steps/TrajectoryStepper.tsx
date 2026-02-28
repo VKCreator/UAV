@@ -610,6 +610,71 @@ const TrajectoryStepper = () => {
 
   // ── Создание схемы ────────────────────────────────────────────────────────
 
+  // болванка
+  // const handleCreateSchema = React.useCallback(async () => {
+  //   if (!files[0]) {
+  //     notifications.show("Не выбрано изображение", { severity: "error" });
+  //     return;
+  //   }
+
+  //   if (isDefaultName) {
+  //     const confirmed = await confirm(
+  //       "Название схемы полётов задано по умолчанию. Вы действительно желаете создать схему?",
+  //       { title: "Предупреждение", okText: "Да", cancelText: "Нет" },
+  //     );
+  //     if (!confirmed) return;
+  //   }
+
+  //   const formData = new FormData();
+  //   formData.append("schemaName", schemaName);
+  //   formData.append("image", files[0]);
+  //   formData.append("pointsCount", String(points.length));
+  //   formData.append("distance", String(droneParams.distance));
+
+  //   const totalTime = opt1TrajectoryData!.B.reduce(
+  //     (sum, taxon) => sum + (taxon.time_sec ?? 0),
+  //     0,
+  //   );
+  //   formData.append("flightTime", String(totalTime));
+  //   formData.append("method", "METHOD_1");
+  //   formData.append("isWeatherConditions", String(true));
+
+  //   setIsCreating(true);
+
+  //   try {
+  //     await api.schemas.create(formData);
+
+  //     setIsFadingOut(true);
+
+  //     // Ждём завершения анимации исчезновения, затем переходим на следующую страницу
+  //     setTimeout(() => {
+  //       notifications.show("Схема полётов создана", {
+  //         severity: "success",
+  //         autoHideDuration: 3000,
+  //       });
+  //       setIsCreating(false);
+  //       navigate("/trajectories");
+  //     }, 1000);
+  //   } catch (err) {
+  //     setIsCreating(false);
+  //     setIsFadingOut(false);
+  //     notifications.show(
+  //       `Не удалось создать схему. Причина: ${(err as Error).message}`,
+  //       { severity: "error", autoHideDuration: 5000 },
+  //     );
+  //   }
+  // }, [
+  //   opt1TrajectoryData,
+  //   files,
+  //   isDefaultName,
+  //   schemaName,
+  //   points.length,
+  //   droneParams.distance,
+  //   confirm,
+  //   notifications,
+  //   navigate,
+  // ]);
+
   const handleCreateSchema = React.useCallback(async () => {
     if (!files[0]) {
       notifications.show("Не выбрано изображение", { severity: "error" });
@@ -625,27 +690,92 @@ const TrajectoryStepper = () => {
     }
 
     const formData = new FormData();
-    formData.append("schemaName", schemaName);
-    formData.append("image", files[0]);
-    formData.append("pointsCount", String(points.length));
-    formData.append("distance", String(droneParams.distance));
 
-    const totalTime = opt1TrajectoryData!.B.reduce(
-      (sum, taxon) => sum + (taxon.time_sec ?? 0),
-      0,
+    // ── 1. FlightSchema (основное) ──────────────────────────────────
+    formData.append("schema_name", schemaName);
+
+    // ── 2. BaseImage ────────────────────────────────────────────────
+    formData.append("image", files[0]);
+    // EXIF как JSON-строку
+    formData.append("exif_data", JSON.stringify(exifData[0] ?? null));
+
+    // ── 3. DroneParams ──────────────────────────────────────────────
+    formData.append("drone_id", String(droneParams.selectedDroneId ?? ""));
+    formData.append("base_distance", String(droneParams.distance));
+    formData.append("planned_distance", String(droneParams.plannedDistance));
+    formData.append("speed", String(droneParams.speed));
+    formData.append("battery_time", String(droneParams.batteryTime));
+    formData.append("hover_time", String(droneParams.hoverTime));
+    formData.append("wind_resistance", String(droneParams.windResistance));
+    formData.append(
+      "consider_obstacles",
+      String(droneParams.considerObstacles),
     );
-    formData.append("flightTime", String(totalTime));
-    formData.append("method", "METHOD_1");
-    formData.append("isWeatherConditions", String(true));
+
+    // CameraParams (если useFromReference=false — пользователь задал вручную)
+    formData.append("camera_fov", String(droneParams.uavCameraParams.fov));
+    formData.append(
+      "camera_resolution_width",
+      String(droneParams.uavCameraParams.resolutionWidth),
+    );
+    formData.append(
+      "camera_resolution_height",
+      String(droneParams.uavCameraParams.resolutionHeight),
+    );
+    formData.append(
+      "camera_use_from_reference",
+      String(droneParams.uavCameraParams.useFromReference),
+    );
+
+    // ── 4. TrajectoriesShapes ───────────────────────────────────────
+    formData.append("points", JSON.stringify(points));
+    formData.append("obstacles", JSON.stringify(obstacles));
+    formData.append("flight_line_y", String(flightLineY ?? ""));
+
+    // ── 5. LocalWeather ─────────────────────────────────────────────
+    formData.append("wind_speed", String(weatherConditions.windSpeed));
+    formData.append("wind_direction", String(weatherConditions.windDirection));
+    formData.append("use_weather_api", String(weatherConditions.useWeatherApi));
+    formData.append("weather_lat", String(weatherConditions.position.lat));
+    formData.append("weather_lon", String(weatherConditions.position.lon));
+
+    // ── 6. Opt1Result (МКТ) — если есть ────────────────────────────
+    if (opt1TrajectoryData) {
+      const totalTime = opt1TrajectoryData.B.reduce(
+        (sum, taxon) => sum + (taxon.time_sec ?? 0),
+        0,
+      );
+      formData.append("opt1_taxons", JSON.stringify(opt1TrajectoryData));
+      formData.append("opt1_total_flight_time", String(totalTime));
+      formData.append("priority_opt_method", "METHOD_1");
+    }
+
+    // ── 7. Storyboards — если применены ────────────────────────────
+    if (storyboardsData.point.applied) {
+      formData.append(
+        "storyboard_point",
+        JSON.stringify(storyboardsData.point),
+      );
+    }
+    if (storyboardsData.recommended.applied) {
+      formData.append(
+        "storyboard_recommended",
+        JSON.stringify(storyboardsData.recommended),
+      );
+    }
+    if (storyboardsData.optimal.applied) {
+      formData.append(
+        "storyboard_optimal",
+        JSON.stringify(storyboardsData.optimal),
+      );
+    }
 
     setIsCreating(true);
 
     try {
-      await api.schemas.create(formData);
+      await api.schemas.createFull(formData); // POST /api/schemas
 
       setIsFadingOut(true);
-
-      // Ждём завершения анимации исчезновения, затем переходим на следующую страницу
       setTimeout(() => {
         notifications.show("Схема полётов создана", {
           severity: "success",
@@ -665,10 +795,15 @@ const TrajectoryStepper = () => {
   }, [
     opt1TrajectoryData,
     files,
+    exifData,
     isDefaultName,
     schemaName,
-    points.length,
-    droneParams.distance,
+    points,
+    obstacles,
+    flightLineY,
+    droneParams,
+    weatherConditions,
+    storyboardsData,
     confirm,
     notifications,
     navigate,
@@ -1038,6 +1173,9 @@ const TrajectoryStepper = () => {
             }
             storyboardsData={storyboardsData}
             framesUrlsPointBased={framesUrlsPointBased}
+            framesUrlsRecommended={framesUrlsRecommended}
+            framesUrlsOptimal={framesUrlsOptimal}
+            flightLineY={flightLineY}
           />
 
           <Zoom in>

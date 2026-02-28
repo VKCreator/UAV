@@ -164,7 +164,10 @@ export default function TrajectoryList() {
     }
 
     try {
-      const response = await api.schemas.getAll();
+      // const response = await api.schemas.getAll();
+            const response = await api.schemas.getAllFull();
+      console.info(response)
+
       setRowsState({ rows: response, rowCount: response.length });
       localStorage.setItem("schemas-cache-v1", JSON.stringify(response));
     } catch (fetchError) {
