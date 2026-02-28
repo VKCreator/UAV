@@ -214,7 +214,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
     try {
       const response = await fetch(
-        "http://nmstuvtip.ddns.net:5000/api/calculate-trajectory",
+        "http://nmstuvtip.ddnsking.com:5000/api/calculate-trajectory",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

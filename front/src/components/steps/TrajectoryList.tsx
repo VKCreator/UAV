@@ -39,7 +39,7 @@ import useNotifications from "../../hooks/useNotifications/useNotifications";
 import { api } from "../../api/client";
 import ClearIcon from "@mui/icons-material/Clear";
 
-const BASE_URL = "http://nmstuvtip.ddns.net:5000";
+const BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
 
 type MethodType = "METHOD_1" | "METHOD_2" | "USER";
 
@@ -121,7 +121,7 @@ export default function TrajectoryList() {
         row.schemaName.toLowerCase().includes(lowerSearch) ||
         String(row.pointCount).toLowerCase().includes(lowerSearch) ||
         String(row.distanceToCamera).toLowerCase().includes(lowerSearch) ||
-        String(row.flightTime).toLowerCase().includes(lowerSearch) ||
+        ((Number(row.flightTime) / 60).toFixed(2)).toLowerCase().includes(lowerSearch) ||
         methodLabel.includes(lowerSearch)
       );
     });
@@ -274,7 +274,9 @@ export default function TrajectoryList() {
         align: "right",
         headerAlign: "right",
         renderCell: (params) => (
-          <span>{highlightText(String(params.value), searchText)}</span>
+          <span>
+            {highlightText((Number(params.value) / 60).toFixed(2), searchText)}
+          </span>
         ),
       },
       {

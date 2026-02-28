@@ -46,7 +46,7 @@ interface BuildTrajectoryStepProps {
   setObstacles: React.Dispatch<React.SetStateAction<Polygon[]>>;
 
   trajectoryData: any;
-  setTrajectoryData: (data: any) => void;
+  setTrajectoryData: React.Dispatch<React.SetStateAction<any>>;
 
   droneParams: any;
   setDroneParams: (params: any) => void;

@@ -160,7 +160,7 @@ export default function DronesList() {
       },
       {
         field: "max_wind_resistance",
-        headerName: "Сопротивляемость ветру, м/с",
+        headerName: "Ветроустойчивость, м/с",
         type: "number",
         minWidth: 120,
         flex: 0.5,

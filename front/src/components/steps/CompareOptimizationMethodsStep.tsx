@@ -14,6 +14,7 @@ import {
   TableHead,
   TableRow,
   Alert,
+  Card
 } from "@mui/material";
 import { Line } from "react-chartjs-2";
 import {
@@ -160,7 +161,7 @@ const TaxonTable: React.FC<{ taxons: Taxon[] }> = ({ taxons }) => (
   <TableContainer component={Paper} variant="outlined">
     <Table size="small">
       <TableHead>
-        <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+        <TableRow sx={{ bgcolor: "#ffffff" }}>
           <TableCell sx={{ fontWeight: 600 }}>Таксон</TableCell>
           <TableCell sx={{ fontWeight: 600 }}>База (x, y)</TableCell>
           <TableCell sx={{ fontWeight: 600 }} align="center">
@@ -212,7 +213,7 @@ const TaxonTable: React.FC<{ taxons: Taxon[] }> = ({ taxons }) => (
         })}
 
         {/* Итого */}
-        <TableRow sx={{ bgcolor: "#fafafa" }}>
+        <TableRow sx={{ bgcolor: "#ffffff" }}>
           <TableCell colSpan={2}>
             <Typography variant="body2" fontWeight={600}>
               Итого
@@ -298,7 +299,7 @@ const Method1Tab: React.FC<{ data: TrajectoryData }> = ({ data }) => {
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pb: 2 }}>
       {/* Сводка */}
       <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-        <Paper
+        <Card
           variant="outlined"
           sx={{ p: 2, flex: 1, minWidth: 140, textAlign: "center" }}
         >
@@ -308,8 +309,8 @@ const Method1Tab: React.FC<{ data: TrajectoryData }> = ({ data }) => {
           <Typography variant="caption" color="text.secondary">
             таксонов
           </Typography>
-        </Paper>
-        <Paper
+        </Card>
+        <Card
           variant="outlined"
           sx={{ p: 2, flex: 1, minWidth: 140, textAlign: "center" }}
         >
@@ -319,8 +320,8 @@ const Method1Tab: React.FC<{ data: TrajectoryData }> = ({ data }) => {
           <Typography variant="caption" color="text.secondary">
             точек охвачено
           </Typography>
-        </Paper>
-        <Paper
+        </Card>
+        <Card
           variant="outlined"
           sx={{ p: 2, flex: 1, minWidth: 140, textAlign: "center" }}
         >
@@ -333,8 +334,8 @@ const Method1Tab: React.FC<{ data: TrajectoryData }> = ({ data }) => {
           >
             недостижимых
           </Typography>
-        </Paper>
-        <Paper
+        </Card>
+        <Card
           variant="outlined"
           sx={{ p: 2, flex: 1, minWidth: 140, textAlign: "center" }}
         >
@@ -344,11 +345,11 @@ const Method1Tab: React.FC<{ data: TrajectoryData }> = ({ data }) => {
           <Typography variant="caption" color="text.secondary">
             общее время
           </Typography>
-        </Paper>
+        </Card>
       </Box>
 
       {/* График */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
+      <Card variant="outlined" sx={{ p: 2 }}>
         <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
           Время маршрута по таксонам
         </Typography>
@@ -357,15 +358,15 @@ const Method1Tab: React.FC<{ data: TrajectoryData }> = ({ data }) => {
           Ось Y — накопленное время от старта таксона.
         </Typography>
         <TaxonTimeChart taxons={taxons} />
-      </Paper>
+      </Card>
 
       {/* Таблица */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
+      <Card variant="outlined" sx={{ p: 2 }}>
         <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
           Детализация по таксонам
         </Typography>
         <TaxonTable taxons={taxons} />
-      </Paper>
+      </Card>
 
       {/* Недостижимые точки */}
       <UnreachablePoints points={unreachable} />

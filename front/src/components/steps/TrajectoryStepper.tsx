@@ -629,7 +629,12 @@ const TrajectoryStepper = () => {
     formData.append("image", files[0]);
     formData.append("pointsCount", String(points.length));
     formData.append("distance", String(droneParams.distance));
-    formData.append("flightTime", String(15));
+
+    const totalTime = opt1TrajectoryData!.B.reduce(
+      (sum, taxon) => sum + (taxon.time_sec ?? 0),
+      0,
+    );
+    formData.append("flightTime", String(totalTime));
     formData.append("method", "METHOD_1");
     formData.append("isWeatherConditions", String(true));
 
@@ -642,11 +647,11 @@ const TrajectoryStepper = () => {
 
       // Ждём завершения анимации исчезновения, затем переходим на следующую страницу
       setTimeout(() => {
-        setIsCreating(false);
         notifications.show("Схема полётов создана", {
           severity: "success",
           autoHideDuration: 3000,
         });
+        setIsCreating(false);
         navigate("/trajectories");
       }, 1000);
     } catch (err) {
@@ -658,6 +663,7 @@ const TrajectoryStepper = () => {
       );
     }
   }, [
+    opt1TrajectoryData,
     files,
     isDefaultName,
     schemaName,
@@ -784,7 +790,9 @@ const TrajectoryStepper = () => {
           />
         );
       case 3:
-        return <CompareOptimizationMethodsStep  trajectoryData={opt1TrajectoryData} />;
+        return (
+          <CompareOptimizationMethodsStep trajectoryData={opt1TrajectoryData} />
+        );
       default:
         return null;
     }

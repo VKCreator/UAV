@@ -8,7 +8,7 @@ import {
   Checkbox,
   ToggleButton,
   ToggleButtonGroup,
-  FormControlLabel,  
+  FormControlLabel,
 } from "@mui/material";
 import {
   List,
@@ -688,9 +688,15 @@ const SceneEditor: FC<SceneEditorProps> = ({
 
             <Divider />
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <Typography variant="body2" color="text.secondary">
+              <Button
+                size="small"
+                startIcon={<InfoOutlinedIcon />}
+                onClick={() => setIsLegendOpen(true)}
+                aria-label="Легенда"
+              >
                 Обозначения на схеме
-              </Typography>
+              </Button>
+              {/* 
               <Tooltip title="Показать легенду" arrow>
                 <IconButton
                   component="span"
@@ -701,6 +707,9 @@ const SceneEditor: FC<SceneEditorProps> = ({
                   <InfoOutlinedIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
+              <Typography variant="body2" color="text.secondary">
+                Обозначения на схеме
+              </Typography> */}
             </Box>
             {/* <Box>
               <Box

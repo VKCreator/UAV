@@ -1,7 +1,8 @@
 // src/api/client.ts
 import { jwtDecode } from "jwt-decode";
 
-const API_BASE_URL = "http://nmstuvtip.ddns.net:5000";
+// const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
+const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
 
 // Универсальная функция для HTTP-запросов
 async function request<T>(
