@@ -1176,6 +1176,7 @@ const TrajectoryStepper = () => {
             framesUrlsRecommended={framesUrlsRecommended}
             framesUrlsOptimal={framesUrlsOptimal}
             flightLineY={flightLineY}
+            schemaName={schemaName}
           />
 
           <Zoom in>

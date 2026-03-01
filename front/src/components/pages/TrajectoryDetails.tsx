@@ -475,6 +475,7 @@ export default function TrajectoryDetails() {
         framesUrlsPointBased={framesUrlsPointBased}
         framesUrlsRecommended={framesUrlsRecommended}
         framesUrlsOptimal={framesUrlsOptimal}
+        schemaName={schemaData.schema_name}
       />
 
       <Zoom in={true}>

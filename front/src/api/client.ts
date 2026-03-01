@@ -84,7 +84,7 @@ export const api = {
       const controller = new AbortController();
       const timeout = setTimeout(() => {
         controller.abort(); // отменяем запрос через 5 секунд
-      }, 5000); // 5000 мс = 5 секунд
+      }, 10000); // 10000 мс = 5 секунд
 
       try {
         const res = await fetch(`${API_BASE_URL}/login`, {

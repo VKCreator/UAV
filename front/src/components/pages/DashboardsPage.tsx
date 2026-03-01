@@ -28,31 +28,30 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import { useEffect, useState, useMemo } from "react";
 import { CircularProgress } from "@mui/material";
-import { api, Drone } from "../../api/client";
+import { api, Drone, TrajectorySchema } from "../../api/client";
 
-const flightPlanMetrics = {
-  totalPlans: 25,
-  avgFlightTime: "1 час",
-  popularOptimizationMethod: "low-d",
+const formatDate = (isoString: string) => {
+  console.warn(isoString)
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  console.log('Local:', date.toLocaleString());
+  return date.toLocaleString("ru-RU", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
-const flightPlans = [
-  {
-    name: "Схема полета 1",
-    date: "2022-10-20",
-    detailsLink: "/trajectories/1",
-  },
-  {
-    name: "Схема полета 2",
-    date: "2022-11-15",
-    detailsLink: "/trajectories/2",
-  },
-  {
-    name: "Схема полета 3",
-    date: "2022-12-01",
-    detailsLink: "/trajectories/3",
-  },
-];
+const dateFormater = new Intl.DateTimeFormat('ru-RU', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
 
 // Компонент для отображения карточек с метриками
 const MetricCard = ({
@@ -94,7 +93,15 @@ const MetricCard = ({
 );
 
 // Компонент для отображения карточек с объектами (БПЛА и схемы)
-const CardWithDetails = ({ title, link }: { title: string; link: string }) => (
+const CardWithDetails = ({
+  title,
+  link,
+  created_date,
+}: {
+  title: string;
+  link: string;
+  created_date: string | null;
+}) => (
   <Card
     variant="outlined"
     // sx={{
@@ -117,8 +124,18 @@ const CardWithDetails = ({ title, link }: { title: string; link: string }) => (
           <Typography variant="h6" fontWeight={600}>
             {title}
           </Typography>
+          {created_date && (
+            <Typography variant="body2" color="text.secondary">
+              {created_date}
+            </Typography>
+          )}
         </Box>
-        <IconButton size="small" color="primary" component={Link} to={link}>
+        <IconButton
+          size="small"
+          color="primary"
+          component={Link}
+          to={`/trajectories/${link}`}
+        >
           <ChevronRightIcon />
         </IconButton>
       </Box>
@@ -148,6 +165,9 @@ const DashboardsPage = () => {
   const [drones, setDrones] = useState<Drone[]>([]);
   const [dronesLoading, setDronesLoading] = useState(true);
 
+  const [schemas, setSchemas] = useState<TrajectorySchema[]>([]);
+  const [schemasLoading, setSchemasLoading] = useState(true);
+
   useEffect(() => {
     const fetchDrones = async () => {
       try {
@@ -169,7 +189,28 @@ const DashboardsPage = () => {
       }
     };
 
+    const fetchSchemas = async () => {
+      try {
+        // Читаем из кэша
+        const cached = localStorage.getItem("schemas-cache-v1");
+        if (cached) {
+          setSchemas(JSON.parse(cached));
+          setSchemasLoading(false);
+        }
+
+        // Всё равно запрашиваем свежие данные
+        const response = await api.schemas.getAllFull();
+        setSchemas(response);
+        localStorage.setItem("schemas-cache-v1", JSON.stringify(response));
+      } catch (error) {
+        console.error("Ошибка загрузки схем:", error);
+      } finally {
+        setSchemasLoading(false);
+      }
+    };
+
     fetchDrones();
+    fetchSchemas();
   }, []);
 
   const avgBatteryTime = useMemo(() => {
@@ -187,6 +228,52 @@ const DashboardsPage = () => {
         drones.length,
     );
   }, [drones]);
+
+  const avgFlightTime = useMemo(() => {
+    if (!schemas.length) return 0;
+    return Math.round(
+      schemas.reduce((sum, schema) => sum + (schema.flightTime ?? 0), 0) /
+        schemas.length,
+    );
+  }, [schemas]);
+
+  const getMethodLabel = React.useCallback((type: string) => {
+    switch (type) {
+      case "METHOD_1":
+        return "low-d";
+      case "METHOD_2":
+        return "high-d";
+      default:
+        return "user";
+    }
+  }, []);
+
+  const popularMethod = useMemo(() => {
+    // 1. Проверка на пустой массив
+    if (!schemas || !schemas.length) return null;
+
+    // 2. Подсчет вхождений каждого methodType
+    const methodCounts = schemas.reduce((acc, schema) => {
+      const method = schema.methodType;
+      if (method) {
+        acc[method] = (acc[method] || 0) + 1;
+      }
+      return acc;
+    }, {});
+
+    // 3. Поиск метода с максимальным счетом
+    let maxCount = 0;
+    let mostPopular = null;
+
+    for (const [method, count] of Object.entries(methodCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        mostPopular = method;
+      }
+    }
+
+    return getMethodLabel(mostPopular);
+  }, [schemas]);
 
   return (
     <PageContainer
@@ -290,12 +377,16 @@ const DashboardsPage = () => {
                   </Typography>
                 </Grid>
               ) : (
-                drones.slice(0, 3).map((drone, index) => (
+                drones.slice(0, 6).map((drone, index) => (
                   <Grid
                     size={{ xs: 12, sm: 6, md: 4, lg: 4 }}
                     key={drone.id ?? index}
                   >
-                    <CardWithDetails title={drone.model} link={`/drones`} />
+                    <CardWithDetails
+                      title={drone.model}
+                      link={`/drones`}
+                      created_date={null}
+                    />
                   </Grid>
                 ))
               )}
@@ -315,7 +406,7 @@ const DashboardsPage = () => {
           </Card>
         </Box>
 
-        <Box sx={{ marginTop: 4 }}>
+        <Box sx={{ marginTop: 4, mb: 4 }}>
           <Card
             variant="outlined"
             // sx={{
@@ -331,21 +422,21 @@ const DashboardsPage = () => {
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
                   title="Количество схем"
-                  value={flightPlanMetrics.totalPlans}
+                  value={schemas.length}
                   icon={<RouteIcon fontSize="large" />}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
                   title="Среднее время полёта"
-                  value={flightPlanMetrics.avgFlightTime}
+                  value={`${(avgFlightTime / 60).toFixed(2)} мин`}
                   icon={<ScheduleIcon fontSize="large" />}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
                   title="Популярный метод оптимизации"
-                  value={flightPlanMetrics.popularOptimizationMethod}
+                  value={popularMethod}
                   icon={<TuneIcon fontSize="large" />}
                 />
               </Grid>
@@ -389,11 +480,33 @@ const DashboardsPage = () => {
             </Grid>
 
             <Grid container spacing={2}>
-              {flightPlans.map((plan, index) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }} key={index}>
-                  <CardWithDetails title={plan.name} link={plan.detailsLink} />
+              {schemasLoading ? (
+                <Grid size={{ xs: 12 }}>
+                  <Box display="flex" justifyContent="center" py={2}>
+                    <CircularProgress size={24} />
+                  </Box>
                 </Grid>
-              ))}
+              ) : schemas.length === 0 ? (
+                <Grid size={{ xs: 12 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    textAlign="center"
+                  >
+                    Схемы не найдены
+                  </Typography>
+                </Grid>
+              ) : (
+                schemas.slice(0, 6).map((plan, index) => (
+                  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }} key={index}>
+                    <CardWithDetails
+                      title={plan.schemaName}
+                      link={plan.id}
+                      created_date={formatDate(plan.createdAt)}
+                    />
+                  </Grid>
+                ))
+              )}
             </Grid>
             <Box display="flex" justifyContent="center" sx={{ mt: 2 }}>
               <Button
@@ -403,7 +516,7 @@ const DashboardsPage = () => {
                 variant="text"
                 size="small"
               >
-                Показать все схемы ({flightPlanMetrics.totalPlans})
+                Показать все схемы ({schemas.length})
               </Button>
             </Box>
           </Card>

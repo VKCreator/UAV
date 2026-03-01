@@ -48,7 +48,7 @@ const StoryboardTimeline: FC<Props> = ({ frames }) => {
           px={2}
           py={1}
           borderTop="1px solid #ddd"
-          bgcolor="background.paper"
+          // bgcolor="background.paper"
         >
           {frames?.length > 0 && (
             <Typography variant="subtitle2" fontWeight={600}>
@@ -63,7 +63,7 @@ const StoryboardTimeline: FC<Props> = ({ frames }) => {
           gap={1}
           px={2}
           py={1}
-          bgcolor="background.paper"
+          // bgcolor="background.paper"
           width="100%"
           maxHeight="150px"
           sx={{

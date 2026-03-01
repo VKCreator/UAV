@@ -195,6 +195,7 @@ interface Props {
   framesUrlsOptimal?: string[];
 
   flightLineY?: number;
+  schemaName: string;
 }
 
 // ─── Компонент ───────────────────────────────────────────────────────────────
@@ -217,6 +218,7 @@ const FlightSchemaPage: React.FC<Props> = ({
   framesUrlsRecommended,
   framesUrlsOptimal,
   flightLineY,
+  schemaName,
 }) => {
   const [userTrajectoryTab, setUserTrajectoryTab] = React.useState(0);
   const [optimizationTab, setOptimizationTab] = React.useState(0);
@@ -320,10 +322,28 @@ const FlightSchemaPage: React.FC<Props> = ({
       pr={25}
       pl={25}
     >
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          borderColor: "divider",
+          borderWidth: 1,
+          borderStyle: "solid",
+          borderRadius: 1,
+          p: 2,
+          mb: 2,
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 500 }}>
+          Название:
+        </Typography>
+        <Typography variant="h6" sx={{ fontWeight: 300 }}>
+          {schemaName}
+        </Typography>
+      </Box>
+
       <Stack spacing={4}>
-        {/* ═══════════════════════════════════════════════════════════════════
-            1. Информация о базовом слое
-        ═══════════════════════════════════════════════════════════════════ */}
         <SectionBox title="Информация о базовом слое">
           <Stack direction="row" spacing={2}>
             <Box
@@ -353,7 +373,7 @@ const FlightSchemaPage: React.FC<Props> = ({
               <Paper
                 elevation={1}
                 variant="outlined"
-                sx={{ p: 2, height: "100%" }}
+                sx={{ p: 2, height: "100%", background: "transparent" }}
               >
                 <Stack spacing={2} height="100%">
                   <Typography variant="subtitle1">
@@ -783,7 +803,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                       <TableContainer
                         component={Paper}
                         variant="outlined"
-                        sx={{ maxHeight: 280 }}
+                        sx={{ maxHeight: 280, background: "transparent" }}
                       >
                         <Table size="small" stickyHeader>
                           <TableHead>
@@ -862,7 +882,7 @@ const FlightSchemaPage: React.FC<Props> = ({
               component={Paper}
               elevation={1}
               variant="outlined"
-              sx={{ p: 2 }}
+              sx={{ p: 2, background: "transparent" }}
             >
               <Stack spacing={1.5}>
                 <Typography variant="subtitle1">Погодные условия</Typography>
@@ -986,7 +1006,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                 component={Paper}
                 elevation={1}
                 variant="outlined"
-                sx={{ p: 2 }}
+                sx={{ p: 2, background: "transparent" }}
               >
                 {trajectoryData ? (
                   <Stack spacing={2}>
@@ -1039,7 +1059,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                     </Grid>
 
                     {/* Таблица по таксонам */}
-                    <TableContainer component={Paper} variant="outlined">
+                    <TableContainer component={Paper} variant="outlined" sx = {{background: "transparent"}}>
                       <Table size="small">
                         <TableHead>
                           <TableRow>
@@ -1191,6 +1211,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                     flexDirection="column"
                     justifyContent="space-between"
                     overflow="auto"
+                    sx={{ background: "transparent" }}
                   >
                     <Stack spacing={2}>
                       <Typography variant="subtitle1">
@@ -1250,6 +1271,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                     flexDirection="column"
                     justifyContent="space-between"
                     overflow="auto"
+                    sx={{ background: "transparent" }}
                   >
                     <Stack spacing={2}>
                       <Typography variant="subtitle1">
@@ -1311,6 +1333,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                     flexDirection="column"
                     justifyContent="space-between"
                     overflow="auto"
+                    sx={{ background: "transparent" }}
                   >
                     <Stack spacing={2}>
                       <Typography variant="subtitle1">
