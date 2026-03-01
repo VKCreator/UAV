@@ -87,7 +87,7 @@ export const api = {
       }, 10000); // 10000 мс = 5 секунд
 
       try {
-        const res = await fetch(`${API_BASE_URL}/login`, {
+        const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
@@ -128,17 +128,35 @@ export const api = {
     getToken: () => localStorage.getItem("token"),
     check: async () => {
       const token = localStorage.getItem("token");
-      if (!token) {
-        return;
-      }
+      if (!token) return;
 
-      const res = await fetch(`${API_BASE_URL}/protected`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
         const data = await res.json();
-        return data.message;
+        return data.username; // или data.first_name — что нужно
+      } else {
+        localStorage.removeItem("token");
+        return;
+      }
+    },
+  },
+  users: {
+    getMe: async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        return;
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/users/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return data;
       } else {
         localStorage.removeItem("token"); // некорректный или истёкший токен
         return;
@@ -157,18 +175,19 @@ export const api = {
   },
   // Схемы
   schemas: {
-    getAllFull: () => request<TrajectorySchema[]>("/api/schemasFull"),
+    getAllFull: () => request<TrajectorySchema[]>("/api/schemas/full"),
     getAll: () => request<TrajectorySchema[]>("/api/schemas"),
-    getById: (id: number) => request<any>(`/api/schemasFull/${id}`),
+    getById: (id: number) => request<any>(`/api/schemas/full/${id}`),
     create: (formData: FormData) =>
       requestFormData<any>("/api/schemas", {
         method: "POST",
         body: formData,
       }),
     createFull: (formData: FormData) =>
-      requestFormData<any>("/api/schemasFull", {
+      requestFormData<any>("/api/schemas/full", {
         method: "POST",
         body: formData,
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       }),
   },
   // Погода

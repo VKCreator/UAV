@@ -8,6 +8,7 @@ import Toolbar from "@mui/material/Toolbar";
 import type {} from "@mui/material/themeCssVarsAugmentation";
 import MapRoundedIcon from "@mui/icons-material/MapRounded";
 import LocalAirportRoundedIcon from "@mui/icons-material/LocalAirportRounded";
+import PersonIcon from '@mui/icons-material/Person';
 import { matchPath, useLocation } from "react-router";
 import DashboardSidebarContext from "../context/DashboardSidebarContext";
 import { DRAWER_WIDTH, MINI_DRAWER_WIDTH } from "../constants";
@@ -31,6 +32,8 @@ import Avatar from "@mui/material/Avatar";
 import { api } from "../api/client";
 import { useNavigate } from "react-router";
 import { getUserFromStorage } from "../utils/auth";
+
+import { Link } from "react-router";
 
 export interface DashboardSidebarProps {
   logo?: React.ReactNode;
@@ -59,9 +62,7 @@ export default function DashboardSidebar({
   const user = React.useMemo(() => getUserFromStorage(), []);
 
   // Инициалы для аватара — первые буквы имени и фамилии
-  const avatarInitials = user
-    ? `${user.first_name[0]}`
-    : "U";
+  const avatarInitials = user ? `${user.first_name[0]}` : "U";
 
   const displayName = user
     ? `${user.first_name} ${user.last_name}`
@@ -258,6 +259,13 @@ export default function DashboardSidebar({
                 !!matchPath("/trajectories/*", pathname) || pathname === "/"
               }
             />
+            <DashboardSidebarPageItem
+              id="profile"
+              title="Профиль"
+              icon={<PersonIcon />}
+              href="/profile"
+              selected={!!matchPath("/profile/*", pathname) || pathname === "/"}
+            />
             <DashboardSidebarDividerItem />
             <DashboardSidebarHeaderItem>Справочники</DashboardSidebarHeaderItem>
             <DashboardSidebarPageItem
@@ -295,7 +303,15 @@ export default function DashboardSidebar({
               <Stack direction="row" alignItems="center" spacing={1.5}>
                 <Avatar
                   alt={displayName}
-                  sx={{ width: 36, height: 36, bgcolor: "#014488" }}
+                  component={Link}
+                  to="/profile"
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    bgcolor: "#014488",
+                    cursor: "pointer",
+                    textDecoration: "none",
+                  }}
                 >
                   {avatarInitials}
                 </Avatar>

@@ -216,7 +216,7 @@ export default function TrajectoryList() {
       },
       {
         field: "schemaImage",
-        headerName: "Изображение",
+        headerName: "Базовый слой",
         width: 160,
         sortable: false,
         align: "center",

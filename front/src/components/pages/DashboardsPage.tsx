@@ -31,10 +31,8 @@ import { CircularProgress } from "@mui/material";
 import { api, Drone, TrajectorySchema } from "../../api/client";
 
 const formatDate = (isoString: string) => {
-  console.warn(isoString)
   if (!isoString) return "";
   const date = new Date(isoString);
-  console.log('Local:', date.toLocaleString());
   return date.toLocaleString("ru-RU", {
     year: "numeric",
     month: "2-digit",
@@ -43,15 +41,6 @@ const formatDate = (isoString: string) => {
     minute: "2-digit",
   });
 };
-
-const dateFormater = new Intl.DateTimeFormat('ru-RU', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
 
 // Компонент для отображения карточек с метриками
 const MetricCard = ({
@@ -63,32 +52,41 @@ const MetricCard = ({
   value: string | number;
   icon: React.ReactNode;
 }) => (
-  <Card variant="outlined">
-    <Box display="flex" alignItems="center" gap={2}>
-      <Box
-        sx={{
-          bgcolor: "white",
-          borderRadius: "50%",
-          width: 40,
-          height: 40,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-          color: "#014488",
-        }}
-      >
-        {icon}
+  <Card
+    variant="outlined"
+    sx={{
+      // p: 2,
+      height: "100%",
+      // backgroundColor: "transparent",
+    }}
+  >
+    <CardContent sx={{ height: "100%" }}>
+      <Box display="flex" alignItems="center" gap={2} sx={{ height: "100%" }}>
+        <Box
+          sx={{
+            bgcolor: "white",
+            borderRadius: "50%",
+            width: 40,
+            height: 40,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            color: "#014488",
+          }}
+        >
+          {icon}
+        </Box>
+        <Box>
+          <Typography variant="body2" color="text.secondary">
+            {title}
+          </Typography>
+          <Typography variant="h6" fontWeight={600}>
+            {value}
+          </Typography>
+        </Box>
       </Box>
-      <Box>
-        <Typography variant="body2" color="text.secondary">
-          {title}
-        </Typography>
-        <Typography variant="h6" fontWeight={600}>
-          {value}
-        </Typography>
-      </Box>
-    </Box>
+    </CardContent>
   </Card>
 );
 
@@ -104,23 +102,24 @@ const CardWithDetails = ({
 }) => (
   <Card
     variant="outlined"
-    // sx={{
-    //   p: 2,
-    //   height: "100%",
-    //   backgroundColor: "transparent",
-    // }}
+    sx={{
+      // p: 2,
+      height: "100%",
+      // backgroundColor: "transparent",
+    }}
   >
-    <CardContent>
+    <CardContent sx={{ height: "100%" }}>
       <Box
         display="flex"
         flexDirection="row"
         alignItems="center"
         justifyContent="space-between"
+        sx={{ height: "100%" }}
       >
         <Box>
-          <Typography variant="body2" color="text.secondary">
+          {/* <Typography variant="body2" color="text.secondary">
             Название
-          </Typography>
+          </Typography> */}
           <Typography variant="h6" fontWeight={600}>
             {title}
           </Typography>
@@ -130,12 +129,7 @@ const CardWithDetails = ({
             </Typography>
           )}
         </Box>
-        <IconButton
-          size="small"
-          color="primary"
-          component={Link}
-          to={`/trajectories/${link}`}
-        >
+        <IconButton size="small" color="primary" component={Link} to={link}>
           <ChevronRightIcon />
         </IconButton>
       </Box>
@@ -501,7 +495,7 @@ const DashboardsPage = () => {
                   <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }} key={index}>
                     <CardWithDetails
                       title={plan.schemaName}
-                      link={plan.id}
+                      link={`/trajectories/${plan.id}`}
                       created_date={formatDate(plan.createdAt)}
                     />
                   </Grid>

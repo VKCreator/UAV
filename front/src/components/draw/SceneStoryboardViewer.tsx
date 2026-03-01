@@ -14,7 +14,7 @@ import useImage from "use-image";
 
 import type { Point, Polygon, TrajectoryPoint } from "./scene.types";
 
-const STAGE_WIDTH = 700;
+const STAGE_WIDTH = 500;
 const STAGE_HEIGHT = 400;
 
 const TAXON_POINT_RADIUS = 10;
@@ -75,8 +75,8 @@ const SceneViewer: FC<SceneViewerProps> = ({
   const scaleToFit = image
     ? Math.min(
         1,
-        (STAGE_WIDTH / image.width) * 1,
-        (STAGE_HEIGHT / image.height) * 1,
+        (STAGE_WIDTH / image.width) * 0.9,
+        (STAGE_HEIGHT / image.height) * 0.9,
       )
     : 1;
 

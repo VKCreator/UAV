@@ -96,7 +96,7 @@ function MetricCard({
         {label}
         {tooltip && <HelpIconTooltip title={tooltip} />}
       </Typography>
-      <Typography variant="h6" fontWeight={600}>
+      <Typography variant="h6" fontWeight={600} component="div">
         {value}
       </Typography>
     </Card>
@@ -110,7 +110,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
       <Typography variant="body2" color="text.secondary">
         {label}
       </Typography>
-      <Typography variant="body2" fontWeight={500}>
+      <Typography variant="body2" fontWeight={500} component="div">
         {value}
       </Typography>
     </Box>
@@ -690,14 +690,14 @@ const FlightSchemaPage: React.FC<Props> = ({
                 onChange={(_, v) => setUserTrajectoryTab(v)}
                 sx={{ borderBottom: 1, borderColor: "divider", mb: 1 }}
               >
-                <Tab label={`Препятствия (${obstacles?.length ?? 0})`} />
                 <Tab label="Линия взлёта" />
+                <Tab label={`Препятствия (${obstacles?.length ?? 0})`} />
                 <Tab label={`Точки (${points?.length ?? 0})`} />
               </Tabs>
 
               <Box flex={1} overflow="auto" maxHeight={300}>
                 {/* ── Препятствия ── */}
-                {userTrajectoryTab === 0 && (
+                {userTrajectoryTab === 1 && (
                   <Stack spacing={1} p={1}>
                     {obstacles?.length === 0 && (
                       <Typography variant="body2" color="text.secondary">
@@ -708,7 +708,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                       <Card
                         key={obstacle.id}
                         variant="outlined"
-                        sx={{ p: 1.5 }}
+                        sx={{ p: 1.5, background: "transparent" }}
                       >
                         <Stack
                           direction="row"
@@ -770,7 +770,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                 )}
 
                 {/* ── Линия взлёта ── */}
-                {userTrajectoryTab === 1 && (
+                {userTrajectoryTab === 0 && (
                   <Box p={2}>
                     {flightLineY != null ? (
                       <Stack spacing={1.5}>
@@ -977,7 +977,7 @@ const FlightSchemaPage: React.FC<Props> = ({
               {/* Сцена с оптимизированной траекторией */}
               <Box
                 flex={1}
-                minHeight={340}
+                height={500}
                 sx={{ borderRadius: 2, overflow: "hidden" }}
               >
                 {imageData && trajectoryData ? (
@@ -1028,7 +1028,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                             trajectoryData.B
                               ? trajectoryData.B.reduce(
                                   (s: number, t: any) =>
-                                    s + (t.route ?? t.points ?? []).length,
+                                    s + (t.route ?? t.points ?? []).length - 2,
                                   0,
                                 )
                               : "—"
@@ -1059,7 +1059,11 @@ const FlightSchemaPage: React.FC<Props> = ({
                     </Grid>
 
                     {/* Таблица по таксонам */}
-                    <TableContainer component={Paper} variant="outlined" sx = {{background: "transparent"}}>
+                    <TableContainer
+                      component={Paper}
+                      variant="outlined"
+                      sx={{ background: "transparent", maxHeight: 150 }}
+                    >
                       <Table size="small">
                         <TableHead>
                           <TableRow>
@@ -1091,7 +1095,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                               </TableCell>
                               <TableCell>{t.base}</TableCell>
                               <TableCell align="center">
-                                {t.pointsCount}
+                                {t.pointsCount - 2}
                               </TableCell>
                               <TableCell align="right">
                                 {formatTime(t.timeSec)}
@@ -1140,7 +1144,7 @@ const FlightSchemaPage: React.FC<Props> = ({
 
           {/* ── Метод 2 — заглушка ── */}
           {optimizationTab === 1 && (
-            <Box mt={2}>
+            <Box mt={2} height={340}>
               <Placeholder label="Данные метода 2 (БКТ)" />
             </Box>
           )}
@@ -1168,7 +1172,7 @@ const FlightSchemaPage: React.FC<Props> = ({
             />
           </Tabs>
 
-          <Box mt={2} minHeight={400}>
+          <Box mt={2} height={400}>
             {/* ── Точечная ── */}
             {storyboardTab === 0 &&
               (storyboardsData?.point?.applied ? (
@@ -1177,9 +1181,12 @@ const FlightSchemaPage: React.FC<Props> = ({
                     flex={0.5}
                     minHeight={400}
                     maxHeight={400}
-                    minWidth={700}
+                    minWidth={550}
+                    justifyContent="center"
+                    alignItems="center"
+                    display="flex"
                     sx={{
-                      background: "lightgray",
+                      background: "#D3D3D399",
                       borderRadius: 1,
                       overflow: "hidden",
                     }}
@@ -1236,12 +1243,15 @@ const FlightSchemaPage: React.FC<Props> = ({
                     flex={0.5}
                     minHeight={400}
                     maxHeight={400}
-                    minWidth={700}
                     sx={{
-                      background: "lightgray",
+                      background: "#D3D3D399",
                       borderRadius: 1,
                       overflow: "hidden",
                     }}
+                    minWidth={550}
+                    justifyContent="center"
+                    alignItems="center"
+                    display="flex"
                   >
                     <SceneViewer
                       imageData={imageData}
@@ -1298,12 +1308,15 @@ const FlightSchemaPage: React.FC<Props> = ({
                     flex={0.5}
                     minHeight={400}
                     maxHeight={400}
-                    minWidth={700}
+                    minWidth={550}
                     sx={{
-                      background: "lightgray",
+                      background: "#D3D3D399",
                       borderRadius: 1,
                       overflow: "hidden",
                     }}
+                    justifyContent="center"
+                    alignItems="center"
+                    display="flex"
                   >
                     <SceneViewer
                       imageData={imageData}

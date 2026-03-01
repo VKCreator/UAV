@@ -25,6 +25,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { api } from "./api/client";
 import DashboardsPage from "./components/pages/DashboardsPage";
+import ProfilePage from "./components/pages/ProfilePage";
 
 // -------- ProtectedRoute --------
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -104,6 +105,10 @@ const router = createHashRouter([
       {
         path: "/dashboards",
         Component: DashboardsPage,
+      },
+      {
+        path: "/profile",
+        Component: ProfilePage        
       },
       // fallback для внутренних маршрутов Dashboard
       {
