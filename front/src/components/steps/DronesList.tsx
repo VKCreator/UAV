@@ -12,6 +12,8 @@ import { TextField, InputAdornment } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 
+import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
+
 import {
   DataGrid,
   GridColDef,
@@ -28,6 +30,7 @@ import { russianLocale } from "../../constants";
 export default function DronesList() {
   const navigate = useNavigate();
   const notifications = useNotifications();
+  useDocumentTitle("Квадрокоптеры | SkyPath Service")
 
   const [searchQuery, setSearchQuery] = React.useState("");
 

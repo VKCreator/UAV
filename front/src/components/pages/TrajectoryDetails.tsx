@@ -17,6 +17,8 @@ import type { DroneParams, Weather } from "../../types/uav.types";
 import type { Storyboards } from "../../types/storyboards.types";
 import type { Point } from "../draw/scene.types";
 
+import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
+
 // ─── Константы ───────────────────────────────────────────────────────────────
 
 const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
@@ -122,6 +124,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 export default function TrajectoryDetails() {
   const navigate = useNavigate();
+  useDocumentTitle("Просмотр схемы | SkyPath Service");
   const [searchParams] = useSearchParams();
   const { id } = useParams<{ id: string }>();
 
@@ -487,6 +490,8 @@ export default function TrajectoryDetails() {
         framesUrlsRecommended={framesUrlsRecommended}
         framesUrlsOptimal={framesUrlsOptimal}
         schemaName={schemaData.schema_name}
+        createdAt={schemaData.created_at}
+        author={schemaData.user}
       />
 
       <Zoom in={true}>

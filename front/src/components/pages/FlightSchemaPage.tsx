@@ -34,6 +34,8 @@ import { Storyboards } from "../../types/storyboards.types";
 import { HelpIconTooltip } from "../ui-widgets/HelpIconTooltip";
 import StoryboardTimeline from "../draw/StoryboardTimeline";
 
+import { DateToPrettyLocalDateTime } from "../../utils/dateUtils";
+
 import {
   LineChart,
   Line,
@@ -196,6 +198,8 @@ interface Props {
 
   flightLineY?: number;
   schemaName: string;
+  createdAt: string;
+  author: any;
 }
 
 // ─── Компонент ───────────────────────────────────────────────────────────────
@@ -219,6 +223,8 @@ const FlightSchemaPage: React.FC<Props> = ({
   framesUrlsOptimal,
   flightLineY,
   schemaName,
+  createdAt,
+  author,
 }) => {
   const [userTrajectoryTab, setUserTrajectoryTab] = React.useState(0);
   const [optimizationTab, setOptimizationTab] = React.useState(0);
@@ -335,12 +341,28 @@ const FlightSchemaPage: React.FC<Props> = ({
           mb: 2,
         }}
       >
-        <Typography variant="h6">
-          Название:
-        </Typography>
-        <Typography variant="h6" sx={{ fontWeight: 300 }}>
-          {schemaName}
-        </Typography>
+        <Box
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          width="100%"
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="h6">Название:</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 300 }}>
+              {schemaName}
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", gap: 2, mt: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              {`Дата создания: ${DateToPrettyLocalDateTime(createdAt) || "-"}`}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {`Автор: ${author.last_name} ${author.first_name[0]}. ${author.middle_name[0]}.`}
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
       <Stack spacing={4}>

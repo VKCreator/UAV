@@ -25,6 +25,7 @@ import BadgeIcon from "@mui/icons-material/Badge";
 
 import { api } from "../../api/client";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
 
 interface UserProfile {
   user_id: number;
@@ -92,6 +93,7 @@ interface ProfileCache {
 
 const ProfilePage: React.FC = () => {
   const notifications = useNotifications();
+  useDocumentTitle("Профиль | SkyPath Service");
   const [user, setUser] = React.useState<UserProfile | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);

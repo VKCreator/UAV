@@ -43,6 +43,8 @@ import type { Opt1TrajectoryData } from "../../types/optTrajectory.types";
 import type { Storyboards } from "../../types/storyboards.types";
 
 import { api, Drone } from "../../api/client";
+import { getUserFromStorage } from "../../utils/auth";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
@@ -133,7 +135,8 @@ const TrajectoryStepper = () => {
   const navigate = useNavigate();
   const notifications = useNotifications();
   const { confirm } = useDialogs();
-
+  useDocumentTitle("Создание схемы | SkyPath Service");
+  
   // ── UI-состояние ──────────────────────────────────────────────────────────
 
   const [activeStep, setActiveStep] = React.useState(0);
@@ -1178,6 +1181,8 @@ const TrajectoryStepper = () => {
             framesUrlsOptimal={framesUrlsOptimal}
             flightLineY={flightLineY}
             schemaName={schemaName}
+            author={getUserFromStorage()}
+            createdAt={""}
           />
 
           <Zoom in>

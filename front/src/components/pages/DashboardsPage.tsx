@@ -29,6 +29,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useEffect, useState, useMemo } from "react";
 import { CircularProgress } from "@mui/material";
 import { api, Drone, TrajectorySchema } from "../../api/client";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
 
 const formatDate = (isoString: string) => {
   if (!isoString) return "";
@@ -138,6 +139,8 @@ const CardWithDetails = ({
 );
 
 const DashboardsPage = () => {
+  useDocumentTitle("Главная | SkyPath Service");
+  
   // Получаем текущее время и форматируем сообщение в зависимости от времени суток
   const currentTime = new Date();
   const greeting =

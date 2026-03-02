@@ -40,6 +40,7 @@ import { api } from "../../api/client";
 import ClearIcon from "@mui/icons-material/Clear";
 
 import { DateToPrettyLocalDateTime } from "../../utils/dateUtils";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
 
 const BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
 
@@ -56,6 +57,7 @@ export default function TrajectoryList() {
   const navigate = useNavigate();
   const notifications = useNotifications();
   const [searchParams, setSearchParams] = useSearchParams();
+  useDocumentTitle("Схемы полётов | SkyPath Service")
 
   const [searchText, setSearchText] = React.useState("");
   const page = Number(searchParams.get("page") ?? 0);
@@ -132,6 +134,7 @@ export default function TrajectoryList() {
         String(DateToPrettyLocalDateTime(row.createdAt))
           .toLowerCase()
           .includes(lowerSearch) ||
+        String(row.user.last_name).toLowerCase().includes(lowerSearch) ||
         methodLabel.includes(lowerSearch)
       );
     });
@@ -176,7 +179,6 @@ export default function TrajectoryList() {
     try {
       // const response = await api.schemas.getAll();
       const response = await api.schemas.getAllFull();
-      console.info(response);
 
       setRowsState({ rows: response, rowCount: response.length });
       localStorage.setItem("schemas-cache-v1", JSON.stringify(response));
@@ -224,7 +226,7 @@ export default function TrajectoryList() {
           const isNew = !isNaN(newSchemaId) && newSchemaId === params.row.id;
 
           return (
-            <Box>
+            <Box sx={{ overflow: "hidden", width: "100%", maxHeight: "100%" }}>
               <Box>
                 {isNew && (
                   <Chip
@@ -236,14 +238,26 @@ export default function TrajectoryList() {
                     sx={{ height: 18, fontSize: "0.65rem", mr: 0.5 }}
                   />
                 )}
-                <span style={{ fontWeight: 500 }}>{highlightText(params.value as string, searchText)}</span>
+                <span style={{ fontWeight: 500 }}>
+                  {highlightText(params.value as string, searchText)}
+                </span>
               </Box>
-              <Typography color="text.secondary" variant="caption">
-                {highlightText(
-                  DateToPrettyLocalDateTime(params.row.createdAt) as string,
-                  searchText,
-                )}
-              </Typography>
+              <Box display="flex" flexDirection="column" sx={{ mt: 0.5 }}>
+                <Typography color="text.secondary" variant="caption" noWrap>
+                  {highlightText(
+                    DateToPrettyLocalDateTime(params.row.createdAt) as string,
+                    searchText,
+                  )}
+                </Typography>
+
+                <Typography color="text.secondary" variant="caption" noWrap>
+                  {highlightText(
+                    params.row.user.last_name as string,
+                    searchText,
+                  )}
+                  {` ${params.row.user.first_name[0]}. ${params.row.user.middle_name[0]}.`}
+                </Typography>
+              </Box>
             </Box>
           );
         },
@@ -514,7 +528,8 @@ export default function TrajectoryList() {
             disableColumnMenu
             disableDensitySelector
             pageSizeOptions={[5, 10, 25]}
-            rowHeight={96}
+            // rowHeight={96}
+            getRowHeight={() => 96}
             localeText={russianLocale}
             onRowClick={(params, event) => {
               if ((event.target as HTMLElement).closest("button")) return;
