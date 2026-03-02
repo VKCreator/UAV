@@ -758,6 +758,7 @@ const TrajectoryStepper = () => {
       );
     }
     if (storyboardsData.recommended.applied) {
+      storyboardsData.recommended.points = pointsRecommended;
       formData.append(
         "storyboard_recommended",
         JSON.stringify(storyboardsData.recommended),
@@ -773,7 +774,7 @@ const TrajectoryStepper = () => {
     setIsCreating(true);
 
     try {
-      await api.schemas.createFull(formData); // POST /api/schemas
+      const data = await api.schemas.createFull(formData); // POST /api/schemas
 
       setIsFadingOut(true);
       setTimeout(() => {
@@ -782,7 +783,7 @@ const TrajectoryStepper = () => {
           autoHideDuration: 3000,
         });
         setIsCreating(false);
-        navigate("/trajectories");
+        navigate(`/trajectories?newSchemaId=${data.schema_id}`);
       }, 1000);
     } catch (err) {
       setIsCreating(false);

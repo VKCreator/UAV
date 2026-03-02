@@ -39,6 +39,8 @@ import useNotifications from "../../hooks/useNotifications/useNotifications";
 import { api } from "../../api/client";
 import ClearIcon from "@mui/icons-material/Clear";
 
+import { DateToPrettyLocalDateTime } from "../../utils/dateUtils";
+
 const BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
 
 type MethodType = "METHOD_1" | "METHOD_2" | "USER";
@@ -58,6 +60,8 @@ export default function TrajectoryList() {
   const [searchText, setSearchText] = React.useState("");
   const page = Number(searchParams.get("page") ?? 0);
   const pageSize = Number(searchParams.get("pageSize") ?? 25);
+  const newSchemaId = Number(searchParams.get("newSchemaId") ?? undefined);
+
   const [paginationModel, setPaginationModel] =
     React.useState<GridPaginationModel>({
       page,
@@ -121,11 +125,17 @@ export default function TrajectoryList() {
         row.schemaName.toLowerCase().includes(lowerSearch) ||
         String(row.pointCount).toLowerCase().includes(lowerSearch) ||
         String(row.distanceToCamera).toLowerCase().includes(lowerSearch) ||
-        ((Number(row.flightTime) / 60).toFixed(2)).toLowerCase().includes(lowerSearch) ||
+        (Number(row.flightTime) / 60)
+          .toFixed(2)
+          .toLowerCase()
+          .includes(lowerSearch) ||
+        String(DateToPrettyLocalDateTime(row.createdAt))
+          .toLowerCase()
+          .includes(lowerSearch) ||
         methodLabel.includes(lowerSearch)
       );
     });
-  }, [rowsState.rows, searchText, getMethodLabel]);
+  }, [rowsState.rows, searchText, getMethodLabel, DateToPrettyLocalDateTime]);
 
   // Подсветка совпадений текста
   const highlightText = React.useCallback((text: string, query: string) => {
@@ -165,8 +175,8 @@ export default function TrajectoryList() {
 
     try {
       // const response = await api.schemas.getAll();
-            const response = await api.schemas.getAllFull();
-      console.info(response)
+      const response = await api.schemas.getAllFull();
+      console.info(response);
 
       setRowsState({ rows: response, rowCount: response.length });
       localStorage.setItem("schemas-cache-v1", JSON.stringify(response));
@@ -210,9 +220,33 @@ export default function TrajectoryList() {
         headerName: "Имя схемы",
         width: 180,
         minWidth: 180,
-        renderCell: (params) => (
-          <span>{highlightText(params.value as string, searchText)}</span>
-        ),
+        renderCell: (params) => {
+          const isNew = !isNaN(newSchemaId) && newSchemaId === params.row.id;
+
+          return (
+            <Box>
+              <Box>
+                {isNew && (
+                  <Chip
+                    label="Новое"
+                    size="small"
+                    color="success"
+                    component="span"
+                    variant="outlined"
+                    sx={{ height: 18, fontSize: "0.65rem", mr: 0.5 }}
+                  />
+                )}
+                <span style={{ fontWeight: 500 }}>{highlightText(params.value as string, searchText)}</span>
+              </Box>
+              <Typography color="text.secondary" variant="caption">
+                {highlightText(
+                  DateToPrettyLocalDateTime(params.row.createdAt) as string,
+                  searchText,
+                )}
+              </Typography>
+            </Box>
+          );
+        },
       },
       {
         field: "schemaImage",
@@ -247,12 +281,23 @@ export default function TrajectoryList() {
         type: "number",
         width: 120,
         flex: 0.3,
-
         align: "right",
         headerAlign: "right",
-        renderCell: (params) => (
-          <span>{highlightText(String(params.value), searchText)}</span>
-        ),
+        renderCell: (params) => {
+          const count = params.value as number;
+          const color =
+            count <= 10 ? "success" : count <= 20 ? "warning" : "error";
+
+          return (
+            <Chip
+              label={highlightText(String(count), searchText)}
+              size="small"
+              color={color}
+              variant="outlined"
+              sx={{ fontWeight: 600, minWidth: 36 }}
+            />
+          );
+        },
       },
       {
         field: "distanceToCamera",
@@ -260,12 +305,38 @@ export default function TrajectoryList() {
         type: "number",
         width: 150,
         flex: 0.3,
-
         align: "right",
         headerAlign: "right",
-        renderCell: (params) => (
-          <span>{highlightText(String(params.value), searchText)}</span>
-        ),
+        renderCell: (params) => {
+          const dist = params.value as number;
+          const dotColor =
+            dist <= 30
+              ? "success.main"
+              : dist <= 100
+              ? "warning.main"
+              : "error.main";
+
+          return (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+              }}
+            >
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  bgcolor: dotColor,
+                  flexShrink: 0,
+                }}
+              />
+              <span>{highlightText(String(params.value), searchText)}</span>
+            </Box>
+          );
+        },
       },
       {
         field: "flightTime",
@@ -273,14 +344,23 @@ export default function TrajectoryList() {
         type: "number",
         width: 120,
         flex: 0.3,
-
         align: "right",
         headerAlign: "right",
-        renderCell: (params) => (
-          <span>
-            {highlightText((Number(params.value) / 60).toFixed(2), searchText)}
-          </span>
-        ),
+        renderCell: (params) => {
+          const minutes = Number(params.value) / 60;
+          const color =
+            minutes <= 10
+              ? "success.main"
+              : minutes <= 25
+              ? "warning.main"
+              : "error.main";
+
+          return (
+            <Typography variant="body2" sx={{ fontWeight: 600, color }}>
+              {highlightText(minutes.toFixed(2), searchText)}
+            </Typography>
+          );
+        },
       },
       {
         field: "isWeatherConditions",

@@ -43,7 +43,7 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 
       // Токен есть — пускаем сразу, проверяем в фоне
       setIsAuthenticated(true);
-      navigate("/dashboards");
+      // navigate("/dashboards");
 
       try {
         const result = await api.auth.check();

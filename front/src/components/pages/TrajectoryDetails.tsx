@@ -221,8 +221,18 @@ export default function TrajectoryDetails() {
         }
 
         // ── рекомендуемая ─────────────────────────────────────────────────────
-        // selection не сохраняется в БД, поэтому pointsRecommended
-        // недоступны при просмотре — кадры не восстанавливаем, только метрики.
+        if (
+          storyboard_recommended &&
+          storyboard_recommended.points?.length > 0
+        ) {
+          const blobs = await Promise.all(
+            (storyboard_recommended.points as Point[]).map((p) =>
+              cropFrameKonva(img, p.x, p.y, frameWidthPx, frameHeightPx),
+            ),
+          );
+          if (!cancelled)
+            setFramesUrlsRecommended(blobs.map((b) => URL.createObjectURL(b)));
+        }
 
         // ── оптимальная ───────────────────────────────────────────────────────
         if (storyboard_optimal && opt1_result?.taxons?.B.length > 0) {
@@ -471,6 +481,7 @@ export default function TrajectoryDetails() {
         frameWidthPx={frameWidthPx}
         frameHeightPx={frameHeightPx}
         storyboardsData={storyboardsData}
+        pointsRecommended={storyboardsData.recommended.points || []}
         flightLineY={flightLineY}
         framesUrlsPointBased={framesUrlsPointBased}
         framesUrlsRecommended={framesUrlsRecommended}

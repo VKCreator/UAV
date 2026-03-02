@@ -8,7 +8,7 @@ import Toolbar from "@mui/material/Toolbar";
 import type {} from "@mui/material/themeCssVarsAugmentation";
 import MapRoundedIcon from "@mui/icons-material/MapRounded";
 import LocalAirportRoundedIcon from "@mui/icons-material/LocalAirportRounded";
-import PersonIcon from '@mui/icons-material/Person';
+import PersonIcon from "@mui/icons-material/Person";
 import { matchPath, useLocation } from "react-router";
 import DashboardSidebarContext from "../context/DashboardSidebarContext";
 import { DRAWER_WIDTH, MINI_DRAWER_WIDTH } from "../constants";
@@ -24,6 +24,8 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MenuIcon from "@mui/icons-material/Menu";
 import MenuOpenIcon from "@mui/icons-material/MenuOpen";
+import NoteAddRoundedIcon from "@mui/icons-material/NoteAddRounded";
+
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
@@ -242,12 +244,15 @@ export default function DashboardSidebar({
               width: mini ? MINI_DRAWER_WIDTH : "auto",
             }}
           >
+            <DashboardSidebarHeaderItem>Навигация</DashboardSidebarHeaderItem>
             <DashboardSidebarPageItem
               id="home"
               title="Главная"
               icon={<HomeIcon />}
               href="/dashboards"
-              selected={!!matchPath("/dashboards/*", pathname)}
+              selected={
+                !!matchPath("/dashboards/*", pathname) || pathname == "/"
+              }
             />
             {/* <DashboardSidebarHeaderItem>Полёты</DashboardSidebarHeaderItem> */}
             <DashboardSidebarPageItem
@@ -256,7 +261,8 @@ export default function DashboardSidebar({
               icon={<MapRoundedIcon />}
               href="/trajectories"
               selected={
-                !!matchPath("/trajectories/*", pathname) || pathname === "/"
+                !!matchPath("/trajectories/*", pathname) &&
+                pathname != "/trajectories/new"
               }
             />
             <DashboardSidebarPageItem
@@ -264,7 +270,16 @@ export default function DashboardSidebar({
               title="Профиль"
               icon={<PersonIcon />}
               href="/profile"
-              selected={!!matchPath("/profile/*", pathname) || pathname === "/"}
+              selected={!!matchPath("/profile/*", pathname)}
+            />
+            <DashboardSidebarDividerItem />
+            <DashboardSidebarHeaderItem>Действия</DashboardSidebarHeaderItem>
+            <DashboardSidebarPageItem
+              id="create-schema"
+              title="Создать схему"
+              icon={<NoteAddRoundedIcon />}
+              href="/trajectories/new"
+              selected={!!matchPath("/trajectories/new", pathname)}
             />
             <DashboardSidebarDividerItem />
             <DashboardSidebarHeaderItem>Справочники</DashboardSidebarHeaderItem>

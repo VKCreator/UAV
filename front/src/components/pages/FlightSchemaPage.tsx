@@ -335,7 +335,7 @@ const FlightSchemaPage: React.FC<Props> = ({
           mb: 2,
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 500 }}>
+        <Typography variant="h6">
           Название:
         </Typography>
         <Typography variant="h6" sx={{ fontWeight: 300 }}>
@@ -977,7 +977,7 @@ const FlightSchemaPage: React.FC<Props> = ({
               {/* Сцена с оптимизированной траекторией */}
               <Box
                 flex={1}
-                height={500}
+                height={400}
                 sx={{ borderRadius: 2, overflow: "hidden" }}
               >
                 {imageData && trajectoryData ? (
