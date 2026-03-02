@@ -57,7 +57,7 @@ export default function TrajectoryList() {
   const navigate = useNavigate();
   const notifications = useNotifications();
   const [searchParams, setSearchParams] = useSearchParams();
-  useDocumentTitle("Схемы полётов | SkyPath Service")
+  useDocumentTitle("Схемы полётов | SkyPath Service");
 
   const [searchText, setSearchText] = React.useState("");
   const page = Number(searchParams.get("page") ?? 0);
@@ -269,11 +269,22 @@ export default function TrajectoryList() {
         sortable: false,
         align: "center",
         headerAlign: "center",
-        renderCell: ({ value }) =>
-          value ? (
+        renderCell: ({ value }) => {
+          if (!value) {
+            return (
+              <Typography variant="body2" color="text.secondary">
+                —
+              </Typography>
+            );
+          }
+
+          const normalized = value.replace(/\\/g, "/");
+          const fileName = normalized.split("/").pop();
+          
+          return (
             <Box
               component="img"
-              src={`${BASE_URL}/${value}`} // Добавляем URL бэкенда перед значением
+              src={`${BASE_URL}/uploads/thumbs/${fileName}`}
               alt="Схема"
               sx={{
                 width: "100%",
@@ -283,11 +294,8 @@ export default function TrajectoryList() {
               }}
               loading="lazy"
             />
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              —
-            </Typography>
-          ),
+          );
+        },
       },
       {
         field: "pointCount",
