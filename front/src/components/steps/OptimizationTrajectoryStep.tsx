@@ -357,7 +357,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                 {trajectoryTitles[activeImage]}
               </Typography>
 
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Tooltip title="Просмотр схемы" enterDelay={500}>
                   <IconButton color="primary" onClick={() => setShowView(true)}>
                     <VisibilityIcon />

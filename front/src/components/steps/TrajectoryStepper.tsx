@@ -46,6 +46,14 @@ import { api, Drone } from "../../api/client";
 import { getUserFromStorage } from "../../utils/auth";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
 
+import { keyframes } from "@mui/system";
+
+const pulse = keyframes`
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(2); opacity: 0; }
+  100% { transform: scale(1); opacity: 0; }
+`;
+
 // ─── Константы ───────────────────────────────────────────────────────────────
 
 const DEFAULT_SCHEMA_NAME = "Новая схема полёта БПЛА";
@@ -136,7 +144,7 @@ const TrajectoryStepper = () => {
   const notifications = useNotifications();
   const { confirm } = useDialogs();
   useDocumentTitle("Создание схемы | SkyPath Service");
-  
+
   // ── UI-состояние ──────────────────────────────────────────────────────────
 
   const [activeStep, setActiveStep] = React.useState(0);
@@ -987,7 +995,7 @@ const TrajectoryStepper = () => {
       )}
 
       {/* Заголовок: название схемы */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pl: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pl: 3, pt: 0.2 }}>
         <Typography variant="h6" sx={{ fontWeight: 500 }}>
           Название:
         </Typography>
@@ -1000,6 +1008,21 @@ const TrajectoryStepper = () => {
             variant="dot"
             overlap="circular"
             invisible={!isDefaultName}
+            sx={{
+              "& .MuiBadge-dot": {
+              },
+              "& .MuiBadge-dot::after": {
+                content: '""',
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                borderRadius: "50%",
+                backgroundColor: "warning.main",
+                animation: `${pulse} 1.5s ease-out infinite`,
+              },
+            }}
           >
             <IconButton
               size="small"

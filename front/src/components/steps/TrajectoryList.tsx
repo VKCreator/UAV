@@ -289,8 +289,9 @@ export default function TrajectoryList() {
               sx={{
                 width: "100%",
                 height: 80,
+                maxWidth: 120,
                 objectFit: "contain",
-                borderRadius: 2,
+                // borderRadius: 2,
               }}
               loading="lazy"
             />
