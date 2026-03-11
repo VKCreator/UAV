@@ -69,7 +69,7 @@ const AppIcon: React.FC<AppIconProps> = ({
           sx={{
             color: "#014488ff",
             fontWeight: 600,
-            fontFamily: "Roboto, Arial, sans-serif",
+            // fontFamily: "Roboto, Arial, sans-serif",
             fontSize: "20px",
             letterSpacing: "0.3px",
             whiteSpace: "nowrap",

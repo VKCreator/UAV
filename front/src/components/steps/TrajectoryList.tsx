@@ -42,7 +42,7 @@ import ClearIcon from "@mui/icons-material/Clear";
 import { DateToPrettyLocalDateTime } from "../../utils/dateUtils";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
 
-const BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
+const BASE_URL = "http://192.168.1.43:5000";
 
 type MethodType = "METHOD_1" | "METHOD_2" | "USER";
 

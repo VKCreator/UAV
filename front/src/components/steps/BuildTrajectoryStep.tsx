@@ -276,8 +276,20 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                 setEditorOpen(true);
                 setEditorMode("points");
               }}
+              onEditLine={
+                () => {
+                  setEditorOpen(true);
+                  setEditorMode("line");
+                }
+              }
+              onResetLine={
+                () => {
+                  setFlightLineY(imageData.height);
+                }
+              }
               setDroneParams={setDroneParams}
               droneParams={droneParams}
+              flightLineY={flightLineY}
             />
           </Box>
         </Grid>

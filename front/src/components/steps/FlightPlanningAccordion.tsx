@@ -30,6 +30,9 @@ import type { DroneParams, UAVCameraParams } from "../../types/uav.types";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import { DeleteButton } from "../ui-widgets/DeleteButton";
+import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import { Edit } from "@mui/icons-material";
 
 export default function FlightPlanningAccordion({
   imageData,
@@ -40,8 +43,11 @@ export default function FlightPlanningAccordion({
   onClearUserTrajectory,
   onEditObstacles,
   onEditUserTrajectory,
+  onEditLine,
+  onResetLine,
   droneParams,
   setDroneParams,
+  flightLineY,
 }: {
   imageData: ImageData;
   obstacles: Polygon[];
@@ -51,8 +57,11 @@ export default function FlightPlanningAccordion({
   onEditUserTrajectory: () => void;
   onClearObstacles: () => void;
   onClearUserTrajectory: () => void;
+  onEditLine: () => void;
+  onResetLine: () => void;
   droneParams: DroneParams;
   setDroneParams: React.Dispatch<React.SetStateAction<DroneParams>>;
+  flightLineY: number;
 }) {
   const [expanded, setExpanded] = React.useState<Set<string>>(
     new Set(["panel1"]),
@@ -260,7 +269,111 @@ export default function FlightPlanningAccordion({
           >
             {/* Заголовок + подсказка */}
             <Box display="flex" alignItems="center">
-              <Typography fontWeight={600}>2. Установка препятствий</Typography>
+              <Typography fontWeight={600}>
+                2. Установка линии взлёта/посадок
+              </Typography>
+
+              <Tooltip
+                title="Линия определяет положение размещения точек взлёта/посадок БПЛА."
+                arrow
+                enterDelay={400}
+              >
+                <IconButton
+                  size="small"
+                  component="span"
+                  sx={{ m: 0, p: 0, ml: 1 }}
+                >
+                  <HelpOutlineIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+
+            {/* Chip статуса */}
+            <Tooltip
+              title={
+                flightLineY != imageData.height
+                  ? `Линия установлена`
+                  : "Шаг можно пропустить, линия по умолчанию"
+              }
+              arrow
+              enterDelay={400}
+            >
+              <Chip
+                size="small"
+                label={
+                  flightLineY != imageData.height ? "Добавлено" : "Опционально"
+                }
+                color={flightLineY != imageData.height ? "success" : "default"}
+                variant="outlined"
+              />
+            </Tooltip>
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "row",
+              gap: 1,
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Typography variant="body1" color="text.secondary">
+              Позиция линии:{" "}
+              <Box
+                component="span"
+                sx={{ color: "text.secondary", fontWeight: 600 }}
+              >
+                {flightLineY.toFixed(0)}
+              </Box>
+              {" пикс."}
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Tooltip title="Редактировать" arrow>
+                <span>
+                  <IconButton onClick={onEditLine} size="small" color="primary">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+
+              <Tooltip title="Сбросить" arrow>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={onResetLine}
+                    color="primary"
+                    disabled={flightLineY == imageData.height}
+                  >
+                    <RestartAltIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Box>
+          </Box>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion
+        expanded={expanded.has("panel3")}
+        onChange={togglePanel("panel3")}
+      >
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          aria-controls="panel3-content"
+          id="panel3-header"
+          sx={{ flexDirection: "row-reverse", gap: 1 }}
+        >
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+            width="100%"
+          >
+            {/* Заголовок + подсказка */}
+            <Box display="flex" alignItems="center">
+              <Typography fontWeight={600}>3. Установка препятствий</Typography>
 
               <Tooltip
                 title="Установка препятствий позволяет учитывать объекты на местности, которые необходимо облететь при построении траектории полёта."
@@ -297,7 +410,7 @@ export default function FlightPlanningAccordion({
           </Box>
         </AccordionSummary>
         <AccordionDetails>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          <Box sx={{ display: "flex", flexDirection: "row", gap: 1, justifyContent: "space-between", alignItems: "center" }}>
             <Typography variant="body1" color="text.secondary">
               Количество установленных препятствий:{" "}
               <Box
@@ -308,15 +421,14 @@ export default function FlightPlanningAccordion({
               </Box>{" "}
               шт.
             </Typography>
-            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={onEditObstacles}
-                size="small"
-              >
-                Редактировать
-              </Button>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Tooltip title="Редактировать" arrow>
+                <span>
+                  <IconButton onClick={onEditObstacles} size="small" color="primary">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
 
               <DeleteButton
                 onClick={onClearObstacles}
@@ -329,13 +441,13 @@ export default function FlightPlanningAccordion({
       </Accordion>
 
       <Accordion
-        expanded={expanded.has("panel3")}
-        onChange={togglePanel("panel3")}
+        expanded={expanded.has("panel4")}
+        onChange={togglePanel("panel4")}
       >
         <AccordionSummary
           expandIcon={<ExpandMoreIcon />}
-          aria-controls="panel3-content"
-          id="panel3-header"
+          aria-controls="panel4-content"
+          id="panel4-header"
           sx={{ flexDirection: "row-reverse", gap: 1 }}
         >
           <Box
@@ -347,7 +459,7 @@ export default function FlightPlanningAccordion({
             {/* Левая часть */}
             <Box display="flex" alignItems="center">
               <Typography fontWeight={600}>
-                3. Определение точек съёмки
+                4. Определение точек съёмки
               </Typography>
 
               <Tooltip
@@ -385,7 +497,7 @@ export default function FlightPlanningAccordion({
           </Box>
         </AccordionSummary>
         <AccordionDetails>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          <Box sx={{ display: "flex", flexDirection: "row", gap: 1, justifyContent: "space-between" , alignItems: "center" }}>
             <Typography variant="body1" color="text.secondary">
               Количество установленных точек съёмки:{" "}
               <Box
@@ -396,15 +508,15 @@ export default function FlightPlanningAccordion({
               </Box>{" "}
               шт.
             </Typography>
-            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Button
-                variant="outlined"
-                startIcon={<RouteIcon />}
-                onClick={onEditUserTrajectory}
-                size="small"
-              >
-                Редактировать
-              </Button>
+            <Box sx={{ display: "flex", gap: 1 }}>
+                            <Tooltip title="Редактировать" arrow>
+                <span>
+                  <IconButton onClick={onEditUserTrajectory} size="small" color="primary">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+
 
               <DeleteButton
                 onClick={onClearUserTrajectory}

@@ -16,7 +16,14 @@ export default function DashboardLayout() {
   const notifications = useNotifications();
 
   const [isDesktopNavigationExpanded, setIsDesktopNavigationExpanded] =
-    React.useState(true);
+    React.useState(() => {
+      try {
+        const stored = localStorage.getItem("sidebar-expanded");
+        return stored !== null ? (JSON.parse(stored) as boolean) : true;
+      } catch {
+        return true;
+      }
+    });
   const [isMobileNavigationExpanded, setIsMobileNavigationExpanded] =
     React.useState(false);
 
@@ -30,16 +37,14 @@ export default function DashboardLayout() {
     (newExpanded: boolean) => {
       if (isOverMdViewport) {
         setIsDesktopNavigationExpanded(newExpanded);
+        localStorage.setItem("sidebar-expanded", JSON.stringify(newExpanded)); // <- добавить
       } else {
         setIsMobileNavigationExpanded(newExpanded);
       }
     },
-    [
-      isOverMdViewport,
-      setIsDesktopNavigationExpanded,
-      setIsMobileNavigationExpanded,
-    ],
+    [isOverMdViewport],
   );
+
   const handleToggleHeaderMenu = React.useCallback(
     (isExpanded: boolean) => {
       setIsNavigationExpanded(isExpanded);
