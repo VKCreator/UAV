@@ -54,6 +54,18 @@ const pulse = keyframes`
   100% { transform: scale(1); opacity: 0; }
 `;
 
+const pulseButton = keyframes`
+  0% { transform: scale(1); opacity: 1; }
+  70% { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(1); opacity: 0; }
+`;
+const glowPulse = keyframes`
+  0%   { box-shadow: 0 0 0 0 rgba(3, 53, 103, 0.7); }
+  70%  { box-shadow: 0 0 0 8px rgba(102, 187, 106, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(102, 187, 106, 0); }
+`;
+
+
 // ─── Константы ───────────────────────────────────────────────────────────────
 
 const DEFAULT_SCHEMA_NAME = "Новая схема полёта БПЛА";
@@ -995,7 +1007,9 @@ const TrajectoryStepper = () => {
       )}
 
       {/* Заголовок: название схемы */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, pl: 3, pt: 0.2 }}>
+      <Box
+        sx={{ display: "flex", alignItems: "center", gap: 1, pl: 3, pt: 0.2 }}
+      >
         <Typography variant="h6" sx={{ fontWeight: 500 }}>
           Название:
         </Typography>
@@ -1009,8 +1023,7 @@ const TrajectoryStepper = () => {
             overlap="circular"
             invisible={!isDefaultName}
             sx={{
-              "& .MuiBadge-dot": {
-              },
+              "& .MuiBadge-dot": {},
               "& .MuiBadge-dot::after": {
                 content: '""',
                 position: "absolute",
@@ -1106,6 +1119,16 @@ const TrajectoryStepper = () => {
                 color="primary"
                 endIcon={<KeyboardArrowRightIcon />}
                 disabled={isNextDisabled}
+                sx={
+                  !isNextDisabled
+                    ? {
+                        animation: `${glowPulse} 1.5s ease-out infinite`,
+                        // опционально — чуть усилить сам цвет кнопки
+                        // backgroundColor: "success.main",
+                        // "&:hover": { backgroundColor: "success.dark" },
+                      }
+                    : {}
+                }
               >
                 {activeStep === STEPS.length - 1 ? "Создать" : "Далее"}
               </Button>

@@ -30,24 +30,6 @@ const STAGE_HEIGHT = 400;
 const TAXON_POINT_RADIUS = 10;
 const BASE_RADIUS = 4;
 
-// const colors = [
-//   "#65b9f7", // яркий голубой
-//   "#ff6b6b", // яркий красный
-//   "#66a9ff", // яркий синий
-//   "#ffdd57", // ярко-жёлто-оранжевый
-//   "#65b9f7", // яркий голубой
-//   "#9e69c4", // ярко-фиолетовый
-//   "#64f3f1", // яркий циановый
-//   "#f59fe1", // яркий лавандовый
-//   "#f4e24d", // ярко-жёлтый
-//   "#e38b5a", // тёплый бежевый
-//   "#5e4a3a", // насыщенный коричневый
-//   "#7a9f60", // ярко-зелёно-коричневый
-//   "#a2b9d1", // светло-голубой
-//   "#d1d1d1", // светло-серый
-//   "#b8a25b", // жёлто-коричневый
-// ];
-
 interface SceneShowerProps {
   imageData: ImageData;
   droneParams: any;
@@ -99,8 +81,8 @@ const SceneShower = forwardRef<
     const GRID_ROWS =
       droneParams.frameHeightBase / droneParams.frameHeightPlanned;
 
-    const width_m = droneParams.frameWidthBase; // длина изображения в метрах
-    const height_m = droneParams.frameHeightBase; // высота изображения в метрах
+    const width_m = droneParams.frameWidthBase;
+    const height_m = droneParams.frameHeightBase;
 
     const scaleToFit = image
       ? Math.min(
@@ -191,87 +173,140 @@ const SceneShower = forwardRef<
       const layer = new Konva.Layer();
       downloadStage.add(layer);
 
-      const konvaImage = new Konva.Image({
-        image: image,
-        x: 0,
-        y: 0,
-        width: image.width,
-        height: image.height,
-      });
-      layer.add(konvaImage);
+      // Масштабный коэффициент: элементы интерфейса должны выглядеть
+      // пропорционально на полном разрешении так же, как на превью 500×400
+      const uiScale = Math.min(image.width / STAGE_WIDTH, image.height / STAGE_HEIGHT) * 0.5;
 
-      // Добавляем сетку
+      const POINT_R_USER  = 14 * uiScale;   // радиус пользовательской точки
+      const POINT_R_TAXON = 14 * uiScale;   // радиус точки таксона
+      const BASE_R_DL     = 6  * uiScale;   // «радиус» базы для отступа стрелок
+      const ARROW_PTR_LEN = 14 * uiScale;
+      const ARROW_PTR_WID = 10 * uiScale;
+      const STROKE_W      = 3  * uiScale;
+      const FONT_USER     = 16 * uiScale;
+      const FONT_TAXON    = 14 * uiScale;
+
+      // Вспомогательная функция: стрелка начинается от края fromRadius окружности
+      // и заканчивается у края toRadius окружности, не перекрывая кружки
+      const arrowPts = (
+        from: { x: number; y: number },
+        to:   { x: number; y: number },
+        fromR: number,
+        toR:   number,
+      ) => {
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len === 0) return [from.x, from.y, to.x, to.y];
+        const ux = dx / len, uy = dy / len;
+        return [
+          from.x + ux * fromR, from.y + uy * fromR,
+          to.x   - ux * toR,   to.y   - uy * toR,
+        ];
+      };
+
+      // ── Фоновое изображение ────────────────────────────────────────────
+      layer.add(new Konva.Image({
+        image,
+        x: 0, y: 0,
+        width: image.width, height: image.height,
+      }));
+
+      // ── Сетка ─────────────────────────────────────────────────────────
       if (showGrid) {
-        const cellWidth = image.width / GRID_COLS;
-        const cellHeight = image.height / GRID_ROWS;
-
+        const cellW = image.width  / GRID_COLS;
+        const cellH = image.height / GRID_ROWS;
         for (let i = 1; i < GRID_COLS; i++) {
-          const x = cellWidth * i;
-          layer.add(
-            new Konva.Line({
-              points: [x, 0, x, image.height],
-              stroke: "rgba(255,255,255,0.9)",
-              strokeWidth: 1,
-            }),
-          );
+          layer.add(new Konva.Line({
+            points: [cellW * i, 0, cellW * i, image.height],
+            stroke: "rgba(255,255,255,0.9)", strokeWidth: 1,
+          }));
         }
-
         for (let i = 1; i < GRID_ROWS; i++) {
-          const y = image.height - cellHeight * i;
-          layer.add(
-            new Konva.Line({
-              points: [0, y, image.width, y],
-              stroke: "rgba(255,255,255,0.9)",
-              strokeWidth: 1,
-            }),
-          );
+          const y = image.height - cellH * i;
+          layer.add(new Konva.Line({
+            points: [0, y, image.width, y],
+            stroke: "rgba(255,255,255,0.9)", strokeWidth: 1,
+          }));
         }
       }
 
-      // Добавляем пользовательские точки и стрелки
-      if (showUserTrajectory) {
-        points.forEach((point, i) => {
-          if (i > 0) {
-            const prev = points[i - 1];
-            layer.add(
-              new Konva.Arrow({
-                points: [prev.x, prev.y, point.x, point.y],
-                pointerLength: 10,
-                pointerWidth: 10,
-                fill: "red",
-                stroke: "red",
-                strokeWidth: 2,
-              }),
-            );
-          }
-          layer.add(
-            new Konva.Circle({
-              x: point.x,
-              y: point.y,
-              radius: 10,
-              fill: "blue",
-            }),
-          );
-          layer.add(
-            new Konva.Text({
-              x: point.x - 5,
-              y: point.y - 7,
-              text: (i + 1).toString(),
-              fontSize: 12,
-              fill: "white",
-            }),
-          );
+      // ── Линия полёта + неинформативная зона ───────────────────────────
+      if (flightLineY !== null) {
+        layer.add(new Konva.Line({
+          points: [0, flightLineY, image.width, flightLineY],
+          stroke: "orange",
+          strokeWidth: STROKE_W,
+        }));
+        layer.add(new Konva.Rect({
+          x: 0, y: flightLineY,
+          width: image.width, height: image.height - flightLineY,
+          fill: "rgba(128,128,128,0.3)",
+          listening: false,
+        }));
+        if (flightLineY < image.height - 0.01) {
+          layer.add(new Konva.Text({
+            x: 0,
+            y: flightLineY + (image.height - flightLineY) / 2 - FONT_USER * 1.5,
+            width: image.width,
+            text: "Неинформативная зона",
+            align: "center",
+            fontSize: FONT_USER * 1.5,
+            fill: "rgba(255,255,255,0.85)",
+            listening: false,
+          }));
+        }
+      }
+
+      // ── Препятствия ───────────────────────────────────────────────────
+      if (showObstacles) {
+        obstacles.forEach((poly) => {
+          layer.add(new Konva.Line({
+            points: poly.points.flatMap((p) => [p.x, p.y]),
+            closed: true,
+            fill: `${poly.color}30`,
+            stroke: poly.color,
+            strokeWidth: STROKE_W,
+          }));
         });
       }
 
-      // Добавляем траектории таксонов
+      // ── Пользовательская траектория ───────────────────────────────────
+      if (showUserTrajectory) {
+        // Сначала рисуем стрелки (они окажутся под кружками)
+        points.forEach((point, i) => {
+          if (i === 0) return;
+          const prev = points[i - 1];
+          layer.add(new Konva.Arrow({
+            points: arrowPts(prev, point, POINT_R_USER, POINT_R_USER),
+            pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
+            fill: "red", stroke: "red", strokeWidth: STROKE_W,
+          }));
+        });
+        // Затем кружки и номера поверх стрелок
+        points.forEach((point, i) => {
+          layer.add(new Konva.Circle({
+            x: point.x, y: point.y,
+            radius: POINT_R_USER, fill: "blue",
+          }));
+          layer.add(new Konva.Text({
+            x: point.x - POINT_R_USER * 0.45,
+            y: point.y - FONT_USER * 0.55,
+            text: (i + 1).toString(),
+            fontSize: FONT_USER,
+            fontStyle: "bold",
+            fill: "white",
+          }));
+        });
+      }
+
+      // ── Траектории таксонов ───────────────────────────────────────────
       if (showTaxonTrajectory && trajectoryData?.B) {
         const meterPerPixelX = width_m / image.width;
         const meterPerPixelY = height_m / image.height;
 
-        trajectoryData.B.forEach((taxon: any, idx: number) => {
+        trajectoryData.B.forEach((taxon: any) => {
           const color = taxon.color;
-
           const baseX = taxon.base[0] / meterPerPixelX;
           const baseY = image.height - taxon.base[1] / meterPerPixelY;
 
@@ -280,84 +315,84 @@ const SceneShower = forwardRef<
             y: image.height - p[1] / meterPerPixelY,
           }));
 
-          // База
-          layer.add(
-            new Konva.Line({
-              points: [
-                baseX - 8,
-                baseY - 8,
-                baseX + 8,
-                baseY,
-                baseX - 8,
-                baseY + 8,
-              ],
-              fill: color,
-              closed: true,
-            }),
-          );
-
-          // Стрелки между базой и точками
+          // Стрелки (под кружками)
           if (taxonPoints.length > 0) {
-            layer.add(
-              new Konva.Arrow({
-                points: [baseX, baseY, taxonPoints[0].x, taxonPoints[0].y],
-                pointerLength: 10,
-                pointerWidth: 10,
-                fill: color,
-                stroke: color,
-                strokeWidth: 2,
-              }),
-            );
-            layer.add(
-              new Konva.Arrow({
-                points: [
-                  taxonPoints[taxonPoints.length - 1].x,
-                  taxonPoints[taxonPoints.length - 1].y,
-                  baseX,
-                  baseY,
-                ],
-                pointerLength: 10,
-                pointerWidth: 10,
-                fill: color,
-                stroke: color,
-                strokeWidth: 2,
-              }),
-            );
+            layer.add(new Konva.Arrow({
+              points: arrowPts({ x: baseX, y: baseY }, taxonPoints[0], BASE_R_DL, POINT_R_TAXON),
+              pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
+              fill: color, stroke: color, strokeWidth: STROKE_W,
+            }));
+            layer.add(new Konva.Arrow({
+              points: arrowPts(taxonPoints[taxonPoints.length - 1], { x: baseX, y: baseY }, POINT_R_TAXON, BASE_R_DL),
+              pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
+              fill: color, stroke: color, strokeWidth: STROKE_W,
+            }));
           }
 
-          // Стрелки между точками таксона и кружки
-          taxonPoints.forEach((p: any, i: any) => {
+          taxonPoints.forEach((p: any, i: number) => {
             if (i > 0) {
               const prev = taxonPoints[i - 1];
-              layer.add(
-                new Konva.Arrow({
-                  points: [prev.x, prev.y, p.x, p.y],
-                  pointerLength: 10,
-                  pointerWidth: 10,
-                  fill: color,
-                  stroke: color,
-                  strokeWidth: 2,
-                }),
-              );
+              layer.add(new Konva.Arrow({
+                points: arrowPts(prev, p, POINT_R_TAXON, POINT_R_TAXON),
+                pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
+                fill: color, stroke: color, strokeWidth: STROKE_W,
+              }));
             }
-            layer.add(
-              new Konva.Circle({
-                x: p.x,
-                y: p.y,
-                radius: 15,
-                fill: color,
-              }),
-            );
-            layer.add(
-              new Konva.Text({
-                x: p.x - 5,
-                y: p.y - 7,
-                text: (i + 1).toString(),
-                fontSize: 12,
-                fill: "white",
-              }),
-            );
           });
+
+          // База (треугольник) — поверх стрелок
+          layer.add(new Konva.Line({
+            points: [
+              baseX - BASE_R_DL * 1.5, baseY - BASE_R_DL * 1.5,
+              baseX + BASE_R_DL * 1.5, baseY,
+              baseX - BASE_R_DL * 1.5, baseY + BASE_R_DL * 1.5,
+            ],
+            fill: color, closed: true,
+          }));
+
+          // Кружки и номера — самый верхний слой
+          taxonPoints.forEach((p: any, i: number) => {
+            layer.add(new Konva.Circle({
+              x: p.x, y: p.y,
+              radius: POINT_R_TAXON, fill: color,
+            }));
+            layer.add(new Konva.Text({
+              x: p.x - POINT_R_TAXON * 0.45,
+              y: p.y - FONT_TAXON * 0.55,
+              text: (i + 1).toString(),
+              fontSize: FONT_TAXON,
+              fontStyle: "bold",
+              fill: "black",
+            }));
+          });
+        });
+      }
+
+      // ── Недостижимые точки (C) ────────────────────────────────────────
+      if (showTaxonTrajectory && trajectoryData?.C) {
+        const meterPerPixelX = width_m / image.width;
+        const meterPerPixelY = height_m / image.height;
+        const crossR = 7 * uiScale;
+
+        trajectoryData.C.forEach((point: [number, number]) => {
+          const cx = point[0] / meterPerPixelX;
+          const cy = image.height - point[1] / meterPerPixelY;
+
+          layer.add(new Konva.Circle({
+            x: cx, y: cy,
+            radius: crossR,
+            fill: "rgba(255,107,53,0.15)",
+            stroke: "#FF6B35",
+            strokeWidth: STROKE_W * 0.8,
+          }));
+          layer.add(new Konva.Line({
+            points: [cx - crossR * 0.6, cy - crossR * 0.6, cx + crossR * 0.6, cy + crossR * 0.6],
+            stroke: "#FF6B35", strokeWidth: STROKE_W,
+          }));
+          layer.add(new Konva.Line({
+            points: [cx + crossR * 0.6, cy - crossR * 0.6, cx - crossR * 0.6, cy + crossR * 0.6],
+            stroke: "#FF6B35", strokeWidth: STROKE_W,
+          }));
         });
       }
 
@@ -365,13 +400,11 @@ const SceneShower = forwardRef<
 
       downloadStage.toCanvas().toBlob((blob) => {
         if (!blob) return;
-
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
         link.download = "trajectory_map.png";
         link.click();
-
         URL.revokeObjectURL(url);
         downloadStage.destroy();
         setLoading(false);
@@ -440,14 +473,14 @@ const SceneShower = forwardRef<
                       x={STAGE_WIDTH / 2}
                       y={STAGE_HEIGHT / 2}
                       text="Загрузка..."
-                      fontSize={18} // чуть больше
-                      fontStyle="bold" // полужирный
-                      fill="#004E9E" // красивый синий
+                      fontSize={18}
+                      fontStyle="bold"
+                      fill="#004E9E"
                       align="center"
                       verticalAlign="middle"
                       fontFamily="Inter"
-                      offsetX={50} // смещение по центру (половина ширины текста, пример)
-                      offsetY={10} // смещение по центру
+                      offsetX={50}
+                      offsetY={10}
                     />
                   </>
                 )}
@@ -470,7 +503,7 @@ const SceneShower = forwardRef<
                       y: point.y * scaleToFit + imageY,
                     };
 
-                    const arrowPoints = getArrowPoints(from, to, 8, 8); // 10 = radius circle
+                    const arrowPoints = getArrowPoints(from, to, 8, 8);
 
                     return (
                       <Arrow
@@ -528,11 +561,9 @@ const SceneShower = forwardRef<
                     const meterPerPixelX = width_m / image.width;
                     const meterPerPixelY = height_m / image.height;
 
-                    // База
                     const baseX = taxon.base[0] / meterPerPixelX;
                     const baseY = image.height - taxon.base[1] / meterPerPixelY;
 
-                    // Точки таксона
                     const taxonPoints: TrajectoryPoint[] = taxon.points.map(
                       (p: [number, number], i: number) => ({
                         x: p[0] / meterPerPixelX,
@@ -650,8 +681,6 @@ const SceneShower = forwardRef<
                               y={p.y * scaleToFit + imageY}
                               radius={10}
                               fill={p.color}
-                              // stroke="black"
-                              // strokeWidth={0.1}
                             />
                             <Text
                               x={p.x * scaleToFit + imageX - 5}
@@ -673,7 +702,6 @@ const SceneShower = forwardRef<
                       const meterPerPixelX = width_m / image.width;
                       const meterPerPixelY = height_m / image.height;
 
-                      // Преобразуем координаты в пиксели
                       let x = point[0] / meterPerPixelX;
                       let y = image.height - point[1] / meterPerPixelY;
                       const cx = x * scaleToFit + imageX;
@@ -682,7 +710,6 @@ const SceneShower = forwardRef<
 
                       return (
                         <Fragment key={`unvisited-${index}`}>
-                          {/* Круг-фон */}
                           <Circle
                             x={cx}
                             y={cy}
@@ -691,7 +718,6 @@ const SceneShower = forwardRef<
                             stroke="#FF6B35"
                             strokeWidth={1.5}
                           />
-                          {/* Крестик внутри */}
                           <Line
                             points={[cx - 4, cy - 4, cx + 4, cy + 4]}
                             stroke="#FF6B35"
@@ -762,14 +788,14 @@ const SceneShower = forwardRef<
                       x={STAGE_WIDTH / 2}
                       y={STAGE_HEIGHT / 2}
                       text="Загрузка..."
-                      fontSize={18} // чуть больше
-                      fontStyle="bold" // полужирный
-                      fill="#004E9E" // красивый синий
+                      fontSize={18}
+                      fontStyle="bold"
+                      fill="#004E9E"
                       align="center"
                       verticalAlign="middle"
                       fontFamily="Inter"
-                      offsetX={50} // смещение по центру (половина ширины текста, пример)
-                      offsetY={10} // смещение по центру
+                      offsetX={50}
+                      offsetY={10}
                     />
                   </>
                 )}

@@ -11,6 +11,7 @@ import {
   Button,
   Tooltip,
   Chip,
+  Badge
 } from "@mui/material";
 
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -33,6 +34,14 @@ import { DeleteButton } from "../ui-widgets/DeleteButton";
 import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import { Edit } from "@mui/icons-material";
+
+import { keyframes } from "@mui/system";
+
+const pulse = keyframes`
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(2); opacity: 0; }
+  100% { transform: scale(1); opacity: 0; }
+`;
 
 export default function FlightPlanningAccordion({
   imageData,
@@ -190,9 +199,30 @@ export default function FlightPlanningAccordion({
                 loading={loading}
               />
               <Tooltip title="Настройки камеры" enterDelay={500}>
-                <IconButton onClick={handleUavParamsOpen} size="small">
-                  <SettingsIcon />
-                </IconButton>
+                <Badge
+                  color="warning"
+                  variant="dot"
+                  overlap="circular"
+                  invisible={isResolutionMatch}
+                  sx={{
+                    "& .MuiBadge-dot": {},
+                    "& .MuiBadge-dot::after": {
+                      content: '""',
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: "50%",
+                      backgroundColor: "warning.main",
+                      animation: `${pulse} 1.5s ease-out infinite`,
+                    },
+                  }}
+                >
+                  <IconButton onClick={handleUavParamsOpen} size="small">
+                    <SettingsIcon />
+                  </IconButton>
+                </Badge>
               </Tooltip>
             </Box>
 
@@ -301,7 +331,7 @@ export default function FlightPlanningAccordion({
               <Chip
                 size="small"
                 label={
-                  flightLineY != imageData.height ? "Добавлено" : "Опционально"
+                  flightLineY != imageData.height ? "Настроено" : "Опционально"
                 }
                 color={flightLineY != imageData.height ? "success" : "default"}
                 variant="outlined"
@@ -410,7 +440,15 @@ export default function FlightPlanningAccordion({
           </Box>
         </AccordionSummary>
         <AccordionDetails>
-          <Box sx={{ display: "flex", flexDirection: "row", gap: 1, justifyContent: "space-between", alignItems: "center" }}>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "row",
+              gap: 1,
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <Typography variant="body1" color="text.secondary">
               Количество установленных препятствий:{" "}
               <Box
@@ -424,7 +462,11 @@ export default function FlightPlanningAccordion({
             <Box sx={{ display: "flex", gap: 1 }}>
               <Tooltip title="Редактировать" arrow>
                 <span>
-                  <IconButton onClick={onEditObstacles} size="small" color="primary">
+                  <IconButton
+                    onClick={onEditObstacles}
+                    size="small"
+                    color="primary"
+                  >
                     <EditIcon fontSize="small" />
                   </IconButton>
                 </span>
@@ -497,7 +539,15 @@ export default function FlightPlanningAccordion({
           </Box>
         </AccordionSummary>
         <AccordionDetails>
-          <Box sx={{ display: "flex", flexDirection: "row", gap: 1, justifyContent: "space-between" , alignItems: "center" }}>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "row",
+              gap: 1,
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <Typography variant="body1" color="text.secondary">
               Количество установленных точек съёмки:{" "}
               <Box
@@ -509,14 +559,17 @@ export default function FlightPlanningAccordion({
               шт.
             </Typography>
             <Box sx={{ display: "flex", gap: 1 }}>
-                            <Tooltip title="Редактировать" arrow>
+              <Tooltip title="Редактировать" arrow>
                 <span>
-                  <IconButton onClick={onEditUserTrajectory} size="small" color="primary">
+                  <IconButton
+                    onClick={onEditUserTrajectory}
+                    size="small"
+                    color="primary"
+                  >
                     <EditIcon fontSize="small" />
                   </IconButton>
                 </span>
               </Tooltip>
-
 
               <DeleteButton
                 onClick={onClearUserTrajectory}

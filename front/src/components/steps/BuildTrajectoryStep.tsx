@@ -102,6 +102,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
     setPoints([]);
     setObstacles([]);
     setTrajectoryData(null);
+    setFlightLineY(imageData.height);
   };
 
   const downloadScene = () => {
