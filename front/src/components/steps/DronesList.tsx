@@ -30,7 +30,7 @@ import { russianLocale } from "../../constants";
 export default function DronesList() {
   const navigate = useNavigate();
   const notifications = useNotifications();
-  useDocumentTitle("Квадрокоптеры | SkyPath Service")
+  useDocumentTitle("Квадрокоптеры | SkyPath Service");
 
   const [searchQuery, setSearchQuery] = React.useState("");
 
@@ -92,9 +92,9 @@ export default function DronesList() {
     }
   }, [isLoading, loadData]);
 
-  const handleCreateClick = React.useCallback(() => {
-    navigate("/drones/new");
-  }, [navigate]);
+  // const handleCreateClick = React.useCallback(() => {
+  //   navigate("/drones/new");
+  // }, [navigate]);
 
   const filteredRows = React.useMemo(() => {
     if (!searchQuery.trim()) return rowsState.rows;
@@ -133,7 +133,7 @@ export default function DronesList() {
         field: "model",
         headerName: "Модель",
         minWidth: 150,
-        flex: 0.5,
+        flex: 0.2,
         sortable: true,
         renderCell: (params) => (
           <HighlightedCell value={params.value ?? ""} query={searchQuery} />
@@ -144,16 +144,16 @@ export default function DronesList() {
         headerName: "Вертикальный угол обзора, °",
         type: "number",
         minWidth: 120,
-        flex: 0.2,
+        flex: 0.3,
         sortable: true,
-        valueFormatter: (value) => `${Number(value).toFixed(1)}°`,
+        headerAlign: "left",
+        valueFormatter: (value) => `${Number(value).toFixed(1)}`,
       },
       {
         field: "resolution",
-        headerName: "Разрешение",
-        minWidth: 140,
+        headerName: "Разрешение камеры",
+        minWidth: 160,
         type: "number",
-
         flex: 0.3,
         sortable: false,
         valueGetter: (_, row: Drone) =>
@@ -166,7 +166,7 @@ export default function DronesList() {
         headerName: "Ветроустойчивость, м/с",
         type: "number",
         minWidth: 120,
-        flex: 0.5,
+        flex: 0.3,
         sortable: true,
         valueFormatter: (value) =>
           value != null ? Number(value).toFixed(1) : "—",
@@ -176,7 +176,7 @@ export default function DronesList() {
         headerName: "Диапазон скорости, м/с",
         type: "number",
         minWidth: 160,
-        flex: 0.5,
+        flex: 0.3,
         sortable: false,
         valueGetter: (_, row: Drone) => {
           if (row.min_speed != null && row.max_speed != null) {
@@ -190,7 +190,7 @@ export default function DronesList() {
         headerName: "Время полёта, мин",
         type: "number",
         minWidth: 100,
-        flex: 0.4,
+        flex: 0.3,
         sortable: true,
         valueFormatter: (value) =>
           value != null ? Number(value).toFixed(0) : "—",
@@ -270,14 +270,14 @@ export default function DronesList() {
               </IconButton>
             </div>
           </Tooltip>
-          <Button
+          {/* <Button
             variant="contained"
             onClick={handleCreateClick}
             startIcon={<AddIcon />}
             disabled
           >
             Добавить
-          </Button>
+          </Button> */}
         </Stack>
       }
     >
@@ -303,6 +303,11 @@ export default function DronesList() {
             rowHeight={50}
             // columnHeaderHeight={80}
             localeText={russianLocale}
+            initialState={{
+              sorting: {
+                sortModel: [{ field: "model", sort: "desc" }],
+              },
+            }}
             sx={{
               [`& .${gridClasses.columnHeader}, & .${gridClasses.cell}`]: {
                 outline: "transparent",

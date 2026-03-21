@@ -9,6 +9,7 @@ import {
   Avatar,
   IconButton,
   Tooltip,
+  CardActionArea,
 } from "@mui/material";
 import { Link } from "react-router";
 
@@ -50,7 +51,7 @@ const MetricCard = ({
   icon,
 }: {
   title: string;
-  value: string | number;
+  value: string | number | null;
   icon: React.ReactNode;
 }) => (
   <Card
@@ -104,43 +105,45 @@ const CardWithDetails = ({
   <Card
     variant="outlined"
     sx={{
-      // p: 2,
+      p: 0,
       height: "100%",
       // backgroundColor: "transparent",
     }}
   >
-    <CardContent sx={{ height: "100%" }}>
-      <Box
-        display="flex"
-        flexDirection="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ height: "100%" }}
-      >
-        <Box>
-          {/* <Typography variant="body2" color="text.secondary">
+    <CardActionArea component={Link} to={link} sx={{ height: "100%" }}>
+      <CardContent sx={{ height: "100%" }}>
+        <Box
+          display="flex"
+          flexDirection="row"
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{ height: "100%", p: 2 }}
+        >
+          <Box>
+            {/* <Typography variant="body2" color="text.secondary">
             Название
           </Typography> */}
-          <Typography variant="h6" fontWeight={600}>
-            {title}
-          </Typography>
-          {created_date && (
-            <Typography variant="body2" color="text.secondary">
-              {created_date}
+            <Typography variant="h6" fontWeight={600}>
+              {title}
             </Typography>
-          )}
+            {created_date && (
+              <Typography variant="body2" color="text.secondary">
+                {created_date}
+              </Typography>
+            )}
+          </Box>
+          <IconButton size="small" color="primary">
+            <ChevronRightIcon />
+          </IconButton>
         </Box>
-        <IconButton size="small" color="primary" component={Link} to={link}>
-          <ChevronRightIcon />
-        </IconButton>
-      </Box>
-    </CardContent>
+      </CardContent>
+    </CardActionArea>
   </Card>
 );
 
 const DashboardsPage = () => {
   useDocumentTitle("Главная | SkyPath Service");
-  
+
   // Получаем текущее время и форматируем сообщение в зависимости от времени суток
   const currentTime = new Date();
   const greeting =
@@ -426,7 +429,13 @@ const DashboardsPage = () => {
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
                   title="Среднее время полёта"
-                  value={`${(avgFlightTime / 60).toFixed(2)} мин`}
+                  value={(() => {
+                    const minutes = Math.floor(avgFlightTime / 60);
+                    const seconds = Math.floor(avgFlightTime % 60);
+                    return seconds > 0
+                      ? `${minutes} мин ${seconds} сек`
+                      : `${minutes} мин`;
+                  })()}
                   icon={<ScheduleIcon fontSize="large" />}
                 />
               </Grid>

@@ -44,8 +44,6 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle"
 
 const BASE_URL = "http://192.168.1.43:5000";
 
-type MethodType = "METHOD_1" | "METHOD_2" | "USER";
-
 interface MethodConfig {
   label: string;
   icon: React.ReactNode;
@@ -280,7 +278,7 @@ export default function TrajectoryList() {
 
           const normalized = value.replace(/\\/g, "/");
           const fileName = normalized.split("/").pop();
-          
+
           return (
             <Box
               component="img"
@@ -363,24 +361,23 @@ export default function TrajectoryList() {
       },
       {
         field: "flightTime",
-        headerName: "Время, мин",
+        headerName: "Время, мин:сек",
         type: "number",
         width: 120,
         flex: 0.3,
         align: "right",
         headerAlign: "right",
         renderCell: (params) => {
-          const minutes = Number(params.value) / 60;
+          const totalSeconds = params.value;
+          const m = Math.floor(totalSeconds / 60);
+          const s = Math.round(totalSeconds % 60);
+
           const color =
-            minutes <= 10
-              ? "success.main"
-              : minutes <= 25
-              ? "warning.main"
-              : "error.main";
+            m <= 10 ? "success.main" : m <= 25 ? "warning.main" : "error.main";
 
           return (
             <Typography variant="body2" sx={{ fontWeight: 600, color }}>
-              {highlightText(minutes.toFixed(2), searchText)}
+              {highlightText(`${m}:${String(s).padStart(2, "0")}`, searchText)}
             </Typography>
           );
         },
