@@ -1,7 +1,8 @@
-backend/**
-
 **/node_modules/**
 
 venv/**
+myenv/**
 
-uploads/**
+**/uploads/**
+
+.env
