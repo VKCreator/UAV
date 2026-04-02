@@ -593,7 +593,7 @@ const TrajectoryStepper = () => {
         );
         setWeatherConditions((prev) => ({
           ...prev,
-          windSpeed: data.current_weather.windspeed,
+          windSpeed: data.current_weather.windspeed / 3.6,
           windDirection: data.current_weather.winddirection,
         }));
       } catch {

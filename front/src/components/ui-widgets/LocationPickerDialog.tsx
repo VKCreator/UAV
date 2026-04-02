@@ -68,13 +68,13 @@ export const LocationPickerDialog = ({
     <Dialog
       open={open}
       onClose={handleClose}
-      maxWidth="md"
+      maxWidth="lg"
       fullWidth
       disableEscapeKeyDown
     >
       <DialogTitle>Выбор местоположения</DialogTitle>
 
-      <DialogContent sx={{ height: 500, p: 0 }}>
+      <DialogContent sx={{ height: 1000, p: 0 }}>
         <MapContainer
           center={position ?? [position[0], position[1]]}
           zoom={13}

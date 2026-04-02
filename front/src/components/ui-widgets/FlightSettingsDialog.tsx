@@ -113,7 +113,7 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
 
       setForm((prev) => ({
         ...prev,
-        windSpeed: data.current_weather.windspeed,
+        windSpeed: data.current_weather.windspeed / 3.6,
         windDirection: data.current_weather.winddirection,
         useWeatherApi: true,
         lat,
@@ -266,7 +266,7 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
               fullWidth
               size="small"
               type="number"
-              value={form.windSpeed}
+              value={form.windSpeed.toFixed(2)}
               onChange={num("windSpeed")}
               error={!!errors.windSpeed}
               helperText={errors.windSpeed}

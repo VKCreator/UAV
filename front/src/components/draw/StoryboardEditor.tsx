@@ -186,6 +186,20 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     : null;
 
   const [img] = useImage(imageData.imageUrl);
+  const [stepXInput, setStepXInput] = useState("");
+  const [stepYInput, setStepYInput] = useState("");
+
+  useEffect(() => {
+    if (storyboardsData?.recommended?.step_x) {
+      setStepXInput(storyboardsData.recommended.step_x.toFixed(2));
+    }
+  }, [storyboardsData?.recommended?.step_x]);
+
+  useEffect(() => {
+    if (storyboardsData?.recommended?.step_y) {
+      setStepYInput(storyboardsData.recommended.step_y.toFixed(2));
+    }
+  }, [storyboardsData?.recommended?.step_y]);
 
   const extractFrames = async () => {
     if (!img) return;
@@ -308,6 +322,8 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   };
 
   const handleApply = async () => {
+    setLoading(true);
+
     if (isPointBased) {
       framesUrlsPointBased.map((u: string) => URL.revokeObjectURL(u));
       setFramesUrlsPointBased([]);
@@ -828,25 +844,40 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                       <Typography variant="body2" color="text.secondary">
                         Шаг по ширине, м
                       </Typography>
-                      <TextField
-                        type="number"
-                        value={
-                          storyboardsData?.recommended?.step_x?.toFixed(2) || ""
+                    <TextField
+                      type="number"
+                      value={stepXInput}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "" || parseFloat(val) >= 0) {
+                          setStepXInput(val);
+                          const parsed = parseFloat(val);
+                          if (!isNaN(parsed) && parsed >= 0) {
+                            setIsNeedUpdateRecommended(true);
+                            setStoryboardsData((prev) => ({
+                              ...prev,
+                              recommended: {
+                                ...prev.recommended,
+                                step_x: parsed,
+                              },
+                            }));
+                          }
                         }
-                        onChange={(e) => {
-                          setIsNeedUpdateRecommended(true);
-                          setStoryboardsData((prev) => ({
-                            ...prev,
-                            recommended: {
-                              ...prev.recommended,
-                              step_x: Number(e.target.value),
-                            },
-                          }));
-                        }}
-                        variant="outlined" // variant для оформления (outlined, filled, etc.)
-                        size="small" // Размер поля
-                        sx={{ width: 120, textAlign: "right" }} // Стиль: задаём размер и выравнивание
-                      />
+                      }}
+                      onBlur={() => {
+                        // при потере фокуса форматируем красиво
+                        const parsed = parseFloat(stepXInput);
+                        if (!isNaN(parsed)) {
+                          setStepXInput(parsed.toFixed(2));
+                        } else {
+                          setStepXInput(storyboardsData?.recommended?.step_x?.toFixed(2) ?? "");
+                        }
+                      }}
+                      inputProps={{ min: "1.00", step: "0.01" }}
+                      variant="outlined"
+                      size="small"
+                      sx={{ width: 120 }}
+                    />
                     </Box>
                     <Box
                       display="flex"
@@ -856,25 +887,40 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                       <Typography variant="body2" color="text.secondary">
                         Шаг по высоте, м
                       </Typography>
-                      <TextField
-                        type="number"
-                        value={
-                          storyboardsData?.recommended?.step_y?.toFixed(2) || ""
+                    <TextField
+                      type="number"
+                      value={stepYInput}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "" || parseFloat(val) >= 0) {
+                          setStepYInput(val);
+                          const parsed = parseFloat(val);
+                          if (!isNaN(parsed) && parsed >= 0) {
+                            setIsNeedUpdateRecommended(true);
+                            setStoryboardsData((prev) => ({
+                              ...prev,
+                              recommended: {
+                                ...prev.recommended,
+                                step_y: parsed,
+                              },
+                            }));
+                          }
                         }
-                        onChange={(e) => {
-                          setIsNeedUpdateRecommended(true);
-                          setStoryboardsData((prev) => ({
-                            ...prev,
-                            recommended: {
-                              ...prev.recommended,
-                              step_y: Number(e.target.value),
-                            },
-                          }));
-                        }}
-                        variant="outlined" // variant для оформления (outlined, filled, etc.)
-                        size="small" // Размер поля
-                        sx={{ width: 120, textAlign: "right" }} // Стиль: задаём размер и выравнивание
-                      />
+                      }}
+                      onBlur={() => {
+                        // при потере фокуса форматируем красиво
+                        const parsed = parseFloat(stepYInput);
+                        if (!isNaN(parsed)) {
+                          setStepYInput(parsed.toFixed(2));
+                        } else {
+                          setStepYInput(storyboardsData?.recommended?.step_y?.toFixed(2) ?? "");
+                        }
+                      }}
+                      inputProps={{ min: "1.00", step: "0.01" }}
+                      variant="outlined"
+                      size="small"
+                      sx={{ width: 120 }}
+                    />
                     </Box>
 
                     {/* Кнопки снизу */}

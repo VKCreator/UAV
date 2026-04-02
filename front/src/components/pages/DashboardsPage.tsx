@@ -26,11 +26,15 @@ import RouteIcon from "@mui/icons-material/Route";
 import ScheduleIcon from "@mui/icons-material/Schedule";
 import TuneIcon from "@mui/icons-material/Tune";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import RefreshIcon from "@mui/icons-material/Refresh";
 
 import { useEffect, useState, useMemo } from "react";
 import { CircularProgress } from "@mui/material";
 import { api, Drone, TrajectorySchema } from "../../api/client";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
+import useNotifications from "../../hooks/useNotifications/useNotifications";
+
+const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
 
 const formatDate = (isoString: string) => {
   if (!isoString) return "";
@@ -58,7 +62,9 @@ const MetricCard = ({
     variant="outlined"
     sx={{
       // p: 2,
-      height: "100%",
+      height: "100%", 
+      backgroundColor: "action.hover", 
+      // border: "none"
       // backgroundColor: "transparent",
     }}
   >
@@ -66,7 +72,8 @@ const MetricCard = ({
       <Box display="flex" alignItems="center" gap={2} sx={{ height: "100%" }}>
         <Box
           sx={{
-            bgcolor: "white",
+            // bgcolor: "white",
+            bgcolor: "transparent",
             borderRadius: "50%",
             width: 40,
             height: 40,
@@ -97,20 +104,19 @@ const CardWithDetails = ({
   title,
   link,
   created_date,
+  image_url,
 }: {
   title: string;
   link: string;
   created_date: string | null;
+  image_url?: string;
 }) => (
-  <Card
-    variant="outlined"
-    sx={{
-      p: 0,
-      height: "100%",
-      // backgroundColor: "transparent",
-    }}
-  >
-    <CardActionArea component={Link} to={link} sx={{ height: "100%" }}>
+  <Card variant="outlined" sx={{ p: 0, height: "100%" }}>
+    <CardActionArea
+      component={Link}
+      to={link}
+      sx={{ height: "100%", "&:hover .chevron": { transform: "translateX(4px)" } }}
+    >
       <CardContent sx={{ height: "100%" }}>
         <Box
           display="flex"
@@ -119,22 +125,29 @@ const CardWithDetails = ({
           justifyContent="space-between"
           sx={{ height: "100%", p: 2 }}
         >
-          <Box>
-            {/* <Typography variant="body2" color="text.secondary">
-            Название
-          </Typography> */}
-            <Typography variant="h6" fontWeight={600}>
-              {title}
-            </Typography>
-            {created_date && (
-              <Typography variant="body2" color="text.secondary">
-                {created_date}
-              </Typography>
+          <Box display="flex" alignItems="center" gap={1.5}>
+            {image_url && (
+              <Avatar
+                src={image_url}
+                variant="rounded"
+                sx={{ width: 40, height: 40, flexShrink: 0 }}
+              />
             )}
+            <Box>
+              <Typography variant="h6" fontWeight={600}>
+                {title}
+              </Typography>
+              {created_date && (
+                <Typography variant="caption" color="text.disabled">
+                  {created_date}
+                </Typography>
+              )}
+            </Box>
           </Box>
-          <IconButton size="small" color="primary">
-            <ChevronRightIcon />
-          </IconButton>
+          <ChevronRightIcon
+            className="chevron"
+            sx={{ color: "#014488", transition: "transform 0.15s", flexShrink: 0 }}
+          />
         </Box>
       </CardContent>
     </CardActionArea>
@@ -143,6 +156,7 @@ const CardWithDetails = ({
 
 const DashboardsPage = () => {
   useDocumentTitle("Главная | SkyPath Service");
+  const notifications = useNotifications();
 
   // Получаем текущее время и форматируем сообщение в зависимости от времени суток
   const currentTime = new Date();
@@ -168,47 +182,55 @@ const DashboardsPage = () => {
   const [schemas, setSchemas] = useState<TrajectorySchema[]>([]);
   const [schemasLoading, setSchemasLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchDrones = async () => {
-      try {
-        // Читаем из кэша
-        const cached = localStorage.getItem("drones-cache-v1");
-        if (cached) {
-          setDrones(JSON.parse(cached));
-          setDronesLoading(false);
-        }
-
-        // Всё равно запрашиваем свежие данные
-        const response = await api.drones.getAll();
-        setDrones(response);
-        localStorage.setItem("drones-cache-v1", JSON.stringify(response));
-      } catch (error) {
-        console.error("Ошибка загрузки квадрокоптеров:", error);
-      } finally {
+  const fetchDrones = async () => {
+    try {
+      // Читаем из кэша
+      const cached = localStorage.getItem("drones-cache-v1");
+      if (cached) {
+        setDrones(JSON.parse(cached));
         setDronesLoading(false);
       }
-    };
 
-    const fetchSchemas = async () => {
-      try {
-        // Читаем из кэша
-        const cached = localStorage.getItem("schemas-cache-v1");
-        if (cached) {
-          setSchemas(JSON.parse(cached));
-          setSchemasLoading(false);
-        }
+      // Всё равно запрашиваем свежие данные
+      const response = await api.drones.getAll();
+      setDrones(response);
+      localStorage.setItem("drones-cache-v1", JSON.stringify(response));
+    } catch (error) {
+      console.error("Ошибка загрузки квадрокоптеров:", error);
+      notifications.show("Ошибка загрузки квадрокоптеров", {
+        severity: "error",
+        autoHideDuration: 3000,
+      });
+    } finally {
+      setDronesLoading(false);
+    }
+  };
 
-        // Всё равно запрашиваем свежие данные
-        const response = await api.schemas.getAllFull();
-        setSchemas(response);
-        localStorage.setItem("schemas-cache-v1", JSON.stringify(response));
-      } catch (error) {
-        console.error("Ошибка загрузки схем:", error);
-      } finally {
+  const fetchSchemas = async () => {
+    try {
+      // Читаем из кэша
+      const cached = localStorage.getItem("schemas-cache-v1");
+      if (cached) {
+        setSchemas(JSON.parse(cached));
         setSchemasLoading(false);
       }
-    };
 
+      // Всё равно запрашиваем свежие данные
+      const response = await api.schemas.getAllFull();
+      setSchemas(response);
+      localStorage.setItem("schemas-cache-v1", JSON.stringify(response));
+    } catch (error) {
+      console.error("Ошибка загрузки схем:", error);
+      notifications.show("Ошибка загрузки схем", {
+        severity: "error",
+        autoHideDuration: 3000,
+      });
+    } finally {
+      setSchemasLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchDrones();
     fetchSchemas();
   }, []);
@@ -309,7 +331,7 @@ const DashboardsPage = () => {
             <Typography variant="h5" sx={{ mb: 2 }}>
               Квадрокоптеры
             </Typography>
-            <Grid container spacing={2} alignItems="center">
+            <Grid container spacing={2} alignItems="stretch">
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
                   title="Количество БПЛА"
@@ -357,6 +379,18 @@ const DashboardsPage = () => {
                     <SearchIcon />
                   </IconButton>
                 </Tooltip>
+                <Tooltip title="Обновить данные" placement="bottom" arrow>
+                  <IconButton size="small" color="primary" onClick={() => {
+                    setDronesLoading(true); 
+                    fetchDrones();           
+                    notifications.show("Данные обновлены", {
+                        severity: "success",
+                        autoHideDuration: 3000,
+                    });
+                  }}>
+                    <RefreshIcon />
+                  </IconButton>
+                </Tooltip>
               </Grid>
             </Grid>
             <Grid container spacing={2}>
@@ -386,6 +420,11 @@ const DashboardsPage = () => {
                       title={drone.model}
                       link={`/drones`}
                       created_date={null}
+                      image_url={
+                        drone.image_name
+                          ? `${API_BASE_URL}/uploads/thumbs/${drone.image_name}`
+                          : undefined
+                      }
                     />
                   </Grid>
                 ))
@@ -396,11 +435,11 @@ const DashboardsPage = () => {
               <Button
                 component={Link}
                 to="/drones"
-                endIcon={<ChevronRightIcon />}
+                // endIcon={<ChevronRightIcon />}
                 variant="text"
                 size="small"
               >
-                Показать все квадрокоптеры ({drones.length})
+                Показать все квадрокоптеры ({drones.length})...
               </Button>
             </Box>
           </Card>
@@ -442,7 +481,7 @@ const DashboardsPage = () => {
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
                   title="Популярный метод оптимизации"
-                  value={popularMethod}
+                  value={popularMethod || "-"}
                   icon={<TuneIcon fontSize="large" />}
                 />
               </Grid>
@@ -468,18 +507,30 @@ const DashboardsPage = () => {
                 </Box>
               </Grid>
               <Grid>
-                <Tooltip title="Просмотреть все">
-                  <IconButton component={Link} to="/trajectories">
-                    <SearchIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Создать схему">
+                 <Tooltip title="Создать схему">
                   <IconButton
                     color="primary"
                     component={Link}
                     to="/trajectories/new"
                   >
                     <AddIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Просмотреть все">
+                  <IconButton component={Link} to="/trajectories">
+                    <SearchIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Обновить данные" placement="bottom" arrow>
+                  <IconButton size="small" color="primary" onClick={() => {
+                      setSchemasLoading(true);
+                      fetchSchemas();
+                      notifications.show("Данные обновлены", {
+                        severity: "success",
+                        autoHideDuration: 3000,
+                      });
+                    }}>
+                    <RefreshIcon />
                   </IconButton>
                 </Tooltip>
               </Grid>
@@ -505,11 +556,16 @@ const DashboardsPage = () => {
               ) : (
                 schemas.slice(0, 6).map((plan, index) => (
                   <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }} key={index}>
-                    <CardWithDetails
-                      title={plan.schemaName}
-                      link={`/trajectories/${plan.id}`}
-                      created_date={formatDate(plan.createdAt)}
-                    />
+                  <CardWithDetails
+                    title={plan.schemaName}
+                    link={`/trajectories/${plan.id}`}
+                    created_date={formatDate(plan.createdAt)}
+                    image_url={
+                      plan.schemaImage
+                        ? `${API_BASE_URL}/uploads/thumbs/${plan.schemaImage.replace(/\\/g, "/").split("/").pop()}`
+                        : undefined
+                    }
+                  />
                   </Grid>
                 ))
               )}
@@ -518,11 +574,11 @@ const DashboardsPage = () => {
               <Button
                 component={Link}
                 to="/trajectories"
-                endIcon={<ChevronRightIcon />}
+                // endIcon={<ChevronRightIcon />}
                 variant="text"
                 size="small"
               >
-                Показать все схемы ({schemas.length})
+                Показать все схемы ({schemas.length})...
               </Button>
             </Box>
           </Card>

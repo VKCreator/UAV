@@ -36,13 +36,15 @@ import PageContainer from "../PageContainer";
 import { TrajectorySchema } from "../../api/client";
 import { russianLocale } from "../../constants";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
+import { useDialogs } from "../../hooks/useDialogs/useDialogs";
+
 import { api } from "../../api/client";
 import ClearIcon from "@mui/icons-material/Clear";
 
 import { DateToPrettyLocalDateTime } from "../../utils/dateUtils";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
 
-const BASE_URL = "http://192.168.1.43:5000";
+const BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
 
 interface MethodConfig {
   label: string;
@@ -54,6 +56,8 @@ interface MethodConfig {
 export default function TrajectoryList() {
   const navigate = useNavigate();
   const notifications = useNotifications();
+  const { confirm } = useDialogs();
+
   const [searchParams, setSearchParams] = useSearchParams();
   useDocumentTitle("Схемы полётов | SkyPath Service");
 
@@ -212,6 +216,11 @@ export default function TrajectoryList() {
     [navigate, paginationModel],
   );
 
+  const handleDelete = () => {
+    setIsLoading(true);
+    loadData();
+  };
+
   // Колонки таблицы
   const columns: GridColDef[] = React.useMemo(
     () => [
@@ -334,8 +343,8 @@ export default function TrajectoryList() {
             dist <= 30
               ? "success.main"
               : dist <= 100
-              ? "warning.main"
-              : "error.main";
+                ? "warning.main"
+                : "error.main";
 
           return (
             <Box
@@ -370,7 +379,7 @@ export default function TrajectoryList() {
         renderCell: (params) => {
           const totalSeconds = params.value;
           const m = Math.floor(totalSeconds / 60);
-          const s = Math.round(totalSeconds % 60);
+          const s = Math.floor(totalSeconds % 60);
 
           const color =
             m <= 10 ? "success.main" : m <= 25 ? "warning.main" : "error.main";
@@ -456,9 +465,34 @@ export default function TrajectoryList() {
                 <IconButton
                   size="medium"
                   color="error"
-                  onClick={(e) => e.stopPropagation()}
-                  disabled={true}
-                  component="span"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const confirmed = await confirm("Вы действительно хотите удалить схему?", {
+                      title: "Подтверждение",
+                      okText: "Да",
+                      cancelText: "Нет",
+                    });
+
+                    if (!confirmed) return;
+                    try {
+                      setIsLoading(true);
+                      await api.schemas.delete(Number(id));
+                      notifications.show("Схема удалена",
+                        {
+                          severity: "success",
+                          autoHideDuration: 3000,
+                        },)
+
+                      handleDelete();
+
+                    } catch {
+                      notifications.show("Ошибка при удалении схемы",
+                        {
+                          severity: "error",
+                          autoHideDuration: 5000,
+                        },)
+                    }
+                  }}
                 >
                   <DeleteIcon fontSize="medium" />
                 </IconButton>

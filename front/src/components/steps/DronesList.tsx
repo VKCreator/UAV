@@ -173,14 +173,14 @@ export default function DronesList() {
       },
       {
         field: "speedRange",
-        headerName: "Диапазон скорости, м/с",
+        headerName: "Максимальная скорость, м/с",
         type: "number",
         minWidth: 160,
         flex: 0.3,
         sortable: false,
         valueGetter: (_, row: Drone) => {
           if (row.min_speed != null && row.max_speed != null) {
-            return `${row.min_speed} – ${row.max_speed}`;
+            return `${row.max_speed}`;
           }
           return "—";
         },

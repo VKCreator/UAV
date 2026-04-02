@@ -1,8 +1,8 @@
 // src/api/client.ts
 import { jwtDecode } from "jwt-decode";
 
-// const API_BASE_URL = "http://192.168.1.43:5000";
-const API_BASE_URL = "http://192.168.1.43:5000";
+// const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
+const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
 
 // Универсальная функция для HTTP-запросов
 async function request<T>(
@@ -189,6 +189,8 @@ export const api = {
         body: formData,
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       }),
+    delete: (id: number) =>
+      request<void>(`/api/schemas/full/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }),
   },
   // Погода
   weather: {
@@ -225,6 +227,7 @@ export interface Drone {
   max_speed: number; // м/с
   min_speed: number; // м/с
   battery_life: number; // минуты
+  image_name: string | null;
 }
 
 export interface CurrentWeather {

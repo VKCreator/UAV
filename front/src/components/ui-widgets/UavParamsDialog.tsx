@@ -12,7 +12,9 @@ import {
   Typography,
   Box,
   Divider,
+  IconButton
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 
 import type { Drone } from "../../api/client";
 import type { UAVCameraParams } from "../../types/uav.types";
@@ -93,7 +95,21 @@ export default function UavParamsDialog({
       maxWidth="sm"
       fullWidth
     >
-      <DialogTitle>Настройки камеры БПЛА</DialogTitle>
+      <DialogTitle sx={{ pr: 5 }}>
+      Настройки камеры БПЛА
+        <IconButton
+          aria-label="Закрыть"
+          onClick={onClose}
+          sx={{
+            position: "absolute",
+            right: 8,
+            top: 8,
+            color: (theme) => theme.palette.grey[500],
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
       <Divider />
       <DialogContent>
         <TextField

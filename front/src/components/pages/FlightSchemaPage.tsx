@@ -873,7 +873,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                 }
                 zoom={14}
                 style={{ height: "100%", width: "100%", borderRadius: 8 }}
-                scrollWheelZoom
+                scrollWheelZoom={false}
               >
                 <TileLayer
                   attribution="&copy; OpenStreetMap contributors"
@@ -910,7 +910,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                 <Typography variant="subtitle1">Погодные условия</Typography>
                 <InfoRow
                   label="Скорость ветра"
-                  value={`${weatherConditions?.windSpeed ?? "—"} м/с`}
+                  value={`${(weatherConditions?.windSpeed).toFixed(1) ?? "—"} м/с`}
                 />
                 <InfoRow
                   label="Направление ветра"

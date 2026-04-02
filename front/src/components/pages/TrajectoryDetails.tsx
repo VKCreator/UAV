@@ -21,7 +21,7 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle"
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
-const API_BASE_URL = "http://192.168.1.43:5000";
+const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
 
 const FALLBACK_DRONE_PARAMS: DroneParams = {
   selectedDroneId: undefined,

@@ -245,12 +245,26 @@ export default function LoginPage() {
                       opacity: 0.8,
                     }}
                   >
-                    Версия: 2026.3.21
+                    Версия: 2026.3.27
                   </Typography>
                 </form>
               </CardContent>
             </Card>
           </Fade>
+        {/* Футер под карточкой */}
+        <Typography
+          variant="body2"
+          align="center"
+          sx={{
+            color: "#9e9e9e",
+            fontSize: "0.75rem",
+            opacity: 0.5,
+            mt: 2,
+            mb: 2,
+          }}
+        >
+          © 2026 SkyPath Service
+        </Typography>
         </Box>
       </Container>
 

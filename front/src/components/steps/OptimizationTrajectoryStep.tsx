@@ -21,6 +21,7 @@ import {
   Chip,
   Dialog,
   DialogContent,
+  Alert
 } from "@mui/material";
 
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -149,6 +150,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     "small" | "large"
   >("small");
 
+  const [considerWeather, setConsiderWeather] = React.useState(false);
+
   const [flightSettings, setFlightSettings] = React.useState<FlightSettings>({
     flightSpeed: droneParams.speed,
     batteryTime: droneParams.batteryTime,
@@ -214,7 +217,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
     try {
       const response = await fetch(
-        "http://192.168.1.43:5000/api/trajectory/calculate",
+        "http://nmstuvtip.ddnsking.com:5000/api/trajectory/calculate",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -392,7 +395,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                 <Typography
                   variant="body2"
                   color="text.secondary"
-                  sx={{ whiteSpace: "nowrap" }}
+                  sx={{ whiteSpace: "nowrap", width: "130px", textAlign: "right" }}
                 >
                   Траектория: {activeImage + 1} / {trajectoryTitles.length}
                 </Typography>
@@ -491,9 +494,36 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                 />
               </RadioGroup>
 
+              {weatherConditions.windSpeed > droneParams.windResistance ? (
+                <Alert severity="warning" sx={{ alignItems: "center", mt: 1, mb: 1.5 }}>
+                  Скорость ветра ({(weatherConditions.windSpeed).toFixed(1)} м/с) превышает максимальную
+                  ветроустойчивость БПЛА ({droneParams.windResistance} м/с). Полёт может быть небезопасен.
+                </Alert>
+              ) : (
+                <Alert severity="success" sx={{ alignItems: "center", mt: 1, mb: 1.5 }}>
+                  Скорость ветра ({(weatherConditions.windSpeed).toFixed(1)} м/с) в окрестности указанной местности в пределах нормы при
+                  ветроустойчивости БПЛА {droneParams.windResistance} м/с. Влияние ветра на полёт минимально.
+                </Alert>
+              )}
+
+              {weatherConditions.windSpeed > droneParams.windResistance && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={considerWeather}
+                    onChange={(e) => setConsiderWeather(e.target.checked)}
+                  />
+                }
+                label="Учитывать погодные условия при построении маршрута"
+                sx={{ mb: 0.5 }}
+              />
+              )}
+
               <Typography variant="body2" color="text.secondary" mt={1} mb={2}>
                 Перед запуском оптимизации настройте параметры полёта.
               </Typography>
+
+
               <Box
                 display="flex"
                 justifyContent="space-between"
@@ -606,9 +636,9 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             droneParams={droneParams}
             sceneTitle="Просмотр схемы полётов"
             points={getPoints()}
-            setPoints={() => {}}
+            setPoints={() => { }}
             obstacles={obstacles}
-            setObstacles={() => {}}
+            setObstacles={() => { }}
             trajectoryData={getTrajectoryData()}
             setTrajectoryData={setTrajectoryData}
             flightLineY={flightLineY}
