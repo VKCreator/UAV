@@ -16,6 +16,7 @@ import {
   Tooltip,
   Typography,
   Link,
+  CircularProgress
 } from "@mui/material";
 
 import SpeedIcon from "@mui/icons-material/Speed";
@@ -35,6 +36,30 @@ import type { FlightSettings } from "../../types/uav.types";
 
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 
+const convertWindDirectionToDegrees = (windDir) => {
+  const directions = {
+    'n': 0,
+    'nne': 22.5,
+    'ne': 45,
+    'ene': 67.5,
+    'e': 90,
+    'ese': 112.5,
+    'se': 135,
+    'sse': 157.5,
+    's': 180,
+    'ssw': 202.5,
+    'sw': 225,
+    'wsw': 247.5,
+    'w': 270,
+    'wnw': 292.5,
+    'nw': 315,
+    'nnw': 337.5,
+    'c': null // штиль - нет направления
+  };
+  
+  return directions[windDir] !== undefined ? directions[windDir] : null;
+};
+
 interface Props {
   open: boolean;
   data: FlightSettings;
@@ -50,6 +75,7 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [mapOpen, setMapOpen] = useState(false);
+  const [isLoadingWeather, setLoadingWeather] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -109,29 +135,87 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
 
   const loadWeather = async (lat: number, lon: number) => {
     try {
-      const data = await api.weather.getCurrent(lat, lon);
+      setLoadingWeather(true);
 
-      setForm((prev) => ({
-        ...prev,
-        windSpeed: data.current_weather.windspeed / 3.6,
-        windDirection: data.current_weather.winddirection,
-        useWeatherApi: true,
-        lat,
-        lon,
-      }));
+      // Пробуем альтернативный сервис (Weatherbit)
+      try {
+        const alternativeData = await api.weather.getCurrentAlternative(lat, lon);
+        const weather = alternativeData["data"][0];
 
-      notifications.show("Данные о погоде обновлены", {
-        severity: "success",
-        autoHideDuration: 2000,
-      });
+        setForm((prev) => ({
+          ...prev,
+          windSpeed: weather['wind_spd'], // уже в м/с
+          windDirection: weather['wind_dir'], // в градусах
+          useWeatherApi: true,
+          lat,
+          lon,
+        }));
+
+        notifications.show("Данные о погоде обновлены (Weatherbit)", {
+          severity: "success",
+          autoHideDuration: 2000,
+        });
+      } catch (alternativeError) {
+        // Если Weatherbit недоступен, пробуем Яндекс Погоду
+        try {
+          setLoadingWeather(true);
+          const yandexData = await api.weather.getYandexWeather(lat, lon);
+          
+          // Конвертируем направление ветра из строки в градусы
+          const windDirectionDegrees = convertWindDirectionToDegrees(yandexData.fact.wind_dir);
+          
+          setForm((prev) => ({
+            ...prev,
+            windSpeed: yandexData.fact.wind_speed, // уже в м/с
+            windDirection: windDirectionDegrees,
+            useWeatherApi: true,
+            lat,
+            lon,
+          }));
+
+          notifications.show("Данные о погоде обновлены (Яндекс.Погода)", {
+            severity: "success",
+            autoHideDuration: 2000,
+          });
+        } catch (yandexError) {
+          setLoadingWeather(true);
+          // Если Яндекс Погода недоступна, пробуем Open-meteo
+          const data = await api.weather.getCurrent(lat, lon);
+          
+          setForm((prev) => ({
+            ...prev,
+            windSpeed: data.current_weather.windspeed / 3.6, // из км/ч в м/с
+            windDirection: data.current_weather.winddirection, // в градусах
+            useWeatherApi: true,
+            lat,
+            lon,
+          }));
+
+          notifications.show("Данные о погоде обновлены (Open-meteo)", {
+            severity: "success",
+            autoHideDuration: 2000,
+          });
+        } finally {
+          setLoadingWeather(false);
+        }
+      }
+      finally {
+          setLoadingWeather(false);
+      }
     } catch (e) {
-      console.error(e);
       notifications.show("Не удалось получить данные о погоде", {
         severity: "error",
         autoHideDuration: 3000,
       });
+      setForm((prev) => ({
+        ...prev,
+        useWeatherApi: false,
+      }));
+    } finally {
+      setLoadingWeather(false);
     }
   };
+
 
   return (
     <Dialog open={open} onClose={handleDialogClose} maxWidth="sm" fullWidth>
@@ -278,6 +362,11 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
                     <AirIcon />
                   </InputAdornment>
                 ),
+                endAdornment: isLoadingWeather && (
+                  <InputAdornment position="end">
+                    <CircularProgress color="inherit" size={20} />
+                  </InputAdornment>
+                ),
               }}
             />
             <TextField
@@ -295,6 +384,11 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
                 startAdornment: (
                   <InputAdornment position="start">
                     <ExploreIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: isLoadingWeather && (
+                  <InputAdornment position="end">
+                    <CircularProgress color="inherit" size={20} />
                   </InputAdornment>
                 ),
               }}
@@ -351,7 +445,7 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
                 color="text.secondary"
                 sx={{ ml: 0.5 }}
               >
-                Для получения данных используется сервис{" "}
+                Для получения данных используются сервисы{" "}
                 <Link
                   href="https://open-meteo.com"
                   target="_blank"
@@ -359,6 +453,24 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
                   underline="hover"
                 >
                   Open-Meteo.com
+                </Link>
+                {", "}
+                <Link
+                  href="https://www.weatherbit.io"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  underline="hover"
+                >
+                  Weatherbit.io
+                </Link>
+                {", "}
+                <Link
+                  href="https://yandex.ru/pogoda/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  underline="hover"
+                >
+                  Yandex.ru
                 </Link>
               </Typography>
             </Box>
@@ -371,7 +483,7 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
         <Button variant="outlined" onClick={onClose}>
           Отмена
         </Button>
-        <Button variant="contained" onClick={handleSave}>
+        <Button variant="contained" onClick={handleSave} disabled={isLoadingWeather}>
           Применить
         </Button>
       </DialogActions>

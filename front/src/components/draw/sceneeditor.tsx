@@ -971,7 +971,15 @@ const SceneEditor: FC<SceneEditorProps> = ({
                         number: i + 1,
                       }),
                     );
-
+                    const flightPoints: TrajectoryPoint[] = (taxon.flight_points ?? []).map(
+                    (p: [number, number], i: number) => ({
+                      x: p[0] / meterPerPixelX,
+                      y: image.height - p[1] / meterPerPixelY,
+                      color: "#ff6b00",
+                      number: i + 1,
+                    }),
+                    );
+                    
                     return (
                       <Fragment key={`taxon-${idx}`}>
                         {/* База */}
@@ -1092,6 +1100,46 @@ const SceneEditor: FC<SceneEditorProps> = ({
                             />
                           </Fragment>
                         ))}
+
+                        {/* flight_points — куда реально лететь (оранжевые) */}
+                        {flightPoints.map((fp, i) => {
+                          const tp = taxonPoints[i]; // соответствующая целевая точка
+                          return (
+                            <Fragment key={`flight-point-${idx}-${i}`}>
+                              {/* Линия от flight_point к target point — это и есть "треугольник" */}
+                              {tp && (
+                                <Line
+                                  points={[
+                                    fp.x * scaleToFit + imageX,
+                                    fp.y * scaleToFit + imageY,
+                                    tp.x * scaleToFit + imageX,
+                                    tp.y * scaleToFit + imageY,
+                                  ]}
+                                  stroke="#ff6b00"
+                                  strokeWidth={1}
+                                  dash={[4, 4]}
+                                  opacity={0.7}
+                                />
+                              )}
+
+                              {/* Сама flight_point */}
+                              <Circle
+                                x={fp.x * scaleToFit + imageX}
+                                y={fp.y * scaleToFit + imageY}
+                                radius={7}
+                                fill="#ff6b00"
+                                opacity={0.85}
+                              />
+                              <Text
+                                x={fp.x * scaleToFit + imageX - 4}
+                                y={fp.y * scaleToFit + imageY - 6}
+                                text={`${i + 1}`}
+                                fontSize={10}
+                                fill="white"
+                              />
+                            </Fragment>
+                          );
+                        })}
                       </Fragment>
                     );
                   })}

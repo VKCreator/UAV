@@ -11,6 +11,7 @@ import {
   IconButton,
   Tooltip,
   Skeleton,
+  Stack
 } from "@mui/material";
 
 import PersonIcon from "@mui/icons-material/Person";
@@ -26,6 +27,7 @@ import BadgeIcon from "@mui/icons-material/Badge";
 import { api } from "../../api/client";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
+import PageContainer from "../PageContainer";
 
 interface UserProfile {
   user_id: number;
@@ -177,16 +179,33 @@ const ProfilePage: React.FC = () => {
     [u.last_name, u.first_name, u.middle_name].filter(Boolean).join(" ");
 
   return (
+    <Box sx={{pl: 20, pr: 20}}>
+    <PageContainer
+              title={"Профиль пользователя"}
+              actions={
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Tooltip title="Обновить данные" enterDelay={500}>
+                    <span>
+                      <IconButton
+                        onClick={() => fetchProfile(false)}
+                        disabled={loading}
+                        color="primary"
+                        size="small"
+                      >
+                        <RefreshIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Stack>
+              }
+            >
+
     <Box
       sx={{
-        p: { xs: 2, md: 4 },
-        maxWidth: 900,
-        mx: "auto",
-        width: "100%",
+      width: "100%", overflow: "auto"
       }}
     >
-      {/* Заголовок */}
-      <Box
+      {/* <Box
         sx={{
           display: "flex",
           alignItems: "center",
@@ -210,7 +229,7 @@ const ProfilePage: React.FC = () => {
             </IconButton>
           </span>
         </Tooltip>
-      </Box>
+      </Box> */}
 
       {/* Ошибка */}
       {error && !loading && (
@@ -261,7 +280,7 @@ const ProfilePage: React.FC = () => {
                   <Typography
                     variant="h6"
                     fontWeight={700}
-                    sx={{ lineHeight: 1.3 }}
+                    sx={{ lineHeight: 1.3, width: "200px" }}
                   >
                     {getFullName(user)}
                   </Typography>
@@ -415,6 +434,8 @@ const ProfilePage: React.FC = () => {
           </Paper>
         </Grid>
       </Grid>
+    </Box>
+    </PageContainer>
     </Box>
   );
 };

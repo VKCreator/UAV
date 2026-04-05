@@ -150,7 +150,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     "small" | "large"
   >("small");
 
-  const [considerWeather, setConsiderWeather] = React.useState(false);
+  const [isConsiderWeather, setConsiderWeather] = React.useState(weatherConditions.isUse);
 
   const [flightSettings, setFlightSettings] = React.useState<FlightSettings>({
     flightSpeed: droneParams.speed,
@@ -395,7 +395,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                 <Typography
                   variant="body2"
                   color="text.secondary"
-                  sx={{ whiteSpace: "nowrap", width: "130px", textAlign: "right" }}
+                  sx={{ whiteSpace: "nowrap", textAlign: "right" }}
                 >
                   Траектория: {activeImage + 1} / {trajectoryTitles.length}
                 </Typography>
@@ -506,18 +506,22 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                 </Alert>
               )}
 
-              {weatherConditions.windSpeed > droneParams.windResistance && (
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={considerWeather}
-                    onChange={(e) => setConsiderWeather(e.target.checked)}
+                    checked={isConsiderWeather}
+                    onChange={(e) => {
+                      setConsiderWeather(e.target.checked);
+                      setWeatherConditions((prev: Weather) => ({
+                        ...prev,
+                        isUse: e.target.checked,
+                      }));
+                    }}
                   />
                 }
                 label="Учитывать погодные условия при построении маршрута"
                 sx={{ mb: 0.5 }}
               />
-              )}
 
               <Typography variant="body2" color="text.secondary" mt={1} mb={2}>
                 Перед запуском оптимизации настройте параметры полёта.
@@ -699,7 +703,10 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             windSpeed: form.windSpeed,
             windDirection: form.windDirection,
             useWeatherApi: form.useWeatherApi,
+            isUse: form.windSpeed > form.windResistance
           });
+
+          setConsiderWeather(form.windSpeed > form.windResistance);
         }}
       />
       <OptimizationDetailDialog

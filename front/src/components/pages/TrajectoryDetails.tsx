@@ -409,6 +409,7 @@ export default function TrajectoryDetails() {
     windSpeed: weather.wind_speed,
     windDirection: weather.wind_direction,
     useWeatherApi: weather.is_use_api,
+    isUse: weather.is_use_weather,
     position: { lat: weather.latitude ?? 53, lon: weather.longitude ?? 59 },
   };
 

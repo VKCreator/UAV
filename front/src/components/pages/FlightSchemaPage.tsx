@@ -946,7 +946,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                       }
                     >
                       {weatherConditions?.useWeatherApi
-                        ? "Open-meteo.com"
+                        ? "Сервис погоды"
                         : "Введено вручную"}
                     </Typography>
                   }
@@ -958,12 +958,12 @@ const FlightSchemaPage: React.FC<Props> = ({
                     <Chip
                       size="small"
                       label={
-                        weatherConditions?.useWeatherApi
+                        weatherConditions?.isUse
                           ? "Учитывается"
                           : "Не учитывается"
                       }
                       color={
-                        weatherConditions?.useWeatherApi ? "success" : "default"
+                        weatherConditions?.isUse ? "success" : "default"
                       }
                       variant="outlined"
                     />

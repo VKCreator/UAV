@@ -55,6 +55,7 @@ export interface Weather {
 
   position: GPSCoordinate;
   useWeatherApi: boolean;
+  isUse: boolean;
 }
 
 // Для диалогового окна

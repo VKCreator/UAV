@@ -16,6 +16,8 @@ import DronesList from "./components/steps/DronesList";
 import TrajectoryDetails from "./components/pages/TrajectoryDetails";
 
 import LoginPage from "./components/pages/LoginPage";
+import RegisterPage from "./components/pages/RegisterPage";
+import WeatherPage from "./components/pages/WeatherPage";
 
 import NotificationsProvider from "./hooks/useNotifications/NotificationsProvider";
 import DialogsProvider from "./hooks/useDialogs/DialogsProvider";
@@ -78,6 +80,10 @@ const router = createHashRouter([
     path: "/login",
     Component: LoginPage,
   },
+  {
+    path: "/register",
+    Component: RegisterPage    
+  },
   // защищённые маршруты внутри DashboardLayout
   {
     Component: () => (
@@ -109,6 +115,10 @@ const router = createHashRouter([
       {
         path: "/profile",
         Component: ProfilePage        
+      },
+      {
+        path: "/weather",
+        Component: WeatherPage
       },
       // fallback для внутренних маршрутов Dashboard
       {

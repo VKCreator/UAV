@@ -30,6 +30,8 @@ import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import HomeIcon from "@mui/icons-material/Home";
+import CloudIcon from '@mui/icons-material/Cloud';
+
 import Avatar from "@mui/material/Avatar";
 import { api } from "../api/client";
 import { useNavigate } from "react-router";
@@ -289,6 +291,13 @@ export default function DashboardSidebar({
               icon={<LocalAirportRoundedIcon />}
               href="/drones"
               selected={!!matchPath("/drones/*", pathname)}
+            />
+            <DashboardSidebarPageItem
+              id="weather"
+              title="Погода"
+              icon={<CloudIcon />}
+              href="/weather"
+              selected={!!matchPath("/weather/*", pathname)}
             />
           </List>
           <Box

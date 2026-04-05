@@ -17,6 +17,7 @@ import {
   Arrow,
   Line,
   Rect,
+  Group
 } from "react-konva";
 import useImage from "use-image";
 import Tooltip from "@mui/material/Tooltip";
@@ -573,6 +574,15 @@ const SceneShower = forwardRef<
                       }),
                     );
 
+                    const flightPoints: TrajectoryPoint[] = (taxon.flight_points ?? []).map(
+                      (p: [number, number], i: number) => ({
+                        x: p[0] / meterPerPixelX,
+                        y: image.height - p[1] / meterPerPixelY,
+                        color: "#ff6b00",
+                        number: i + 1,
+                      }),
+                    );
+
                     return (
                       <Fragment key={`taxon-${idx}`}>
                         {/* База */}
@@ -691,6 +701,128 @@ const SceneShower = forwardRef<
                             />
                           </Fragment>
                         ))}
+
+                        {/* flight_points — куда реально лететь (оранжевые) */}
+                        {flightPoints.map((fp, i) => {
+                          const tp = taxonPoints[i]; // соответствующая целевая точка
+                          return (
+                            <Fragment key={`flight-point-${idx}-${i}`}>
+                              {/* Линия от flight_point к target point — это и есть "треугольник" */}
+                              {tp && (() => {
+                                const fpx = fp.x * scaleToFit + imageX;
+                                const fpy = fp.y * scaleToFit + imageY;
+                                const tpx = tp.x * scaleToFit + imageX;
+                                const tpy = tp.y * scaleToFit + imageY;
+
+                                // вектор ветра в пикселях (для визуализации масштабируем)
+                                const windRad = Math.PI * (90 + 180) / 180;
+                                const windScale = 15; // длина вектора ветра на экране
+                                const wx = Math.sin(windRad) * windScale;
+                                const wy = -Math.cos(windRad) * windScale;
+
+                                return (
+                                  <>
+                                    {/* курс дрона: flight_point → target */}
+                                    <Line
+                                      points={[fpx, fpy, tpx, tpy]} 
+                                      stroke="#ff6b00"
+                                      strokeWidth={1}
+                                      dash={[4, 4]}
+                                      opacity={0.8}
+                                    />
+                                    {/* вектор ветра от target */}
+                                    <Arrow
+                                      points={[tpx, tpy, tpx + wx, tpy + wy]}
+                                      pointerLength={5}
+                                      pointerWidth={4}
+                                      stroke="#aaaaff"
+                                      fill="#aaaaff"
+                                      strokeWidth={1}
+                                      dash={[3, 3]}
+                                      opacity={0.7}
+                                    />
+                                    {/* замыкаем треугольник */}
+                                    <Line
+                                      points={[tpx + wx, tpy + wy, fpx, fpy]}
+                                      stroke="#ffffff"
+                                      strokeWidth={0.5}
+                                      dash={[2, 4]}
+                                      opacity={0.4}
+                                    />
+                                  </>
+                                );
+                              })()}
+
+                              {/* Сама flight_point */}
+                              <Circle
+                                x={fp.x * scaleToFit + imageX}
+                                y={fp.y * scaleToFit + imageY}
+                                radius={7}
+                                fill="#ff6b00"
+                                opacity={0.85}
+                              />
+                              <Text
+                                x={fp.x * scaleToFit + imageX - 4}
+                                y={fp.y * scaleToFit + imageY - 6}
+                                text={`${i + 1}`}
+                                fontSize={10}
+                                fill="white"
+                              />
+                            </Fragment>
+                          );
+                        })}
+
+                        {/* Стрелка направления ветра */}
+                        {5 > 0 && (
+                          <Group>
+                            {/* Подложка */}
+                            <Rect
+                              x={20} y={20}
+                              width={90} height={90}
+                              fill="rgba(0,0,0,0.45)"
+                              cornerRadius={8}
+                            />
+
+                            {/* Стрелка — вращается по wind_dir_deg */}
+                            {(() => {
+                              const cx = 65, cy = 65;
+                              const len = 28;
+                              // ветер ДУЕТ В эту сторону (метеорологический = откуда, поэтому +180)
+                              const rad = Math.PI * (180 + 180) / 180;
+                              const x2 = cx + len * Math.sin(rad);
+                              const y2 = cy - len * Math.cos(rad);
+                              const x1 = cx - len * Math.sin(rad);
+                              const y1 = cy + len * Math.cos(rad);
+                              return (
+                                <Arrow
+                                  points={[x1, y1, x2, y2]}
+                                  pointerLength={8}
+                                  pointerWidth={6}
+                                  fill="#ff6b00"
+                                  stroke="#ff6b00"
+                                  strokeWidth={2}
+                                />
+                              );
+                            })()}
+
+                            <Text
+                              x={20} y={24}
+                              width={90}
+                              text="ветер"
+                              fontSize={10}
+                              fill="white"
+                              align="center"
+                            />
+                            <Text
+                              x={20} y={88}  
+                              width={90}
+                              text={`${5} м/с`}
+                              fontSize={10}
+                              fill="#ff6b00"
+                              align="center"
+                            />
+                          </Group>
+                        )}
                       </Fragment>
                     );
                   })}

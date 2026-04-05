@@ -98,6 +98,7 @@ const INITIAL_WEATHER: Weather = {
   windSpeed: 10,
   windDirection: 180,
   useWeatherApi: true,
+  isUse: false,
   position: {
     lat: 53.4260327, // ММК
     lon: 59.0531761,
@@ -125,6 +126,30 @@ const STEPS = [
 ];
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
+// Функция конвертации направления ветра из строки в градусы
+const convertWindDirectionToDegrees = (windDir) => {
+  const directions = {
+    'n': 0,
+    'nne': 22.5,
+    'ne': 45,
+    'ene': 67.5,
+    'e': 90,
+    'ese': 112.5,
+    'se': 135,
+    'sse': 157.5,
+    's': 180,
+    'ssw': 202.5,
+    'sw': 225,
+    'wsw': 247.5,
+    'w': 270,
+    'wnw': 292.5,
+    'nw': 315,
+    'nnw': 337.5,
+    'c': null // штиль
+  };
+  
+  return directions[windDir] !== undefined ? directions[windDir] : null;
+};
 
 /**
  * Вычисляет размер кадра по расстоянию и углу обзора камеры.
@@ -587,26 +612,57 @@ const TrajectoryStepper = () => {
 
     const fetchWeather = async () => {
       try {
-        const data = await api.weather.getCurrent(
+        // Пробуем альтернативный сервис (Weatherbit) сначала
+        const alternativeData = await api.weather.getCurrentAlternative(
           weatherConditions.position.lat,
           weatherConditions.position.lon,
         );
+        const weather = alternativeData["data"][0];
         setWeatherConditions((prev) => ({
           ...prev,
-          windSpeed: data.current_weather.windspeed / 3.6,
-          windDirection: data.current_weather.winddirection,
+          windSpeed: weather['wind_spd'], // уже в м/с
+          windDirection: weather['wind_dir'], // в градусах
         }));
-      } catch {
-        notifications.show("Не удалось получить данные о погоде.", {
-          severity: "error",
-          autoHideDuration: 5000,
-        });
+      } catch (alternativeError) {
+        // Если Weatherbit недоступен, пробуем Яндекс Погоду
+        try {
+          const yandexData = await api.weather.getYandexWeather(
+            weatherConditions.position.lat,
+            weatherConditions.position.lon,
+          );
+          
+          // Конвертируем направление ветра из строки в градусы
+          const windDirectionDegrees = convertWindDirectionToDegrees(yandexData.fact.wind_dir);
+          
+          setWeatherConditions((prev) => ({
+            ...prev,
+            windSpeed: yandexData.fact.wind_speed, // уже в м/с
+            windDirection: windDirectionDegrees,
+          }));
+        } catch (yandexError) {
+          // Если Яндекс Погода недоступна, пробуем Open-meteo
+          try {
+            const data = await api.weather.getCurrent(
+              weatherConditions.position.lat,
+              weatherConditions.position.lon,
+            );
+            setWeatherConditions((prev) => ({
+              ...prev,
+              windSpeed: data.current_weather.windspeed / 3.6, // из км/ч в м/с
+              windDirection: data.current_weather.winddirection, // в градусах
+            }));
+          } catch {
+            notifications.show("Не удалось получить данные о погоде.", {
+              severity: "error",
+              autoHideDuration: 5000,
+            });
+          }
+        }
       }
     };
 
     fetchWeather();
     // Запускается один раз при монтировании
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Навигация по шагам ────────────────────────────────────────────────────
@@ -759,6 +815,7 @@ const TrajectoryStepper = () => {
     formData.append("wind_speed", String(weatherConditions.windSpeed));
     formData.append("wind_direction", String(weatherConditions.windDirection));
     formData.append("use_weather_api", String(weatherConditions.useWeatherApi));
+    formData.append("use_weather", String(weatherConditions.isUse));
     formData.append("weather_lat", String(weatherConditions.position.lat));
     formData.append("weather_lon", String(weatherConditions.position.lon));
 

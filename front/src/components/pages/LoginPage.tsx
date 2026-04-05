@@ -24,6 +24,7 @@ import {
 } from "@mui/icons-material";
 import { api } from "../../api/client";
 import AppIcon from "../AppIcon";
+import { Link } from "react-router";
 
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 
@@ -245,12 +246,18 @@ export default function LoginPage() {
                       opacity: 0.8,
                     }}
                   >
-                    Версия: 2026.3.27
+                    Версия: 2026.4.5
                   </Typography>
                 </form>
               </CardContent>
             </Card>
           </Fade>
+        <Typography variant="body2" align="center" sx={{ mt: 1, color: "#757575" }}>
+          Нет аккаунта?{" "}
+          <Link to="/register" style={{ color: "#014488", textDecoration: "none", fontWeight: 500 }}>
+            Регистрация
+          </Link>
+        </Typography>
         {/* Футер под карточкой */}
         <Typography
           variant="body2"
@@ -259,7 +266,7 @@ export default function LoginPage() {
             color: "#9e9e9e",
             fontSize: "0.75rem",
             opacity: 0.5,
-            mt: 2,
+            mt: 1,
             mb: 2,
           }}
         >

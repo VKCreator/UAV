@@ -3,6 +3,7 @@ import { jwtDecode } from "jwt-decode";
 
 // const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
 const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
+const TOKEN = "3757f6dc6b074ddf85e66383af8e0cc8";
 
 // Универсальная функция для HTTP-запросов
 async function request<T>(
@@ -22,11 +23,10 @@ async function request<T>(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-
-    throw new Error(
-      errorData.error + "." ||
-        `HTTP ${response.status}: ${response.statusText}`,
-    );
+    const message = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+    const err = new Error(message) as any;
+    err.status = response.status;
+    throw err;
   }
 
   return await response.json();
@@ -58,8 +58,26 @@ async function requestFormData<T>(
   return await response.json();
 }
 
-async function externalRequest<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+async function yandexWeatherRequest<T>(
+  lat: number, 
+  lon: number
+): Promise<T> {
+  const accessKey = 'b5982c1e-14f3-4c49-8879-e2a88b88879a';
+  const url = `https://api.weather.yandex.ru/v2/forecast?lat=${lat}&lon=${lon}`;
+  const headers = {
+    'X-Yandex-Weather-Key': accessKey
+  };
+  
+  return externalRequest<T>(url, headers);
+}
+
+async function externalRequest<T>(url: string, headers: HeadersInit = {} ): Promise<T> {
+  const response = await fetch(url, { 
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers
+    }
+  });
 
   if (!response.ok) {
     throw new Error(`External API error: ${response.statusText}`);
@@ -142,7 +160,15 @@ export const api = {
         return;
       }
     },
-  },
+    register: (data: {
+      username: string;
+      password: string;
+      email: string;
+      first_name: string;
+      last_name: string;
+      middle_name?: string;
+    }) => request<any>(`/api/auth/register`, { method: "POST", body: JSON.stringify(data) }),
+    },
   users: {
     getMe: async () => {
       const token = localStorage.getItem("token");
@@ -201,6 +227,12 @@ export const api = {
           `&longitude=${longitude}` +
           `&current_weather=true`,
       ),
+    getCurrentAlternative: (latitude: number, longitude: number) =>
+      externalRequest<WeatherResponse>(
+        `http://api.weatherbit.io/v2.0/current?lat=${latitude}&lon=${longitude}&key=${TOKEN}&lang=ru`
+      ),
+    getYandexWeather: (latitude: number, longitude: number) => 
+      yandexWeatherRequest<YandexWeatherResponse>(latitude, longitude),
   },
   // Траектория
   trajectory: {
@@ -232,7 +264,7 @@ export interface Drone {
 
 export interface CurrentWeather {
   temperature: number; // °C
-  windspeed: number; // м/с
+  windspeed: number; // км/ч
   winddirection: number; // °
   weathercode: number;
   time: string;
@@ -242,6 +274,13 @@ export interface WeatherResponse {
   latitude: number;
   longitude: number;
   current_weather: CurrentWeather;
+}
+
+export interface YandexWeatherResponse {
+  fact: {
+    wind_speed: number;
+    wind_dir: string;
+  };
 }
 
 export interface TrajectorySchema {
