@@ -699,6 +699,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                   showObstacles={true}
                   showTaxonTrajectory={false}
                   flightLineY={flightLineY ?? 0}
+                  weatherConditions={weatherConditions}
                 />
               ) : (
                 <Placeholder label="Нет данных" />
@@ -1016,6 +1017,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                     showObstacles={true}
                     showTaxonTrajectory={true}
                     flightLineY={flightLineY ?? 0}
+                    weatherConditions={weatherConditions}
                   />
                 ) : (
                   <Placeholder label="Запустите оптимизацию для отображения траектории" />

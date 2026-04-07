@@ -58,7 +58,7 @@ def create_app():
     app.config.from_object(Config)
     app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
     app.config["THUMB_FOLDER"] = THUMB_FOLDER
-    app.config["ALLOWED_EXTENSIONS"] = {"png", "jpg", "jpeg", "gif"}
+    app.config["ALLOWED_EXTENSIONS"] = {"png", "jpg", "jpeg", "gif", "dng"}
     app.config["SECRET_KEY"] = "n4v!q8s#d2k@z0r7w$y1p*e6t^u9m"
 
     db.init_app(app)
@@ -350,6 +350,7 @@ def create_app():
         def post(self):
             """Рассчитать оптимизированную траекторию"""
             data = request.json
+            print(data)
             result = build_taxons(
                 data["width_m"],
                 data["height_m"],
@@ -358,6 +359,10 @@ def create_app():
                 data["batteryTime"] * 60,
                 data["hoverTime"],
                 data["lineY"],
+                data["windSpeed"],
+                data["windDirection"],
+                data["windResistance"],
+                data["isUseWeather"]
             )
             return result
 
@@ -395,7 +400,7 @@ def create_app():
                     "flightTime":          s.opt1_result.total_flight_time if s.opt1_result       else None,
                     "methodType":          s.priority_opt_method.pretty_name if s.priority_opt_method else None,
                     "schemaImage":         s.base_image.image_path         if s.base_image        else None,
-                    "isWeatherConditions": s.weather.is_use_api            if s.weather           else None,
+                    "isWeatherConditions": s.weather.is_use_weather            if s.weather           else None,
                     "droneModel":          s.drone_params.drone.model      if s.drone_params and s.drone_params.drone else None,
                     "createdAt":           s.created_at.isoformat().replace("+00:00", "Z") if s.created_at else None,
                 }
@@ -505,6 +510,7 @@ def create_app():
                     wind_speed=_float("wind_speed", 0.0),
                     wind_direction=_float("wind_direction", 0.0),
                     is_use_api=_bool("use_weather_api", True),
+                    is_use_weather=_bool("use_weather", False),
                     latitude=_float("weather_lat"),
                     longitude=_float("weather_lon"),
                 )

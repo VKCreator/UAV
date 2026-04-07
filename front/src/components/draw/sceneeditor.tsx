@@ -8,7 +8,7 @@ import {
   Checkbox,
   ToggleButton,
   ToggleButtonGroup,
-  FormControlLabel,
+  FormControlLabel
 } from "@mui/material";
 import {
   List,
@@ -26,6 +26,7 @@ import {
   Arrow,
   Line,
   Rect,
+  Group
 } from "react-konva";
 import useImage from "use-image";
 import Konva from "konva";
@@ -47,6 +48,7 @@ import { AppBar, Toolbar, IconButton } from "@mui/material";
 import { v4 as uuidv4 } from "uuid";
 
 import type { Point, Polygon, ImageData, TrajectoryPoint } from "./scene.types";
+import { Weather } from "../../types/uav.types";
 
 import { useLocalStorage } from "../../hooks/useLocalStorage/useLocalStorage";
 
@@ -73,6 +75,8 @@ interface SceneEditorProps {
 
   flightLineY: number;
   setFlightLineY: (y: any) => void;
+
+  weatherConditions?: Weather;
 }
 
 const TAXON_POINT_RADIUS = 10;
@@ -92,6 +96,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
   droneParams,
   flightLineY,
   setFlightLineY,
+  weatherConditions = null
 }) => {
   const [isLegendOpen, setIsLegendOpen] = useState(false);
 
@@ -295,8 +300,8 @@ const SceneEditor: FC<SceneEditorProps> = ({
         <Line
           key={`v-${i}`}
           points={[x, imageY, x, imageY + imgHeight]}
-          stroke="rgba(255,255,255,0.9)"
-          strokeWidth={1}
+          stroke="rgba(255,255,255,0.6)"
+          strokeWidth={2}
         />,
       );
     }
@@ -308,8 +313,8 @@ const SceneEditor: FC<SceneEditorProps> = ({
         <Line
           key={`h-${i}`}
           points={[imageX, y, imageX + imgWidth, y]}
-          stroke="rgba(255,255,255,0.9)"
-          strokeWidth={1}
+          stroke="rgba(255,255,255,0.6)"
+          strokeWidth={2}
         />,
       );
     }
@@ -838,8 +843,8 @@ const SceneEditor: FC<SceneEditorProps> = ({
                       height={STAGE_HEIGHT}
                       fill="rgba(255,255,255,0.7)"
                     />
-                    <Text
-                      x={STAGE_WIDTH / 2}
+                    <Text 
+                      x={STAGE_WIDTH / 2 - 10}
                       y={STAGE_HEIGHT / 2 - 10}
                       text="Загрузка..."
                       fontSize={20}
@@ -1080,6 +1085,90 @@ const SceneEditor: FC<SceneEditorProps> = ({
                           );
                         })}
 
+                      {flightPoints.map((fp, i) => {
+                        const tp = taxonPoints[i];
+                        
+                        // Предыдущая точка: если i=0 — это база таксона, иначе предыдущая flight_point
+                        const prevPoint = i === 0
+                          ? { x: baseX, y: baseY } 
+                          : flightPoints[i - 1];
+
+                         const prevTaxonPoint = i === 0
+                          ? { x: baseX, y: baseY } 
+                          : taxonPoints[i - 1];
+
+                        return (
+                          <Fragment key={`flight-point-${idx}-${i}`}>
+                            {tp && (() => {
+                              const fpx = fp.x * scaleToFit + imageX;
+                              const fpy = fp.y * scaleToFit + imageY;
+                              const tpx = prevTaxonPoint.x * scaleToFit + imageX;
+                              const tpy = prevTaxonPoint.y * scaleToFit + imageY;
+                              const ppx = prevPoint.x * scaleToFit + imageX;
+                              const ppy = prevPoint.y * scaleToFit + imageY;
+
+                              const currenttpx = tp.x * scaleToFit + imageX;
+                              const currenttpy = tp.y * scaleToFit + imageY;
+ 
+                              return (
+                                <>
+                                  {/* Сторона 1: откуда летим → flight_point (курс носа дрона) */}
+                                  {/* <Line
+                                    points={[ppx, ppy, fpx, fpy]}
+                                    stroke="#ff6b00"
+                                    strokeWidth={5}
+                                    dash={[4, 4]}
+                                    opacity={0.8}
+                                  /> */}
+
+                                  <Line
+                                    points={[fpx, fpy, currenttpx, currenttpy]}
+                                    stroke="#ff6b00"
+                                    strokeWidth={5}
+                                    dash={[4, 4]}
+                                    opacity={0.6}
+                                  /> 
+
+                                  {/* Сторона 2: откуда летим → target_point (путевой вектор по земле)*/}
+                                  <Line
+                                    points={[fpx, fpy, tpx, tpy]}
+                                    stroke="#ff6b00"
+                                    strokeWidth={5}
+                                    dash={[4, 4]}
+                                    opacity={0.6}
+                                  /> 
+
+                                  {/* Сторона 3: вектор ветра — от target_point до flight_point */}
+                                  {/* <Line
+                                    points={[tpx, tpy, fpx, fpy]}
+                                    stroke="#ff6b00"
+                                    strokeWidth={5}
+                                    dash={[4, 4]}
+                                    opacity={0.8}
+                                  /> */}
+                                </>
+                              );
+                            })()}
+
+                            {/* Сама flight_point */}
+                            <Circle
+                              x={fp.x * scaleToFit + imageX}
+                              y={fp.y * scaleToFit + imageY}
+                              radius={7}
+                              fill="#ff6b00"
+                              opacity={0.85}
+                            />
+                            <Text
+                              x={fp.x * scaleToFit + imageX - 4}
+                              y={fp.y * scaleToFit + imageY - 6}
+                              text={`${i + 1}`}
+                              fontSize={10}
+                              fill="white"
+                            />
+                          </Fragment>
+                        );
+                      })}
+                      
                         {/* Точки таксона и номера */}
                         {taxonPoints.map((p, i) => (
                           <Fragment key={`taxon-point-${idx}-${i}`}>
@@ -1100,50 +1189,62 @@ const SceneEditor: FC<SceneEditorProps> = ({
                             />
                           </Fragment>
                         ))}
-
-                        {/* flight_points — куда реально лететь (оранжевые) */}
-                        {flightPoints.map((fp, i) => {
-                          const tp = taxonPoints[i]; // соответствующая целевая точка
-                          return (
-                            <Fragment key={`flight-point-${idx}-${i}`}>
-                              {/* Линия от flight_point к target point — это и есть "треугольник" */}
-                              {tp && (
-                                <Line
-                                  points={[
-                                    fp.x * scaleToFit + imageX,
-                                    fp.y * scaleToFit + imageY,
-                                    tp.x * scaleToFit + imageX,
-                                    tp.y * scaleToFit + imageY,
-                                  ]}
-                                  stroke="#ff6b00"
-                                  strokeWidth={1}
-                                  dash={[4, 4]}
-                                  opacity={0.7}
-                                />
-                              )}
-
-                              {/* Сама flight_point */}
-                              <Circle
-                                x={fp.x * scaleToFit + imageX}
-                                y={fp.y * scaleToFit + imageY}
-                                radius={7}
-                                fill="#ff6b00"
-                                opacity={0.85}
-                              />
-                              <Text
-                                x={fp.x * scaleToFit + imageX - 4}
-                                y={fp.y * scaleToFit + imageY - 6}
-                                text={`${i + 1}`}
-                                fontSize={10}
-                                fill="white"
-                              />
-                            </Fragment>
-                          );
-                        })}
                       </Fragment>
                     );
                   })}
 
+                        {/* Стрелка направления ветра */}
+                        {weatherConditions && weatherConditions.isUse && weatherConditions.windSpeed > 0 && (
+                          <Group>
+                            {/* Подложка */}
+                            <Rect
+                              x={20} y={20}
+                              width={90} height={90}
+                              fill="rgba(0,0,0,0.45)"
+                              cornerRadius={8}
+                            />
+
+                            {/* Стрелка — вращается по wind_dir_deg */}
+                            {(() => {
+                              const cx = 65, cy = 65;
+                              const len = 15;
+                              // ветер ДУЕТ В эту сторону (метеорологический = откуда, поэтому +180)
+                              const rad = Math.PI * (weatherConditions.windDirection + 180) / 180;
+                              const x2 = cx + len * Math.sin(rad);
+                              const y2 = cy - len * Math.cos(rad);
+                              const x1 = cx - len * Math.sin(rad);
+                              const y1 = cy + len * Math.cos(rad);
+                              return (
+                                <Arrow
+                                  points={[x1, y1, x2, y2]}
+                                  pointerLength={8}
+                                  pointerWidth={6}
+                                  fill="#ff6b00"
+                                  stroke="#ff6b00"
+                                  strokeWidth={2}
+                                />
+                              );
+                            })()}
+
+                            <Text
+                              x={20} y={24}
+                              width={90}
+                              text="ветер"
+                              fontSize={10}
+                              fill="white"
+                              align="center"
+                            />
+                            <Text
+                              x={20} y={88}  
+                              width={90}
+                              text={`${weatherConditions.windSpeed.toFixed(1)} м/с`}
+                              fontSize={10}
+                              fill="#ff6b00"
+                              align="center"
+                            />
+                          </Group>
+                        )}
+                        
                 {showTaxonTrajectory &&
                   image &&
                   trajectoryData?.C?.map(

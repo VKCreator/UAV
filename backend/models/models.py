@@ -214,6 +214,7 @@ class LocalWeather(db.Model):
     is_use_api = db.Column(db.Boolean, default=True, nullable=False)
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
+    is_use_weather = db.Column(db.Boolean, default=True, nullable=False)
 
     # Связи
     flight_schemas = db.relationship("FlightSchema", back_populates="weather")
@@ -226,6 +227,7 @@ class LocalWeather(db.Model):
             "is_use_api": self.is_use_api,
             "latitude": self.latitude,
             "longitude": self.longitude,
+            "is_use_weather": self.is_use_weather
         }
 
 

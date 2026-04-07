@@ -513,7 +513,7 @@ const WeatherPage: React.FC = () => {
         <Grid size={{ xs: 12, md: 7 }}>
           <Paper elevation={0} sx={{ p: 2.5, border: "1px solid #e0e0e0", borderRadius: 2, background: "white" }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
-            Используемые сервисы погоды
+            Сервисы погоды для получения текущей погоды
         </Typography>
             {/* <Typography
               variant="caption"
@@ -538,7 +538,7 @@ const WeatherPage: React.FC = () => {
                 disabled={!hasCoords}
               />
               <ServiceCard
-                title="Яндекс Погода"
+                title="Яндекс.Погода"
                 priority={2}
                 state={services.yandex}
                 onRefresh={() => fetchService("yandex")}

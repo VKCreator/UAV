@@ -36,6 +36,7 @@ import Konva from "konva";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 import { HelpIconTooltip } from "../ui-widgets/HelpIconTooltip";
 import { api } from "../../api/client";
+import { FloatInput } from "../ui-widgets/FloatInput";
 
 interface StoryboardEditorProps {
   onClose: () => void;
@@ -495,45 +496,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     }
   };
 
-  useEffect(() => {
-    setStoryboardsData((prev) => {
-      if (
-        prev.recommended?.step_x !== undefined &&
-        prev.recommended?.step_x !== null
-      ) {
-        return prev;
-      }
-
-      return {
-        ...prev,
-        recommended: {
-          ...prev.recommended,
-          step_x: droneParams.frameWidthPlanned,
-        },
-      };
-    });
-  }, [droneParams.frameWidthPlanned]);
-
-  useEffect(() => {
-    setStoryboardsData((prev) => {
-      // Если step_y уже есть, не трогаем его
-      if (
-        prev.recommended?.step_y !== undefined &&
-        prev.recommended?.step_y !== null
-      ) {
-        return prev;
-      }
-
-      return {
-        ...prev,
-        recommended: {
-          ...prev.recommended,
-          step_y: droneParams.frameHeightPlanned,
-        },
-      };
-    });
-  }, [droneParams.frameHeightPlanned]);
-
   const generateRecommendedGridInSelection = (selection: {
     x: number;
     y: number;
@@ -577,7 +539,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
       rowIndex++;
     }
 
-    console.warn("Generated recommended grid points:", points);
+    // console.warn("Generated recommended grid points:", points);
     return points;
   };
 
@@ -844,40 +806,17 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                       <Typography variant="body2" color="text.secondary">
                         Шаг по ширине, м
                       </Typography>
-                    <TextField
-                      type="number"
-                      value={stepXInput}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "" || parseFloat(val) >= 0) {
-                          setStepXInput(val);
-                          const parsed = parseFloat(val);
-                          if (!isNaN(parsed) && parsed >= 0) {
-                            setIsNeedUpdateRecommended(true);
-                            setStoryboardsData((prev) => ({
-                              ...prev,
-                              recommended: {
-                                ...prev.recommended,
-                                step_x: parsed,
-                              },
-                            }));
-                          }
-                        }
-                      }}
-                      onBlur={() => {
-                        // при потере фокуса форматируем красиво
-                        const parsed = parseFloat(stepXInput);
-                        if (!isNaN(parsed)) {
-                          setStepXInput(parsed.toFixed(2));
-                        } else {
-                          setStepXInput(storyboardsData?.recommended?.step_x?.toFixed(2) ?? "");
-                        }
-                      }}
-                      inputProps={{ min: "1.00", step: "0.01" }}
-                      variant="outlined"
-                      size="small"
-                      sx={{ width: 120 }}
-                    />
+                      <FloatInput
+                        value={storyboardsData?.recommended?.step_x ?? 0}
+                        onChange={(val) => {
+                          setIsNeedUpdateRecommended(true);
+                          setStoryboardsData((prev) => ({
+                            ...prev,
+                            recommended: { ...prev.recommended, step_x: val },
+                          }));
+                        }}
+                        min={0.1}
+                      />
                     </Box>
                     <Box
                       display="flex"
@@ -887,40 +826,17 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                       <Typography variant="body2" color="text.secondary">
                         Шаг по высоте, м
                       </Typography>
-                    <TextField
-                      type="number"
-                      value={stepYInput}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "" || parseFloat(val) >= 0) {
-                          setStepYInput(val);
-                          const parsed = parseFloat(val);
-                          if (!isNaN(parsed) && parsed >= 0) {
-                            setIsNeedUpdateRecommended(true);
-                            setStoryboardsData((prev) => ({
-                              ...prev,
-                              recommended: {
-                                ...prev.recommended,
-                                step_y: parsed,
-                              },
-                            }));
-                          }
-                        }
-                      }}
-                      onBlur={() => {
-                        // при потере фокуса форматируем красиво
-                        const parsed = parseFloat(stepYInput);
-                        if (!isNaN(parsed)) {
-                          setStepYInput(parsed.toFixed(2));
-                        } else {
-                          setStepYInput(storyboardsData?.recommended?.step_y?.toFixed(2) ?? "");
-                        }
-                      }}
-                      inputProps={{ min: "1.00", step: "0.01" }}
-                      variant="outlined"
-                      size="small"
-                      sx={{ width: 120 }}
-                    />
+                      <FloatInput
+                        value={storyboardsData?.recommended?.step_y ?? 0}
+                        onChange={(val) => {
+                          setIsNeedUpdateRecommended(true);
+                          setStoryboardsData((prev) => ({
+                            ...prev,
+                            recommended: { ...prev.recommended, step_y: val },
+                          }));
+                        }}
+                        min={0.1}
+                      />
                     </Box>
 
                     {/* Кнопки снизу */}
@@ -1001,6 +917,39 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                   </Stack>
                 </Box>
               )}
+
+              {!isSelecting && !selection && isRecommended && (
+                <Alert
+                  severity="info"
+                  sx={{
+                    fontSize: "0.7rem", // мелкий текст
+                    borderRadius: 1,
+                    p: 1.5, // паддинг
+                    alignItems: "center",
+                  }}
+                >
+                  Выберите область исследования и нажмите «Применить», чтобы
+                  выполнить раскадровку.
+                </Alert>
+              )}
+
+              {selection &&
+                isRecommended &&
+                needUpdateRecommended &&
+                storyboardsData.recommended.applied && (
+                  <Alert
+                    severity="warning"
+                    sx={{
+                      fontSize: "0.7rem", // мелкий текст
+                      borderRadius: 1,
+                      p: 1.5, // паддинг
+                      alignItems: "center",
+                    }}
+                  >
+                    Нажмите «Применить» для обновления коллекции кадров.
+                  </Alert>
+              )}
+
               {/* ---------------- Свойства раскадровки ---------------- */}
               <Box
                 sx={{
@@ -1129,7 +1078,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                   sx={{ textTransform: "uppercase", letterSpacing: 0.5 }}
                   gutterBottom
                 >
-                  Параметры БПЛА
+                  Параметры БПЛА и съёмки
                 </Typography>
 
                 <Stack spacing={1.5} mt={1}>
@@ -1183,40 +1132,33 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                         : "—"}
                     </Typography>
                   </Box>
+                  <Box
+                    display="flex"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    gap={1}
+                  >
+                    <Box display="flex" alignItems="center" gap={2}>
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            bgcolor: "#009e2f",
+                          }}
+                        />
+                        <Typography variant="body2" color="text.secondary">
+                          Расстояние съёмки
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" fontWeight={500}>
+                        {droneParams?.plannedDistance
+                          ? `${droneParams.plannedDistance.toFixed(2)} м`
+                          : "—"}
+                      </Typography>
+                    </Box>
                 </Stack>
               </Box>
-
-              {!isSelecting && !selection && isRecommended && (
-                <Alert
-                  severity="info"
-                  sx={{
-                    fontSize: "0.7rem", // мелкий текст
-                    borderRadius: 1,
-                    p: 1.5, // паддинг
-                    alignItems: "center",
-                  }}
-                >
-                  Выберите область исследования и нажмите «Применить», чтобы
-                  выполнить раскадровку.
-                </Alert>
-              )}
-
-              {selection &&
-                isRecommended &&
-                needUpdateRecommended &&
-                storyboardsData.recommended.applied && (
-                  <Alert
-                    severity="warning"
-                    sx={{
-                      fontSize: "0.7rem", // мелкий текст
-                      borderRadius: 1,
-                      p: 1.5, // паддинг
-                      alignItems: "center",
-                    }}
-                  >
-                    Нажмите «Применить» для обновления коллекции кадров.
-                  </Alert>
-                )}
 
               {isOptimal && !trajectoryData && (
                 <Alert
@@ -1310,10 +1252,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
               }
               isSelecting={isSelecting}
               activeType={activeType}
-              width_m={droneParams.frameWidthBase}
-              height_m={droneParams.frameHeightBase}
               selection={selection}
               setSelection={setSelection}
+              droneParams={droneParams}
             />
           </Box>
           <Box flexShrink={0}>

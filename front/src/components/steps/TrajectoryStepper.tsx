@@ -578,7 +578,7 @@ const TrajectoryStepper = () => {
           ...prev,
           selectedDroneId: String(selectedDrone.id),
           uavCameraParams: newCameraParams,
-          speed: (selectedDrone.min_speed ?? 0) * 5,
+          speed: (selectedDrone.min_speed + 5) * 5,
           batteryTime: selectedDrone.battery_life ?? 0,
           windResistance: selectedDrone.max_wind_resistance ?? 0,
           model: selectedDrone.model,
@@ -664,6 +664,45 @@ const TrajectoryStepper = () => {
     fetchWeather();
     // Запускается один раз при монтировании
   }, []);
+
+  React.useEffect(() => {
+    setStoryboardsData((prev) => {
+      // if (
+      //   prev.recommended?.step_x !== undefined &&
+      //   prev.recommended?.step_x !== null
+      // ) {
+      //   return prev;
+      // }
+
+      return {
+        ...prev,
+        recommended: {
+          ...prev.recommended,
+          step_x: droneParams.frameWidthPlanned,
+        },
+      };
+    });
+  }, [droneParams.frameWidthPlanned]);
+
+  React.useEffect(() => {
+    setStoryboardsData((prev) => {
+      // // Если step_y уже есть, не трогаем его
+      // if (
+      //   prev.recommended?.step_y !== undefined &&
+      //   prev.recommended?.step_y !== null
+      // ) {
+      //   return prev;
+      // }
+
+      return {
+        ...prev,
+        recommended: {
+          ...prev.recommended,
+          step_y: droneParams.frameHeightPlanned,
+        },
+      };
+    });
+  }, [droneParams.frameHeightPlanned]);
 
   // ── Навигация по шагам ────────────────────────────────────────────────────
 

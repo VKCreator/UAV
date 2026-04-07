@@ -25,6 +25,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Konva from "konva";
 
 import type { Point, Polygon, ImageData, TrajectoryPoint } from "./scene.types";
+import { DroneParams, Weather } from "../../types/uav.types";
 
 const STAGE_WIDTH = 500;
 const STAGE_HEIGHT = 400;
@@ -47,6 +48,7 @@ interface SceneShowerProps {
 
   showView: () => void;
   flightLineY: number;
+  weatherConditions?: Weather;
 }
 
 const SceneShower = forwardRef<
@@ -69,7 +71,8 @@ const SceneShower = forwardRef<
       isLoadingOptimization = false,
 
       showView,
-      flightLineY
+      flightLineY,
+      weatherConditions = {}
     },
     ref,
   ) => {
@@ -114,8 +117,8 @@ const SceneShower = forwardRef<
           <Line
             key={`v-${i}`}
             points={[x, imageY, x, imageY + imgHeight]}
-            stroke="rgba(255,255,255,0.8)"
-            strokeWidth={1}
+            stroke="rgba(255,255,255,0.6)"
+            strokeWidth={2}
           />,
         );
       }
@@ -126,8 +129,8 @@ const SceneShower = forwardRef<
           <Line
             key={`h-${i}`}
             points={[imageX, y, imageX + imgWidth, y]}
-            stroke="rgba(255,255,255,0.8)"
-            strokeWidth={1}
+            stroke="rgba(255,255,255,0.6)"
+            strokeWidth={2}
           />,
         );
       }
@@ -574,7 +577,7 @@ const SceneShower = forwardRef<
                       }),
                     );
 
-                    const flightPoints: TrajectoryPoint[] = (taxon.flight_points ?? []).map(
+                    let flightPoints: TrajectoryPoint[] = (taxon.flight_points ?? []).map(
                       (p: [number, number], i: number) => ({
                         x: p[0] / meterPerPixelX,
                         y: image.height - p[1] / meterPerPixelY,
@@ -583,6 +586,8 @@ const SceneShower = forwardRef<
                       }),
                     );
 
+                    // flightPoints = flightPoints.slice(1);
+ 
                     return (
                       <Fragment key={`taxon-${idx}`}>
                         {/* База */}
@@ -683,6 +688,96 @@ const SceneShower = forwardRef<
                           );
                         })}
 
+
+                      {weatherConditions && weatherConditions.isUse && flightPoints.map((fp, i) => {
+                        const tp = taxonPoints[i];
+                        console.info(fp)
+                        // Предыдущая точка: если i=0 — это база таксона, иначе предыдущая flight_point
+                        const prevPoint = i === 0
+                          ? { x: baseX, y: baseY } 
+                          : flightPoints[i - 1];
+
+                         const prevTaxonPoint = i === 0
+                          ? { x: baseX, y: baseY } 
+                          : taxonPoints[i - 1];
+
+                        return (
+                          <Fragment key={`flight-point-${idx}-${i}`}>
+                            {tp && (() => {
+                              const fpx = fp.x * scaleToFit + imageX;
+                              const fpy = fp.y * scaleToFit + imageY;
+                              const tpx = prevTaxonPoint.x * scaleToFit + imageX;
+                              const tpy = prevTaxonPoint.y * scaleToFit + imageY;
+                              const ppx = prevPoint.x * scaleToFit + imageX;
+                              const ppy = prevPoint.y * scaleToFit + imageY;
+
+                              const currenttpx = tp.x * scaleToFit + imageX;
+                              const currenttpy = tp.y * scaleToFit + imageY;
+ 
+                              const windRad = Math.PI * (weatherConditions.windDirection + 180) / 180;
+                              const windScale = 15;
+                              const wx = Math.sin(windRad) * windScale;
+                              const wy = -Math.cos(windRad) * windScale;
+
+                              return (
+                                <>
+                                  {/* Сторона 1: откуда летим → flight_point (курс носа дрона) */}
+                                  {/* <Line
+                                    points={[ppx, ppy, fpx, fpy]}
+                                    stroke="#ff6b00"
+                                    strokeWidth={5}
+                                    dash={[4, 4]}
+                                    opacity={0.8}
+                                  /> */}
+
+                                  <Line
+                                    points={[fpx, fpy, currenttpx, currenttpy]}
+                                    stroke="#ff6b00"
+                                    strokeWidth={5}
+                                    dash={[4, 4]}
+                                    opacity={0.6}
+                                  /> 
+
+                                  {/* Сторона 2: откуда летим → target_point (путевой вектор по земле)*/}
+                                  <Line
+                                    points={[fpx, fpy, tpx, tpy]}
+                                    stroke="#ff6b00"
+                                    strokeWidth={5}
+                                    dash={[4, 4]}
+                                    opacity={0.6}
+                                  /> 
+
+                                  {/* Сторона 3: вектор ветра — от target_point до flight_point */}
+                                  {/* <Line
+                                    points={[tpx, tpy, fpx, fpy]}
+                                    stroke="#ff6b00"
+                                    strokeWidth={5}
+                                    dash={[4, 4]}
+                                    opacity={0.8}
+                                  /> */}
+                                </>
+                              );
+                            })()}
+
+                            {/* Сама flight_point */}
+                            <Circle
+                              x={fp.x * scaleToFit + imageX}
+                              y={fp.y * scaleToFit + imageY}
+                              radius={7}
+                              fill="#ff6b00"
+                              opacity={0.85}
+                            />
+                            <Text
+                              x={fp.x * scaleToFit + imageX - 4}
+                              y={fp.y * scaleToFit + imageY - 6}
+                              text={`${i + 1}`}
+                              fontSize={10}
+                              fill="white"
+                            />
+                          </Fragment>
+                        );
+                      })}
+
                         {/* Точки таксона и номера */}
                         {taxonPoints.map((p, i) => (
                           <Fragment key={`taxon-point-${idx}-${i}`}>
@@ -702,78 +797,8 @@ const SceneShower = forwardRef<
                           </Fragment>
                         ))}
 
-                        {/* flight_points — куда реально лететь (оранжевые) */}
-                        {flightPoints.map((fp, i) => {
-                          const tp = taxonPoints[i]; // соответствующая целевая точка
-                          return (
-                            <Fragment key={`flight-point-${idx}-${i}`}>
-                              {/* Линия от flight_point к target point — это и есть "треугольник" */}
-                              {tp && (() => {
-                                const fpx = fp.x * scaleToFit + imageX;
-                                const fpy = fp.y * scaleToFit + imageY;
-                                const tpx = tp.x * scaleToFit + imageX;
-                                const tpy = tp.y * scaleToFit + imageY;
-
-                                // вектор ветра в пикселях (для визуализации масштабируем)
-                                const windRad = Math.PI * (90 + 180) / 180;
-                                const windScale = 15; // длина вектора ветра на экране
-                                const wx = Math.sin(windRad) * windScale;
-                                const wy = -Math.cos(windRad) * windScale;
-
-                                return (
-                                  <>
-                                    {/* курс дрона: flight_point → target */}
-                                    <Line
-                                      points={[fpx, fpy, tpx, tpy]} 
-                                      stroke="#ff6b00"
-                                      strokeWidth={1}
-                                      dash={[4, 4]}
-                                      opacity={0.8}
-                                    />
-                                    {/* вектор ветра от target */}
-                                    <Arrow
-                                      points={[tpx, tpy, tpx + wx, tpy + wy]}
-                                      pointerLength={5}
-                                      pointerWidth={4}
-                                      stroke="#aaaaff"
-                                      fill="#aaaaff"
-                                      strokeWidth={1}
-                                      dash={[3, 3]}
-                                      opacity={0.7}
-                                    />
-                                    {/* замыкаем треугольник */}
-                                    <Line
-                                      points={[tpx + wx, tpy + wy, fpx, fpy]}
-                                      stroke="#ffffff"
-                                      strokeWidth={0.5}
-                                      dash={[2, 4]}
-                                      opacity={0.4}
-                                    />
-                                  </>
-                                );
-                              })()}
-
-                              {/* Сама flight_point */}
-                              <Circle
-                                x={fp.x * scaleToFit + imageX}
-                                y={fp.y * scaleToFit + imageY}
-                                radius={7}
-                                fill="#ff6b00"
-                                opacity={0.85}
-                              />
-                              <Text
-                                x={fp.x * scaleToFit + imageX - 4}
-                                y={fp.y * scaleToFit + imageY - 6}
-                                text={`${i + 1}`}
-                                fontSize={10}
-                                fill="white"
-                              />
-                            </Fragment>
-                          );
-                        })}
-
                         {/* Стрелка направления ветра */}
-                        {5 > 0 && (
+                        {weatherConditions && weatherConditions.isUse && weatherConditions.windSpeed > 0 && (
                           <Group>
                             {/* Подложка */}
                             <Rect
@@ -786,9 +811,9 @@ const SceneShower = forwardRef<
                             {/* Стрелка — вращается по wind_dir_deg */}
                             {(() => {
                               const cx = 65, cy = 65;
-                              const len = 28;
+                              const len = 15;
                               // ветер ДУЕТ В эту сторону (метеорологический = откуда, поэтому +180)
-                              const rad = Math.PI * (180 + 180) / 180;
+                              const rad = Math.PI * (weatherConditions.windDirection + 180) / 180;
                               const x2 = cx + len * Math.sin(rad);
                               const y2 = cy - len * Math.cos(rad);
                               const x1 = cx - len * Math.sin(rad);
@@ -816,7 +841,7 @@ const SceneShower = forwardRef<
                             <Text
                               x={20} y={88}  
                               width={90}
-                              text={`${5} м/с`}
+                              text={`${weatherConditions.windSpeed.toFixed(1)} м/с`}
                               fontSize={10}
                               fill="#ff6b00"
                               align="center"

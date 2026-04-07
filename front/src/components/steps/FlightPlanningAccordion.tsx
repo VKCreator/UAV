@@ -25,15 +25,16 @@ import { Drone } from "../../api/client";
 
 import UavSelector from "../ui-widgets/UavSelector";
 import UavParamsDialog from "../ui-widgets/UavParamsDialog";
+import { FloatInput } from "../ui-widgets/FloatInput";
+
+
 import type { Polygon, Point, ImageData } from "../draw/scene.types";
 import type { DroneParams, UAVCameraParams } from "../../types/uav.types";
 
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 import { DeleteButton } from "../ui-widgets/DeleteButton";
-import HorizontalRuleIcon from "@mui/icons-material/HorizontalRule";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import { Edit } from "@mui/icons-material";
 
 import { keyframes } from "@mui/system";
 
@@ -118,7 +119,7 @@ export default function FlightPlanningAccordion({
         resolutionHeight: drone.resolution_height,
         useFromReference: true,
       },
-      speed: drone.min_speed,
+      speed: drone.min_speed + 5,
       batteryTime: drone.battery_life,
       windResistance: drone.max_wind_resistance,
       model: drone.model,
@@ -230,19 +231,12 @@ export default function FlightPlanningAccordion({
               <Typography fontWeight={600} sx={{ pb: 2 }}>
                 Параметры съёмки базового слоя
               </Typography>
-              <TextField
+              <FloatInput
                 fullWidth
                 label="Расстояние от объекта до камеры, м"
-                type="number"
-                size="small"
                 value={droneParams.distance}
-                onChange={(e) => {
-                  setDroneParams((prev) => ({
-                    ...prev,
-                    distance: Number(e.target.value) || 0,
-                  }));
-                }}
-                inputProps={{ step: 0.1, min: 0.1 }}
+                onChange={(val) => setDroneParams((prev) => ({ ...prev, distance: val }))}
+                min={0.1}
                 sx={{ mb: 1.5 }}
               />
               <Typography variant="body2" color="text.secondary">
@@ -255,21 +249,13 @@ export default function FlightPlanningAccordion({
               <Typography fontWeight={600} sx={{ pb: 2 }}>
                 Параметры планируемой съёмки
               </Typography>
-              <TextField
+              <FloatInput
                 fullWidth
                 label="Расстояние от объекта до камеры, м"
-                type="number"
-                size="small"
                 value={droneParams.plannedDistance}
-                onChange={(e) => {
-                  setDroneParams((prev) => ({
-                    ...prev,
-                    plannedDistance: Number(e.target.value) || 0,
-                  }));
-                }}
-                slotProps={{
-                  htmlInput: { step: 0.1, min: 0.1, max: droneParams.distance },
-                }}
+                onChange={(val) => setDroneParams((prev) => ({ ...prev, plannedDistance: val }))}
+                min={0.1}
+                max={droneParams.distance}
                 sx={{ mb: 1.5 }}
               />
               <Typography variant="body2" color="text.secondary">

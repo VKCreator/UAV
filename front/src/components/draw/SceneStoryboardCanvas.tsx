@@ -19,6 +19,7 @@ const STAGE_HEIGHT = 600;
 
 const TAXON_POINT_RADIUS = 10;
 const BASE_RADIUS = 4;
+
 interface SceneCanvasProps {
   imageData: { imageUrl: string };
 
@@ -43,11 +44,9 @@ interface SceneCanvasProps {
 
   activeType: any;
 
-  width_m: number;
-  height_m: number;
-
   selection: any;
   setSelection: React.Dispatch<React.SetStateAction<any>>;
+  droneParams: any;
 }
 
 const getOffsetX = (num: number) => {
@@ -72,16 +71,17 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
   applyOptimalStoryboard,
   isSelecting,
   activeType,
-  width_m,
-  height_m,
   selection,
   setSelection,
+  droneParams
 }) => {
   const stageRef = useRef<any>(null);
   const [image] = useImage(imageData.imageUrl);
 
-  const [scale] = useState(1);
-  const [position] = useState({ x: 0, y: 0 });
+  // const [scale] = useState(1);
+  // const [position] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
 
   const scaleToFit = image
     ? Math.min(
@@ -94,13 +94,20 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
   const imageX = image ? (STAGE_WIDTH - image.width * scaleToFit) / 2 : 0;
   const imageY = image ? (STAGE_HEIGHT - image.height * scaleToFit) / 2 : 0;
 
+  const GRID_COLS = droneParams.frameWidthBase / droneParams.frameWidthPlanned;
+  const GRID_ROWS =
+      droneParams.frameHeightBase / droneParams.frameHeightPlanned;
+
+    const width_m = droneParams.frameWidthBase;
+    const height_m = droneParams.frameHeightBase;
+
   const [isClickSelecting, setIsClickSelecting] = useState(false);
 
   const handleMouseDown = (e: any) => {
     if (!isSelecting || activeType != "recommended") return;
 
     const stage = e.target.getStage();
-    const pointer = stage.getPointerPosition();
+    const pointer = stage.getRelativePointerPosition();
 
     if (!pointer) return;
 
@@ -122,7 +129,7 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
     if (!isClickSelecting || !selection) return;
 
     const stage = e.target.getStage();
-    const pointer = stage.getPointerPosition();
+    const pointer = stage.getRelativePointerPosition();
 
     if (!pointer) return;
 
@@ -142,8 +149,41 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
     setIsClickSelecting(false);
   };
 
+  const handleDragMove = (e: any) => {
+    const stage = e.target;
+    setPosition({
+      x: stage.x(),
+      y: stage.y(),
+    });
+  };
+
   const handleRectClick = (i: number) => {
     // console.info(i)
+  };
+
+    const handleWheel = (e: any) => {
+    e.evt.preventDefault();
+
+    const scaleBy = 1.1;
+    const stage = e.target.getStage();
+    const oldScale = scale;
+
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+
+    const mousePointTo = {
+      x: (pointer.x - position.x) / oldScale,
+      y: (pointer.y - position.y) / oldScale,
+    };
+
+    const direction = e.evt.deltaY > 0 ? -1 : 1;
+    const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
+
+    setScale(newScale);
+    setPosition({
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    });
   };
 
   const getArrowPoints = (
@@ -203,11 +243,48 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
     return arrows;
   };
 
+
+    // Генерация линий сетки
+    const renderGrid = () => {
+      if (!image) return null;
+      const lines: JSX.Element[] = [];
+      const imgWidth = image.width * scaleToFit;
+      const imgHeight = image.height * scaleToFit;
+
+      // Вертикальные линии
+      for (let i = 1; i < GRID_COLS; i++) {
+        const x = imageX + (imgWidth / GRID_COLS) * i;
+        lines.push(
+          <Line
+            key={`v-${i}`}
+            points={[x, imageY, x, imageY + imgHeight]}
+            stroke="rgba(255,255,255,0.6)"
+            strokeWidth={2}
+          />,
+        );
+      }
+  
+      // Горизонтальные линии
+      for (let i = 1; i < GRID_ROWS; i++) {
+        const y = imageY + imgHeight - (imgHeight / GRID_ROWS) * i;
+        lines.push(
+          <Line
+            key={`h-${i}`}
+            points={[imageX, y, imageX + imgWidth, y]}
+            stroke="rgba(255,255,255,0.6)"
+            strokeWidth={2}
+          />,
+        );
+      }
+  
+      return lines;
+    };
+
   useEffect(() => {
     const container = stageRef.current?.container();
     if (!container) return;
 
-    container.style.cursor = isSelecting ? "pointer" : "default";
+    container.style.cursor = isSelecting ? "pointer" : "grab";
   }, [isSelecting]);
 
   return (
@@ -220,7 +297,10 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
         scaleY={scale}
         x={position.x}
         y={position.y}
-        // draggable={!isSelecting}
+        onWheel={handleWheel}
+        style={{cursor: "grab"}}
+        draggable={!isSelecting}
+        onDragMove={handleDragMove}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -235,6 +315,8 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
               scaleY={scaleToFit}
             />
           )}
+
+          {renderGrid()}
 
           {selection && activeType === "recommended" && (
             <Rect
@@ -529,7 +611,7 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
                 </Fragment>
               );
             })}
-        </Layer>
+          </Layer>
       </Stage>
     </Box>
   );

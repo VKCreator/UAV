@@ -16,7 +16,8 @@ import {
   Tooltip,
   Typography,
   Link,
-  CircularProgress
+  CircularProgress,
+  Alert
 } from "@mui/material";
 
 import SpeedIcon from "@mui/icons-material/Speed";
@@ -33,6 +34,8 @@ import IconButton from "@mui/material/IconButton";
 import { api } from "../../api/client";
 import { LocationPickerDialog } from "./LocationPickerDialog";
 import type { FlightSettings } from "../../types/uav.types";
+
+import { FloatInput } from "./FloatInput";
 
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 
@@ -153,7 +156,7 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
 
         notifications.show("Данные о погоде обновлены (Weatherbit)", {
           severity: "success",
-          autoHideDuration: 2000,
+          autoHideDuration: 5000,
         });
       } catch (alternativeError) {
         // Если Weatherbit недоступен, пробуем Яндекс Погоду
@@ -218,7 +221,9 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
 
 
   return (
-    <Dialog open={open} onClose={handleDialogClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleDialogClose} maxWidth="sm" fullWidth   PaperProps={{
+    sx: { minHeight: 500 }
+  }}>
       <DialogTitle sx={{ pr: 5 }}>
         Параметры и условия полёта БПЛА
         <IconButton
@@ -254,76 +259,52 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
             >
               Выбран БПЛА: {form.model}
             </Typography>{" "}
-            <TextField
+            <FloatInput
               label="Рабочая скорость, м/с"
               fullWidth
-              size="small"
-              type="number"
               value={form.flightSpeed}
-              onChange={num("flightSpeed")}
+              onChange={(val) => num("flightSpeed")({ target: { value: String(val) } } as any)}
               error={!!errors.flightSpeed}
               helperText={errors.flightSpeed}
               sx={{ mb: 1.5 }}
               InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SpeedIcon />
-                  </InputAdornment>
-                ),
+                startAdornment: <InputAdornment position="start"><SpeedIcon /></InputAdornment>,
               }}
             />
-            <TextField
+            <FloatInput
               label="Время работы аккумулятора, мин"
               fullWidth
-              size="small"
-              type="number"
               value={form.batteryTime}
-              onChange={num("batteryTime")}
+              onChange={(val) => num("batteryTime")({ target: { value: String(val) } } as any)}
               error={!!errors.batteryTime}
               helperText={errors.batteryTime}
               sx={{ mb: 1.5 }}
               InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <BatteryChargingFullIcon />
-                  </InputAdornment>
-                ),
+                startAdornment: <InputAdornment position="start"><BatteryChargingFullIcon /></InputAdornment>,
               }}
             />
-            <TextField
+            <FloatInput
               label="Время зависания для фото, сек"
               fullWidth
-              size="small"
-              type="number"
               value={form.hoverTime}
-              onChange={num("hoverTime")}
+              onChange={(val) => num("hoverTime")({ target: { value: String(val) } } as any)}
               error={!!errors.hoverTime}
               helperText={errors.hoverTime}
               sx={{ mb: 1.5 }}
               InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <HourglassBottomIcon />
-                  </InputAdornment>
-                ),
+                startAdornment: <InputAdornment position="start"><HourglassBottomIcon /></InputAdornment>,
               }}
             />
-            <TextField
+            <FloatInput
               label="Сопротивляемость ветру, м/с"
               fullWidth
-              size="small"
-              type="number"
               value={form.windResistance}
-              onChange={num("windResistance")}
+              onChange={(val) => num("windResistance")({ target: { value: String(val) } } as any)}
               error={!!errors.windResistance}
               helperText={errors.windResistance}
               sx={{ mb: 1.5 }}
               InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <ShieldIcon />
-                  </InputAdornment>
-                ),
+                startAdornment: <InputAdornment position="start"><ShieldIcon /></InputAdornment>,
               }}
             />
             <FormControlLabel
@@ -345,55 +326,48 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
 
         {tab === 1 && (
           <Box>
-            <TextField
-              label="Скорость ветра, м/с"
+                        <Typography
+              // variant="h6"
+              sx={{
+                // fontWeight: "bold",
+                mb: 3,
+                color: "text.secondary", // Цвет по умолчанию
+              }}
+            >
+              Установите значение скорости ветра и направления ветра вручную или получите данные о погоде со сторонних сервисов.
+            </Typography>{" "}
+            <FloatInput
+              label="Скорость ветра, м/с" 
               fullWidth
-              size="small"
-              type="number"
-              value={form.windSpeed.toFixed(2)}
-              onChange={num("windSpeed")}
+              value={form.windSpeed}
+              onChange={(val) => num("windSpeed")({ target: { value: String(val) } } as any)}
               error={!!errors.windSpeed}
               helperText={errors.windSpeed}
               disabled={form.useWeatherApi}
               sx={{ mb: 1.5 }}
               InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <AirIcon />
-                  </InputAdornment>
-                ),
+                startAdornment: <InputAdornment position="start"><AirIcon /></InputAdornment>,
                 endAdornment: isLoadingWeather && (
-                  <InputAdornment position="end">
-                    <CircularProgress color="inherit" size={20} />
-                  </InputAdornment>
+                  <InputAdornment position="end"><CircularProgress color="inherit" size={20} /></InputAdornment>
                 ),
               }}
             />
-            <TextField
+            <FloatInput
               label="Направление ветра, °"
               fullWidth
-              size="small"
-              type="number"
               value={form.windDirection}
-              onChange={num("windDirection")}
+              onChange={(val) => num("windDirection")({ target: { value: String(val) } } as any)}
               error={!!errors.windDirection}
               helperText={errors.windDirection}
               disabled={form.useWeatherApi}
               sx={{ mb: 1.5 }}
               InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <ExploreIcon />
-                  </InputAdornment>
-                ),
+                startAdornment: <InputAdornment position="start"><ExploreIcon /></InputAdornment>,
                 endAdornment: isLoadingWeather && (
-                  <InputAdornment position="end">
-                    <CircularProgress color="inherit" size={20} />
-                  </InputAdornment>
+                  <InputAdornment position="end"><CircularProgress color="inherit" size={20} /></InputAdornment>
                 ),
               }}
             />
-
             <TextField
               label="Местоположение"
               fullWidth
@@ -474,6 +448,9 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
                 </Link>
               </Typography>
             </Box>
+            <Alert severity="info" sx={{ mt: 2, alignItems: "center" }}>
+              Нажмите «Применить» после обновления данных.
+            </Alert>
           </Box>
         )}
       </DialogContent>

@@ -213,6 +213,9 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       batteryTime: droneParams.batteryTime,
       obstacles: [],
       windResistance: droneParams.windResistance,
+      windSpeed: weatherConditions.windSpeed,
+      windDirection: weatherConditions.windDirection,
+      isUseWeather: weatherConditions.isUse
     };
 
     try {
@@ -285,6 +288,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showObstacles={true}
             showTaxonTrajectory={false}
             flightLineY={flightLineY}
+            weatherConditions={weatherConditions}
           />
         );
       case 2:
@@ -305,6 +309,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showTaxonTrajectory={true}
             isLoadingOptimization={isLoadingOptimization}
             flightLineY={flightLineY}
+            weatherConditions={weatherConditions}
           />
         );
       case 3:
@@ -325,6 +330,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showTaxonTrajectory={false}
             isLoadingOptimization={isLoadingOptimization}
             flightLineY={flightLineY}
+            weatherConditions={weatherConditions}
           />
         );
       default:
@@ -502,7 +508,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
               ) : (
                 <Alert severity="success" sx={{ alignItems: "center", mt: 1, mb: 1.5 }}>
                   Скорость ветра ({(weatherConditions.windSpeed).toFixed(1)} м/с) в окрестности указанной местности в пределах нормы при
-                  ветроустойчивости БПЛА {droneParams.windResistance} м/с. Влияние ветра на полёт минимально.
+                  ветроустойчивости БПЛА {droneParams.windResistance} м/с.
                 </Alert>
               )}
 
@@ -646,6 +652,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             trajectoryData={getTrajectoryData()}
             setTrajectoryData={setTrajectoryData}
             flightLineY={flightLineY}
+            weatherConditions={weatherConditions}
           />
         </DialogContent>
       </Dialog>
@@ -703,10 +710,10 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             windSpeed: form.windSpeed,
             windDirection: form.windDirection,
             useWeatherApi: form.useWeatherApi,
-            isUse: form.windSpeed > form.windResistance
+            isUse: isConsiderWeather
           });
 
-          setConsiderWeather(form.windSpeed > form.windResistance);
+          // setConsiderWeather(form.windSpeed > form.windResistance);
         }}
       />
       <OptimizationDetailDialog
