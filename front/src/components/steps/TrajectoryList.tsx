@@ -59,7 +59,7 @@ export default function TrajectoryList() {
   const { confirm } = useDialogs();
 
   const [searchParams, setSearchParams] = useSearchParams();
-  useDocumentTitle("Схемы полётов | SkyPath Service");
+  useDocumentTitle("Полётные карты | SkyPath Service");
 
   const [searchText, setSearchText] = React.useState("");
   const page = Number(searchParams.get("page") ?? 0);
@@ -226,7 +226,7 @@ export default function TrajectoryList() {
     () => [
       {
         field: "schemaName",
-        headerName: "Имя схемы",
+        headerName: "Имя карты",
         width: 180,
         minWidth: 180,
         renderCell: (params) => {
@@ -467,7 +467,7 @@ export default function TrajectoryList() {
                   color="error"
                   onClick={async (e) => {
                     e.stopPropagation();
-                    const confirmed = await confirm("Вы действительно хотите удалить схему?", {
+                    const confirmed = await confirm("Вы действительно хотите удалить карту?", {
                       title: "Подтверждение",
                       okText: "Да",
                       cancelText: "Нет",
@@ -486,7 +486,7 @@ export default function TrajectoryList() {
                       handleDelete();
 
                     } catch {
-                      notifications.show("Ошибка при удалении схемы",
+                      notifications.show("Ошибка при удалении карты",
                         {
                           severity: "error",
                           autoHideDuration: 5000,
@@ -507,7 +507,7 @@ export default function TrajectoryList() {
 
   return (
     <PageContainer
-      title="Схемы полётов"
+      title="Полётные карты"
       actions={
         <Stack direction="row" alignItems="center" spacing={1} mb={0}>
           <TextField

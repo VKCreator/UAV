@@ -124,7 +124,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 export default function TrajectoryDetails() {
   const navigate = useNavigate();
-  useDocumentTitle("Просмотр схемы | SkyPath Service");
+  useDocumentTitle("Просмотр карты | SkyPath Service");
   const [searchParams] = useSearchParams();
   const { id } = useParams<{ id: string }>();
 
@@ -153,7 +153,7 @@ export default function TrajectoryDetails() {
     api.schemas
       .getById(Number(id))
       .then((data: any) => setSchemaData(data))
-      .catch(() => setError("Не удалось загрузить схему полёта"))
+      .catch(() => setError("Не удалось загрузить карту полёта"))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -313,7 +313,7 @@ export default function TrajectoryDetails() {
       >
         <CircularProgress />
         <Typography variant="body2" color="text.secondary">
-          Загрузка схемы полёта…
+          Загрузка полётной карты…
         </Typography>
       </Box>
     );
@@ -468,7 +468,7 @@ export default function TrajectoryDetails() {
         >
           <CircularProgress />
           <Typography variant="body2" color="text.secondary">
-            Формирование кадров раскадровки…
+            Формирование кадров…
           </Typography>
         </Box>
       )}

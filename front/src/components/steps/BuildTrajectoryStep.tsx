@@ -139,14 +139,14 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
             >
               <Typography variant="h6">Схема полёта</Typography>
 
-              <Box sx={{ display: "flex", gap: 1 }}>
+              <Box sx={{ display: "flex", gap: 0.5 }}>
                 <Tooltip title="Редактировать схему" enterDelay={500}>
                   <IconButton
                     color="primary"
                     onClick={() => openEditor()}
                     aria-label="Редактор схемы"
                   >
-                    <ModeEditIcon />
+                    <ModeEditIcon fontSize="small"/>
                   </IconButton>
                 </Tooltip>
 
@@ -156,7 +156,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                     onClick={openViewer}
                     aria-label="Просмотр схемы"
                   >
-                    <VisibilityIcon />
+                    <VisibilityIcon fontSize="small"/>
                   </IconButton>
                 </Tooltip>
 
@@ -167,7 +167,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                     onClick={() => setIsLegendOpen(true)}
                     aria-label="Легенда"
                   >
-                    <InfoIcon />
+                    <InfoIcon fontSize="small"/>
                   </IconButton>
                 </Tooltip>
 
@@ -179,7 +179,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                       aria-label="Очистить схему"
                       disabled={points.length === 0 && obstacles.length === 0}
                     >
-                      <DeleteIcon />
+                      <DeleteIcon fontSize="small"/>
                     </IconButton>
                   </span>
                 </Tooltip>
@@ -192,7 +192,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                       aria-label="Скачать схему"
                       disabled={points.length === 0}
                     >
-                      <DownloadIcon />
+                      <DownloadIcon fontSize="small"/>
                     </IconButton>
                   </span>
                 </Tooltip>
@@ -308,7 +308,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
             mode={editorMode}
             imageData={imageData}
             droneParams={droneParams}
-            sceneTitle="Редактор схемы полётов"
+            sceneTitle="Редактор схемы полёта"
             points={points}
             setPoints={setPoints}
             obstacles={obstacles}
@@ -327,7 +327,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
             onClose={closeViewer}
             imageData={imageData}
             droneParams={droneParams}
-            sceneTitle="Просмотр схемы полётов"
+            sceneTitle="Просмотр схемы полёта"
             points={points}
             setPoints={setPoints}
             obstacles={obstacles}

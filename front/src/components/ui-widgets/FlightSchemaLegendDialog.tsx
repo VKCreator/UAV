@@ -315,7 +315,7 @@ const FlightSchemaLegendDialog: React.FC<FlightSchemaLegendDialogProps> = ({
           pb: 1,
         }}
       >
-        Легенда схемы полёта
+        Легенда карты полёта
         <IconButton onClick={onClose} size="small" aria-label="Закрыть">
           <CloseIcon />
         </IconButton>

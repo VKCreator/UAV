@@ -45,6 +45,7 @@ interface StoryboardEditorProps {
   points: any[];
   obstacles: any[];
   trajectoryData?: any;
+  trajectoryData2?: any;
 
   droneParams: DroneParams;
 
@@ -86,10 +87,22 @@ const typeConfigs: Record<
       "Формируется на основе всей площади поверхности исследуемого объекта.",
   },
   optimal: {
-    label: "Оптимальная",
+    label: "Оптимальная (НП)",
     icon: <AutoAwesomeIcon fontSize="small" />,
     description:
-      "Строится на основе направления оптимальной траектории полёта.",
+      "Строится на основе направления оптимальной траектории полёта по методу низкой плотности.",
+  },
+  optimal_big_density: {
+    label: "Оптимальная (ВП)",
+    icon: <AutoAwesomeIcon fontSize="small" />,
+    description:
+      "Строится на основе направления оптимальной траектории полёта по методу высокой плотности.",
+  },
+      optimal_combi: {
+    label: "Оптимальная (Комби)",
+    icon: <AutoAwesomeIcon fontSize="small" />,
+    description:
+      "Строится на основе направления оптимальной траектории полёта по комбинированному методу.",
   },
 };
 
@@ -147,6 +160,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   points,
   obstacles,
   trajectoryData,
+  trajectoryData2,
   droneParams,
   storyboardsData,
   setStoryboardsData,
@@ -605,6 +619,43 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     if (isOptimal) return !trajectoryData;
   };
 
+
+  useEffect(() => {
+    setStoryboardsData((prev) => {
+      if (
+        prev.recommended?.step_x == undefined ||
+        prev.recommended?.step_x == null || prev.recommended?.step_x == 0
+      ) 
+      return {
+        ...prev,
+        recommended: {
+          ...prev.recommended,
+          step_x: droneParams.frameWidthPlanned,
+        },
+      };
+
+      return prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    setStoryboardsData((prev) => {
+      if (
+        prev.recommended?.step_y == undefined ||
+        prev.recommended?.step_y == null || prev.recommended?.step_y == 0
+      ) 
+      return {
+        ...prev,
+        recommended: {
+          ...prev.recommended,
+          step_y: droneParams.frameHeightPlanned,
+        },
+      };
+
+      return prev;
+    });
+  }, []);
+
   return (
     <Box display="flex" flexDirection="column" height="100%" width="100%">
       {/* Спиннер */}
@@ -807,7 +858,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                         Шаг по ширине, м
                       </Typography>
                       <FloatInput
-                        value={storyboardsData?.recommended?.step_x ?? 0}
+                        value={storyboardsData?.recommended?.step_x ?? droneParams.frameWidthPlanned}
                         onChange={(val) => {
                           setIsNeedUpdateRecommended(true);
                           setStoryboardsData((prev) => ({
@@ -827,7 +878,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                         Шаг по высоте, м
                       </Typography>
                       <FloatInput
-                        value={storyboardsData?.recommended?.step_y ?? 0}
+                        value={storyboardsData?.recommended?.step_y ?? droneParams.frameHeightPlanned}
                         onChange={(val) => {
                           setIsNeedUpdateRecommended(true);
                           setStoryboardsData((prev) => ({

@@ -317,7 +317,7 @@ const FlightSchemaPage: React.FC<Props> = ({
 
   return (
     <PageContainer
-      title="Схема полёта"
+      title="Полётная карта"
       actions={
         <Tooltip title="Закрыть">
           <IconButton color="primary" onClick={onClose} aria-label="close">

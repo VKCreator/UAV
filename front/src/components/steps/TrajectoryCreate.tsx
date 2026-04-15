@@ -3,7 +3,7 @@ import TrajectoryStepper from "./TrajectoryStepper";
 
 export default function TrajectoryCreate() {
   return (
-    <StepperContainer title="Создание новой схемы полёта" centerContent>
+    <StepperContainer title="Создание новой полётной карты" centerContent>
       <TrajectoryStepper />
     </StepperContainer>
   );

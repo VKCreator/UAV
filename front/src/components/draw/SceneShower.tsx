@@ -90,10 +90,10 @@ const SceneShower = forwardRef<
 
     const scaleToFit = image
       ? Math.min(
-          1,
-          (STAGE_WIDTH / image.width) * 1,
-          (STAGE_HEIGHT / image.height) * 1,
-        )
+        1,
+        (STAGE_WIDTH / image.width) * 1,
+        (STAGE_HEIGHT / image.height) * 1,
+      )
       : 1;
 
     const imageX = image ? (STAGE_WIDTH - image.width * scaleToFit) / 2 : 0;
@@ -114,24 +114,33 @@ const SceneShower = forwardRef<
       for (let i = 1; i < GRID_COLS; i++) {
         const x = imageX + (imgWidth / GRID_COLS) * i;
         lines.push(
-          <Line
+          <Rect
             key={`v-${i}`}
-            points={[x, imageY, x, imageY + imgHeight]}
-            stroke="rgba(255,255,255,0.6)"
-            strokeWidth={2}
-          />,
+            x={x}
+            y={imageY}
+            width={2}  // толщина линии
+            height={imgHeight}
+            fill="rgba(255, 255, 255, 0.8)"
+            stroke="rgb(0, 0, 0, 1)"
+            strokeWidth={0.1}
+          />
         );
       }
 
+      // Горизонтальные линии
       for (let i = 1; i < GRID_ROWS; i++) {
         const y = imageY + imgHeight - (imgHeight / GRID_ROWS) * i;
         lines.push(
-          <Line
+          <Rect
             key={`h-${i}`}
-            points={[imageX, y, imageX + imgWidth, y]}
-            stroke="rgba(255,255,255,0.6)"
-            strokeWidth={2}
-          />,
+            x={imageX}
+            y={y}
+            width={imgWidth} 
+            height={2}
+            fill="rgba(255, 255, 255, 0.8)"
+            stroke="rgb(0, 0, 0, 1)"
+            strokeWidth={0.1}
+          />
         );
       }
 
@@ -181,22 +190,22 @@ const SceneShower = forwardRef<
       // пропорционально на полном разрешении так же, как на превью 500×400
       const uiScale = Math.min(image.width / STAGE_WIDTH, image.height / STAGE_HEIGHT) * 0.5;
 
-      const POINT_R_USER  = 14 * uiScale;   // радиус пользовательской точки
+      const POINT_R_USER = 14 * uiScale;   // радиус пользовательской точки
       const POINT_R_TAXON = 14 * uiScale;   // радиус точки таксона
-      const BASE_R_DL     = 6  * uiScale;   // «радиус» базы для отступа стрелок
+      const BASE_R_DL = 6 * uiScale;   // «радиус» базы для отступа стрелок
       const ARROW_PTR_LEN = 14 * uiScale;
       const ARROW_PTR_WID = 10 * uiScale;
-      const STROKE_W      = 3  * uiScale;
-      const FONT_USER     = 16 * uiScale;
-      const FONT_TAXON    = 14 * uiScale;
+      const STROKE_W = 3 * uiScale;
+      const FONT_USER = 16 * uiScale;
+      const FONT_TAXON = 14 * uiScale;
 
       // Вспомогательная функция: стрелка начинается от края fromRadius окружности
       // и заканчивается у края toRadius окружности, не перекрывая кружки
       const arrowPts = (
         from: { x: number; y: number },
-        to:   { x: number; y: number },
+        to: { x: number; y: number },
         fromR: number,
-        toR:   number,
+        toR: number,
       ) => {
         const dx = to.x - from.x;
         const dy = to.y - from.y;
@@ -205,7 +214,7 @@ const SceneShower = forwardRef<
         const ux = dx / len, uy = dy / len;
         return [
           from.x + ux * fromR, from.y + uy * fromR,
-          to.x   - ux * toR,   to.y   - uy * toR,
+          to.x - ux * toR, to.y - uy * toR,
         ];
       };
 
@@ -218,7 +227,7 @@ const SceneShower = forwardRef<
 
       // ── Сетка ─────────────────────────────────────────────────────────
       if (showGrid) {
-        const cellW = image.width  / GRID_COLS;
+        const cellW = image.width / GRID_COLS;
         const cellH = image.height / GRID_ROWS;
         for (let i = 1; i < GRID_COLS; i++) {
           layer.add(new Konva.Line({
@@ -577,17 +586,8 @@ const SceneShower = forwardRef<
                       }),
                     );
 
-                    let flightPoints: TrajectoryPoint[] = (taxon.flight_points ?? []).map(
-                      (p: [number, number], i: number) => ({
-                        x: p[0] / meterPerPixelX,
-                        y: image.height - p[1] / meterPerPixelY,
-                        color: "#ff6b00",
-                        number: i + 1,
-                      }),
-                    );
+                    const segments = taxon.segments || [];
 
-                    // flightPoints = flightPoints.slice(1);
- 
                     return (
                       <Fragment key={`taxon-${idx}`}>
                         {/* База */}
@@ -630,11 +630,11 @@ const SceneShower = forwardRef<
                                 {
                                   x:
                                     taxonPoints[taxonPoints.length - 1].x *
-                                      scaleToFit +
+                                    scaleToFit +
                                     imageX,
                                   y:
                                     taxonPoints[taxonPoints.length - 1].y *
-                                      scaleToFit +
+                                    scaleToFit +
                                     imageY,
                                 },
                                 {
@@ -688,95 +688,163 @@ const SceneShower = forwardRef<
                           );
                         })}
 
+                        {/* НАВИГАЦИОННЫЕ ТРЕУГОЛЬНИКИ*/}
+                        {segments.map((segment: any, segIdx: number) => {
 
-                      {weatherConditions && weatherConditions.isUse && flightPoints.map((fp, i) => {
-                        const tp = taxonPoints[i];
-                        console.info(fp)
-                        // Предыдущая точка: если i=0 — это база таксона, иначе предыдущая flight_point
-                        const prevPoint = i === 0
-                          ? { x: baseX, y: baseY } 
-                          : flightPoints[i - 1];
+                          // Значение координат в метрах
+                          const pFrom = segment.p_from;
+                          const pTo = segment.p_to;
 
-                         const prevTaxonPoint = i === 0
-                          ? { x: baseX, y: baseY } 
-                          : taxonPoints[i - 1];
+                          // Получаем углы (навигационная система: 0°=Север, по часовой)
+                          let TC = segment.TC;
+                          if (typeof TC === 'object' && TC !== null) {
+                            TC = TC.parsedValue ?? TC.source ?? 0;
+                          }
+                          const TA = segment.TA;
+                          const GS = segment.GS;
+                          const TAS = segment.TAS;
+                          const windSpeed = segment.wind_speed;
+                          const windDirDeg = segment.wind_dir_deg;
 
-                        return (
-                          <Fragment key={`flight-point-${idx}-${i}`}>
-                            {tp && (() => {
-                              const fpx = fp.x * scaleToFit + imageX;
-                              const fpy = fp.y * scaleToFit + imageY;
-                              const tpx = prevTaxonPoint.x * scaleToFit + imageX;
-                              const tpy = prevTaxonPoint.y * scaleToFit + imageY;
-                              const ppx = prevPoint.x * scaleToFit + imageX;
-                              const ppy = prevPoint.y * scaleToFit + imageY;
+                          // Ветер: "откуда" в "куда" (+180)
+                          const windTo = (windDirDeg + 180) % 360;
 
-                              const currenttpx = tp.x * scaleToFit + imageX;
-                              const currenttpy = tp.y * scaleToFit + imageY;
- 
-                              const windRad = Math.PI * (weatherConditions.windDirection + 180) / 180;
-                              const windScale = 15;
-                              const wx = Math.sin(windRad) * windScale;
-                              const wy = -Math.cos(windRad) * windScale;
+                          // Угол линии пути (для отладки/валидации) — в навигационной системе
+                          const dx_m = pTo[0] - pFrom[0]; // Восток +
+                          const dy_m = pTo[1] - pFrom[1]; // Север +
+                          const lineAngleNav = (Math.atan2(dx_m, dy_m) * 180 / Math.PI + 360) % 360;
 
-                              return (
-                                <>
-                                  {/* Сторона 1: откуда летим → flight_point (курс носа дрона) */}
-                                  {/* <Line
-                                    points={[ppx, ppy, fpx, fpy]}
-                                    stroke="#ff6b00"
-                                    strokeWidth={5}
-                                    dash={[4, 4]}
-                                    opacity={0.8}
-                                  /> */}
+                          // Валидация: сравнение угла линии и TC
+                          const deltaAngle = Math.abs(lineAngleNav - TC);
+                          const deltaNormalized = Math.min(deltaAngle, 360 - deltaAngle);
+                          if (deltaNormalized > 2) {
+                            console.warn(`Сегмент ${segIdx}: расхождение углов ${deltaNormalized.toFixed(1)}° (линия=${lineAngleNav.toFixed(1)}°, TC=${TC.toFixed(1)}°)`);
+                          }
 
-                                  <Line
-                                    points={[fpx, fpy, currenttpx, currenttpy]}
-                                    stroke="#ff6b00"
-                                    strokeWidth={5}
-                                    dash={[4, 4]}
-                                    opacity={0.6}
-                                  /> 
+                          // Отрисовка
+                          // Координаты старта в пикселях канваса
+                          const fromX_px = pFrom[0] / meterPerPixelX;
+                          const fromY_px = image.height - pFrom[1] / meterPerPixelY; // переворот Y
+                          const triStartX = fromX_px * scaleToFit + imageX;
+                          const triStartY = fromY_px * scaleToFit + imageY;
 
-                                  {/* Сторона 2: откуда летим → target_point (путевой вектор по земле)*/}
-                                  <Line
-                                    points={[fpx, fpy, tpx, tpy]}
-                                    stroke="#ff6b00"
-                                    strokeWidth={5}
-                                    dash={[4, 4]}
-                                    opacity={0.6}
-                                  /> 
+                          const distMeters = Math.hypot(pTo[0] - pFrom[0], pTo[1] - pFrom[1]);
+                          const triangleScaleM = Math.min(Math.max(distMeters * 0.003, 0.5), 1); // метров на единицу величины
 
-                                  {/* Сторона 3: вектор ветра — от target_point до flight_point */}
-                                  {/* <Line
-                                    points={[tpx, tpy, fpx, fpy]}
-                                    stroke="#ff6b00"
-                                    strokeWidth={5}
-                                    dash={[4, 4]}
-                                    opacity={0.8}
-                                  /> */}
-                                </>
-                              );
-                            })()}
+                          // const navAngleToCanvasVec = (angleDeg: number, magnitude: number) => {
+                          //   const rad = angleDeg * Math.PI / 180;
 
-                            {/* Сама flight_point */}
-                            <Circle
-                              x={fp.x * scaleToFit + imageX}
-                              y={fp.y * scaleToFit + imageY}
-                              radius={7}
-                              fill="#ff6b00"
-                              opacity={0.85}
-                            />
-                            <Text
-                              x={fp.x * scaleToFit + imageX - 4}
-                              y={fp.y * scaleToFit + imageY - 6}
-                              text={`${i + 1}`}
-                              fontSize={10}
-                              fill="white"
-                            />
-                          </Fragment>
-                        );
-                      })}
+                          //   // Вектор в метрах (изотропная система)
+                          //   const metersX = magnitude * triangleScaleM * Math.sin(rad);   // Восток +
+                          //   const metersY = -magnitude * triangleScaleM * Math.cos(rad);  // Север +, но минус для канваса Y↓
+
+                          //   // Конвертация в пиксели канваса с учётом разного масштаба по осям
+                          //   return {
+                          //     x: metersX / meterPerPixelX * scaleToFit,
+                          //     y: metersY / meterPerPixelY * scaleToFit
+                          //   };
+                          // };
+
+                          const navAngleToCanvasVec = (angleDeg: number, magnitude: number) => {
+                              const rad = angleDeg * Math.PI / 180;
+
+                              const dirX = Math.sin(rad);
+                              const dirY = -Math.cos(rad);
+
+                              // Сначала считаем "сырой" вектор
+                              const triangleSizeMeters = distMeters;
+                              const rawSizePxX = (triangleSizeMeters / meterPerPixelX) * scaleToFit;
+                              const rawSizePxY = (triangleSizeMeters / meterPerPixelY) * scaleToFit;
+
+                              // Вычисляем скалярную величину (магнитуду) этого вектора
+                              const rawMagnitude = Math.hypot(rawSizePxX, rawSizePxY);
+
+                              // Ограничиваем магнитуду
+                              const MIN_PX = 10;
+                              const MAX_PX = 15;
+                              const clampedMagnitude = Math.min(Math.max(rawMagnitude, MIN_PX), MAX_PX);
+
+                              // Нормализуем и масштабируем
+                              const scale = clampedMagnitude / (rawMagnitude || 1);
+
+                              return {
+                                x: dirX * magnitude * rawSizePxX * scale,
+                                y: dirY * magnitude * rawSizePxY * scale
+                              };
+                          };
+
+                          // Векторы для отрисовки
+                          const gsVec = navAngleToCanvasVec(TC, GS);
+                          const tasVec = navAngleToCanvasVec(TA, TAS);
+                          const windVec = navAngleToCanvasVec(windTo, windSpeed);
+
+                          return (
+                            <Fragment key={`nav-triangle-${idx}-${segIdx}`}>
+                              {/* Красная стрелка GS — теперь должна совпадать с линией пути */}
+                              <Arrow
+                                points={[triStartX, triStartY, triStartX + gsVec.x, triStartY + gsVec.y]}
+                                pointerLength={8}
+                                pointerWidth={5}
+                                fill="red"
+                                stroke="red"
+                                strokeWidth={1.5}
+                                opacity={0.9}
+                              />
+
+                              {/* Синяя стрелка TAS (курс) */}
+                              <Arrow
+                                points={[triStartX, triStartY, triStartX + tasVec.x, triStartY + tasVec.y]}
+                                pointerLength={8}
+                                pointerWidth={5}
+                                fill="blue"
+                                stroke="blue"
+                                strokeWidth={2.5}
+                                opacity={0.9}
+                              />
+
+                              {/* Зелёная стрелка ветра */}
+                              <Arrow
+                                points={[triStartX, triStartY, triStartX + windVec.x, triStartY + windVec.y]}
+                                pointerLength={8}
+                                pointerWidth={5}
+                                fill="green"
+                                stroke="green"
+                                strokeWidth={2.5}
+                                opacity={0.8}
+                              />
+
+                              {/* Пунктиры */}
+                              <Line
+                                points={[
+                                  triStartX + windVec.x, triStartY + windVec.y,
+                                  triStartX + windVec.x + tasVec.x, triStartY + windVec.y + tasVec.y,
+                                ]}
+                                stroke="blue"
+                                strokeWidth={1.5}
+                                dash={[6, 4]}
+                                opacity={1}
+                              />
+                              <Line
+                                points={[
+                                  triStartX + tasVec.x, triStartY + tasVec.y,
+                                  triStartX + tasVec.x + windVec.x, triStartY + tasVec.y + windVec.y,
+                                ]}
+                                stroke="green"
+                                strokeWidth={1.5}
+                                dash={[6, 4]}
+                                opacity={1}
+                              />
+
+                              {/* <Circle
+        x={triStartX + tasVecX}
+        y={triStartY + tasVecY}
+        radius={4}
+        fill="cyan"
+        opacity={0.8}
+      /> */}
+                            </Fragment>
+                          );
+                        })}
 
                         {/* Точки таксона и номера */}
                         {taxonPoints.map((p, i) => (
@@ -796,9 +864,12 @@ const SceneShower = forwardRef<
                             />
                           </Fragment>
                         ))}
+                      </Fragment>
+                    );
+                  })}
 
                         {/* Стрелка направления ветра */}
-                        {weatherConditions && weatherConditions.isUse && weatherConditions.windSpeed > 0 && (
+                        {!showUserTrajectory && weatherConditions && weatherConditions.isUse && weatherConditions.windSpeed > 0 && (
                           <Group>
                             {/* Подложка */}
                             <Rect
@@ -839,7 +910,7 @@ const SceneShower = forwardRef<
                               align="center"
                             />
                             <Text
-                              x={20} y={88}  
+                              x={20} y={88}
                               width={90}
                               text={`${weatherConditions.windSpeed.toFixed(1)} м/с`}
                               fontSize={10}
@@ -848,9 +919,6 @@ const SceneShower = forwardRef<
                             />
                           </Group>
                         )}
-                      </Fragment>
-                    );
-                  })}
 
                 {showTaxonTrajectory &&
                   image &&

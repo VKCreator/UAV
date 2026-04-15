@@ -141,12 +141,11 @@ export default function DronesList() {
       },
       {
         field: "fov_vertical",
-        headerName: "Вертикальный угол обзора, °",
+        headerName: "Угол обзора (верт.), °",
         type: "number",
         minWidth: 120,
         flex: 0.3,
         sortable: true,
-        headerAlign: "left",
         valueFormatter: (value) => `${Number(value).toFixed(1)}`,
       },
       {
@@ -173,14 +172,14 @@ export default function DronesList() {
       },
       {
         field: "speedRange",
-        headerName: "Максимальная скорость, м/с",
+        headerName: "Макс. скорость, м/с",
         type: "number",
         minWidth: 160,
         flex: 0.3,
         sortable: false,
         valueGetter: (_, row: Drone) => {
           if (row.min_speed != null && row.max_speed != null) {
-            return `${row.max_speed}`;
+            return `${row.max_speed.toFixed(2)}`;
           }
           return "—";
         },
@@ -193,7 +192,7 @@ export default function DronesList() {
         flex: 0.3,
         sortable: true,
         valueFormatter: (value) =>
-          value != null ? Number(value).toFixed(0) : "—",
+          value != null ? Number(value).toFixed(1) : "—",
       },
       // {
       //   field: "actions",

@@ -1,8 +1,6 @@
 import math
 
 
-errors = []
-
 # Ветер
 # https://www.betaenergy.ru/upload/medialibrary/6df/6dfd8840bcc2bd800edf271c98669f05.jpg
 def wind_components(wind_speed: float, wind_dir_deg: float) -> tuple:
@@ -17,7 +15,6 @@ def wind_components(wind_speed: float, wind_dir_deg: float) -> tuple:
     wx = -wind_speed * math.sin(rad)
     wy = -wind_speed * math.cos(rad)
     return wx, wy
-
 
 # Навигационный треугольник
 def navigation_triangle(p_from, p_to, v_drone, wind_speed, wind_dir_deg):
@@ -38,9 +35,6 @@ def navigation_triangle(p_from, p_to, v_drone, wind_speed, wind_dir_deg):
     WA = (NW - TC + 360) % 360
 
     sin_DA = wind_speed * math.sin(math.radians(WA)) / v_drone
-
-    # ветер сильнее воздушной скорости
-    sin_DA = wind_speed * math.sin(math.radians(WA)) / v_drone
     # Защита от float погрешностей
     sin_DA = max(-1.0, min(1.0, sin_DA))
 
@@ -49,114 +43,66 @@ def navigation_triangle(p_from, p_to, v_drone, wind_speed, wind_dir_deg):
         if abs(sin_DA) - 1.0 < 1e-12:
             DA = 90.0 if sin_DA > 0 else -90.0
         else:
+            # ветер сильнее воздушной скорости
+            print("DA", sin_DA) 
             return None
     else:
+        # угол сноса
         DA = math.degrees(math.asin(sin_DA))
 
     # курс летательного аппарата
     TA = (TC - DA) % 360
 
-    # угол между TAS и WS в треугольнике = 180 - WA, без DA
-    # GS = math.sqrt(
-    #     v_drone**2 + wind_speed**2
-    #     - 2 * v_drone * wind_speed * math.cos(math.radians(180 - WA))
-    # )
-
+    # путевая скорость
     GS = v_drone * math.cos(math.radians(DA)) + wind_speed * math.cos(math.radians(WA))
+
+    if GS <= 1e-6:
+        return None
 
     return {"TC": TC, "NW": NW, "WA": WA, "DA": DA, "TA": TA, "GS": GS}
 
-# Компенсация ветра
-def compensate_wind(p_from, p_to, v_drone, wind_speed, wind_dir_deg):
-    if wind_speed < 1e-6:
-        return p_to[0], p_to[1]
-
+def segment_with_wind(p_from, p_to, v_drone, wind_speed, wind_dir_deg, t_js=5.0, is_hover=True):
+    """
+    Возвращает все данные для одного сегмента маршрута.
+    """
     nav = navigation_triangle(p_from, p_to, v_drone, wind_speed, wind_dir_deg)
-    print(nav)  
-    if nav is None:
-        errors.append(f"Из т. {p_from} в т. {p_to} не удалось построить навигационный треугольник. Ветер сильнее воздушной скорости. Увеличьте рабочую скорость БПЛА, измените маршрут или дождитесь изменения погоды.")
-        return p_to[0], p_to[1]
 
-
-    # Время полёта до цели
+    if nav is None or nav["GS"] <= 1e-6:
+        return None
+    
+    dist = math.hypot(p_to[0] - p_from[0], p_to[1] - p_from[1])
     GS = nav["GS"]
-    if abs(GS) < 1e-6:
-        errors.append("Путевая скорость равна нулю — БПЛА не может двигаться к цели")
-        return p_to[0], p_to[1]
-
-    dist_to_target = math.hypot(p_to[0] - p_from[0], p_to[1] - p_from[1])
-    time_to_target = dist_to_target / GS
-
-    air_distance = v_drone * time_to_target
-
-    # Точка, куда смотрит нос (на расстоянии air_distance по курсу TA)
-    TA_rad = math.radians(nav["TA"])
-    target_in_air = (
-        p_from[0] + air_distance * math.sin(TA_rad),
-        p_from[1] + air_distance * math.cos(TA_rad)
+    
+    if abs(GS) <= 1e-6:
+        return None
+    
+    time_move = 1.5 * dist / GS
+    time_total = time_move + (t_js if is_hover else 0.0)
+    
+    # Для визуализации курса на фронте (короткая стрелка из p_from)
+    # Длину стрелки выбираем фиксированной или пропорциональной dist
+    arrow_len = min(50, dist * 0.3)
+    # arrow_len = dist
+    nose_end = (
+        p_from[0] + arrow_len * math.sin(math.radians(nav["TA"])),
+        p_from[1] + arrow_len * math.cos(math.radians(nav["TA"]))
     )
-
-    # dist = math.hypot(p_to[0] - p_from[0], p_to[1] - p_from[1])
-
-    # Направляем нос по курсу TA — ветер скомпенсирует снос
-    # и дрон придёт по земле точно в p_to
-    # TA_rad = math.radians(nav["TA"])
-    # cx = p_from[0] + dist * math.sin(TA_rad)
-    # cy = p_from[1] + dist * math.cos(TA_rad)
-
-    # return cx, cy
-    return target_in_air
-
-
-# def compensate_wind(p_from, p_to, v_drone, wind_speed, wind_dir_deg, t_js=5.0, hover=True):
-#     if wind_speed < 1e-6:
-#         return p_to[0], p_to[1]
-
-#     wx, wy = wind_components(wind_speed, wind_dir_deg)
-#     tx, ty = p_to[0], p_to[1]
-#     px, py = p_from[0], p_from[1]
-
-#     nav = navigation_triangle(p_from, p_to, v_drone, wind_speed, wind_dir_deg)
-#     if nav is None:
-#         return tx, ty
-
-#     dist = math.hypot(tx - px, ty - py)
-#     # время по путевой скорости — это время от базы до целевой точки
-#     t_move = 1.5 * dist / nav["GS"]
-
-#     # за это время ветер снесёт на:
-#     drift_x = wx * t_move
-#     drift_y = wy * t_move
-
-#     # значит вылететь надо из точки смещённой против сноса
-#     cx = tx - drift_x
-#     cy = ty - drift_y
-
-#     return cx, cy
-
-# def old compensate_wind(p_from, p_to, v_drone, wind_speed, wind_dir_deg, t_js=5.0, hover=True):
-#     """
-#     Возвращает скорректированную точку куда направить дрон
-#     с учётом навигационного треугольника скоростей.
-#     """
-#     if wind_speed < 1e-6:
-#         return p_to[0], p_to[1]
-
-#     nav = navigation_triangle(p_from, p_to, v_drone, wind_speed, wind_dir_deg)
-#     if nav is None:
-#         return p_to[0], p_to[1]  # невозможно скомпенсировать
-
-#     dist = math.hypot(p_to[0] - p_from[0], p_to[1] - p_from[1])
-
-#     # Время полёта с путевой скоростью
-#     t_move = 1.5 * dist / nav["GS"]
-
-#     # Точка куда направить нос дрона (по курсу TA, не по TC)
-#     TA_rad = math.radians(nav["TA"])
-#     cx = p_from[0] + dist * math.sin(TA_rad)
-#     cy = p_from[1] + dist * math.cos(TA_rad)
-
-#     return cx, cy
+    
+    return {
+        "p_from": p_from, 
+        "p_to": p_to,
+        "TA": nav["TA"],           # курс (нос)
+        "TC": nav["TC"],           # путевой угол
+        "DA": nav["DA"],           # угол сноса
+        "GS": GS,                  # путевая скорость
+        "time_move": time_move,    # чистое время в движении
+        "time_total": time_total,  # с учётом hover
+        "nose_end": nose_end,      # для отрисовки стрелки курса
+        # Опционально: для отладки
+        "wind_speed": wind_speed,
+        "wind_dir_deg": wind_dir_deg,
+        "TAS": v_drone,
+    }
 
 def compensate_route(
     route: list,
@@ -166,35 +112,70 @@ def compensate_route(
     t_js: float = 5.0,
 ) -> list:
     """
-    Применяет коррекцию ветра ко всем точкам маршрута кроме базы.
-
-    route  — список (x, y, t)
-    Возвращает новый маршрут со скорректированными координатами. 
-    Временны́е метки берутся из исходного маршрута без изменений.
+    Применяет коррекцию ветра ко всем сегментам маршрута.
+    Возвращает список сегментов с данными для визуализации и расчёта времени.
+    
+    route — список (x, y, t) с временными метками (t не используется здесь)
     """
     if not route or wind_speed < 1e-6:
-        return route
-
-    result = [route[0]]  # база не корректируется
-
+        # Без ветра: курс совпадает с направлением на цель
+        result = []
+        for i in range(1, len(route)):
+            p_from = route[i-1]
+            p_to = route[i]
+            is_last = (i == len(route) - 1)
+            dist = math.hypot(p_to[0] - p_from[0], p_to[1] - p_from[1])
+            # Без ветра: TA = TC = направление на цель
+            TC = math.degrees(math.atan2(p_to[0] - p_from[0], p_to[1] - p_from[1])) % 360
+            result.append({
+                "p_from": p_from,
+                "p_to": p_to,
+                "TA": TC,
+                "TC": TC,
+                "DA": 0.0,
+                "GS": v,
+                "time_move": 1.5 * dist / v,
+                "time_total": 1.5 * dist / v + (t_js if not is_last else 0.0),
+                "nose_end": (
+                    p_from[0] + min(50, dist * 0.3) * math.sin(math.radians(TC)),
+                    p_from[1] + min(50, dist * 0.3) * math.cos(math.radians(TC))
+                ),
+            })
+        return result
+    
+    result = []
     for i in range(1, len(route)):
-        p_from = route[i - 1]
+        p_from = route[i-1]
         p_to = route[i]
         is_last = (i == len(route) - 1)
-
-        cx, cy = compensate_wind(
-            p_from=p_from,
-            p_to=p_to,
-            v_drone=v,
-            wind_speed=wind_speed,
-            wind_dir_deg=wind_dir_deg,
+        
+        seg = segment_with_wind(
+            p_from, p_to, v, wind_speed, wind_dir_deg, t_js, is_hover=not is_last
         )
-        result.append((cx, cy, p_to[2]))
 
+        if seg is None:
+            # Если ветер слишком сильный — возвращаем None для этого сегмента
+            return None
+        result.append(seg)
+    
     return result
 
-
 # Маршрут 
+def time_between_with_wind(p_from, p_to, v, wind_speed, wind_dir_deg, t_js=5.0, hover=True):
+    """Время перемещения между точками с учётом ветра"""
+    nav = navigation_triangle(p_from, p_to, v, wind_speed, wind_dir_deg)
+
+    if nav is None:
+        return float('inf')  # невозможно лететь
+    
+    dist = math.hypot(p_to[0] - p_from[0], p_to[1] - p_from[1])
+    GS = nav["GS"]
+    
+    if abs(GS) < 1e-6:
+        return float('inf')
+    
+    t_move = 1.5 * dist / GS
+    return t_move + (t_js if hover else 0.0)
 
 def time_between(p_from, p_to, v, t_js=5.0, hover=True):
     """Время перемещения между точками"""
@@ -202,17 +183,30 @@ def time_between(p_from, p_to, v, t_js=5.0, hover=True):
     t_move = 1.5 * l / v
     return t_move + (t_js if hover else 0.0)
 
+def make_time_func_with_wind(v, wind_speed, wind_dir_deg, t_js):
+    """
+    Возвращает функцию времени, которая "запоминает" параметры ветра.
+    """
+    def time_func(p_from, p_to, *args, **kwargs):
+        # args содержит (v, t_js, hover) в позиционном виде
+        # Извлекаем hover: если есть args[2] — это hover, иначе из kwargs
+        if len(args) >= 3:
+            hover = args[2]
+        else:
+            hover = kwargs.get('hover', True)
+        return time_between_with_wind(p_from, p_to, v, wind_speed, wind_dir_deg, t_js, hover)
+    return time_func
 
-def session_time(route, v, t_js=5.0):
+def session_time(route, v, t_js=5.0, time_func=time_between):
     """Общее время маршрута"""
     total = 0.0
     for i in range(len(route) - 1):
         hover = not ((i + 1) == (len(route) - 1))
-        total += time_between(route[i], route[i + 1], v, t_js, hover)
+        total += time_func(route[i], route[i + 1], v, t_js, hover)
     return total
 
 
-def recalculate_times(route, v, t_js=5.0):
+def recalculate_times(route, v, t_js=5.0, time_func=time_between):
     """
     Пересчитывает временны́е метки в маршруте после 2-opt.
     route — список (x, y, t), где t будет перезаписан.
@@ -228,21 +222,21 @@ def recalculate_times(route, v, t_js=5.0):
         prev = result[i - 1]
         curr = route[i]
         is_last = (i == len(route) - 1)
-        t_step = time_between(prev, curr, v=v, t_js=t_js, hover=not is_last)
+        t_step = time_func(prev, curr, v=v, t_js=t_js, hover=not is_last)
         current_time += t_step
         result.append((curr[0], curr[1], current_time))
 
     return result
 
 
-def two_opt_optimize(route, v, t_js=5.0):
+def two_opt_optimize(route, v, t_js=5.0, time_func=time_between):
     """2-opt оптимизация маршрута"""
     if len(route) <= 3:
-        route = recalculate_times(route, v, t_js)
-        return route, session_time(route, v, t_js)
+        route = recalculate_times(route, v, t_js, time_func)
+        return route, session_time(route, v, t_js, time_func)
 
     best_route = route[:]
-    best_time = session_time(best_route, v, t_js)
+    best_time = session_time(best_route, v, t_js, time_func)
 
     improved = True
     while improved:
@@ -257,7 +251,7 @@ def two_opt_optimize(route, v, t_js=5.0):
                     + best_route[i + 1:j + 1][::-1]
                     + best_route[j + 1:]
                 )
-                new_time = session_time(new_route, v, t_js)
+                new_time = session_time(new_route, v, t_js, time_func)
                 if new_time < best_time:
                     best_route = new_route
                     best_time = new_time
@@ -266,11 +260,11 @@ def two_opt_optimize(route, v, t_js=5.0):
             if improved:
                 break
 
-    best_route = recalculate_times(best_route, v, t_js)
+    best_route = recalculate_times(best_route, v, t_js, time_func)
     return best_route, best_time
 
 
-# ── Таксоны ──────────────────────────────────────────────────────────────────
+# Таксоны
 
 def build_taxons(
     L,
@@ -308,22 +302,6 @@ def build_taxons(
             "error": str | None,
         }
     """
-    # wind_speed = 3.0
-    # wind_dir_deg = 225
-    # wind_resistance = 11
-
-    # ── Проверка безопасности ────────────────────────────────────────────────
-    # if wind_resistance > 0 and wind_speed > wind_resistance:
-    #     return {
-    #         "N_k": 0,
-    #         "B": [],
-    #         "C": list(points),
-    #         "error": (
-    #             f"Скорость ветра {wind_speed} м/с превышает "
-    #             f"сопротивляемость дрона {wind_resistance} м/с. "
-    #             f"Полёт невозможен."
-    #         ), 
-    #     }
 
     use_wind = wind_speed > 1e-6 and is_use_weather
 
@@ -345,8 +323,16 @@ def build_taxons(
             route = [(base_x, base_y, 0)]
             current_time = 0.0
 
-            t_to_pt = time_between((base_x, base_y), pt, v=v, t_js=t_js, hover=True)
-            t_back = time_between(pt, (base_x, base_y), v=v, t_js=t_js, hover=False)
+            if use_wind: 
+                t_to_pt = time_between_with_wind((base_x, base_y), pt, v, wind_speed, wind_dir_deg, t_js, hover=True)
+                t_back = time_between_with_wind(pt, (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False)
+
+                if t_to_pt == float('inf') or t_back == float('inf'):
+                    continue  
+            else:
+                t_to_pt = time_between((base_x, base_y), pt, v=v, t_js=t_js, hover=True)
+                t_back = time_between(pt, (base_x, base_y), v=v, t_js=t_js, hover=False)
+
             t_direct = t_to_pt + t_back
 
             if t_direct <= t_ak:
@@ -363,10 +349,19 @@ def build_taxons(
                         if j in visited:
                             continue
 
-                        t_to = time_between(route[-1], cand, v=v, t_js=t_js, hover=True)
-                        t_back_cand = time_between(
-                            cand, (base_x, base_y), v=v, t_js=t_js, hover=False
-                        )
+                        if use_wind:
+                            t_to = time_between_with_wind(route[-1], cand, v, wind_speed, wind_dir_deg, t_js, hover=True)
+                            t_back_cand = time_between_with_wind(
+                                cand, (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False
+                            )
+
+                            if t_to == float('inf') or t_back_cand == float('inf'):
+                                continue
+                        else:
+                            t_to = time_between(route[-1], cand, v=v, t_js=t_js, hover=True)
+                            t_back_cand = time_between(
+                                cand, (base_x, base_y), v=v, t_js=t_js, hover=False
+                            )
 
                         if current_time + t_to + t_back_cand <= t_ak:
                             if t_to < best_t:
@@ -382,22 +377,24 @@ def build_taxons(
 
                 # Возврат на базу
                 if len(route) > 1:
-                    t_back_final = time_between(
-                        route[-1], (base_x, base_y), v=v, t_js=t_js, hover=False
-                    )
+                    if use_wind:
+                        t_back_final = time_between_with_wind(
+                            route[-1], (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False
+                        )
+                    else: 
+                        t_back_final = time_between(
+                            route[-1], (base_x, base_y), v, t_js, hover=False
+                        )
+
                     route.append((base_x, base_y, current_time + t_back_final))
                     current_time += t_back_final
 
                 # 2-opt оптимизация
-                route_opt, time_opt = two_opt_optimize(route, v, t_js)
-
-                # Коррекция ветра
+                time_func = time_between
                 if use_wind:
-                    route_compensated = compensate_route(
-                        route_opt, v, wind_speed, wind_dir_deg, t_js
-                    )
-                else:
-                    route_compensated = route_opt
+                    time_func = make_time_func_with_wind(v, wind_speed, wind_dir_deg, t_js)
+
+                route_opt, time_opt = two_opt_optimize(route, v, t_js, time_func)
 
                 trajectory = {
                     "base": (base_x, base_y),
@@ -407,10 +404,18 @@ def build_taxons(
                 }
 
                 if use_wind:
-                    trajectory["flight_points"] = route_compensated[1:-1]
-                    trajectory["route_compensated"] = recalculate_times(route_compensated, v, t_js)
-                    trajectory["time_sec"] = session_time(route_compensated, v, t_js)
+                    # Получаем данные по сегментам для отрисовки
+                    segments_data = compensate_route(
+                        route_opt, v, wind_speed, wind_dir_deg, t_js
+                    )
+                    
+                    trajectory["wind"] = {
+                        "speed": wind_speed,
+                        "dir_deg": wind_dir_deg,   # откуда дует
+                        "TAS": v,
+                    }
 
+                    trajectory["segments"] = segments_data
 
                 B.append(trajectory)
                 break
@@ -421,13 +426,363 @@ def build_taxons(
                     C.append(pt)
             break
 
-    return {"N_k": len(B), "B": B, "C": C, "errors": errors}
+    return {"N_k": len(B), "B": B, "C": C, "errors": None}
 
-# nav = navigation_triangle((5.64,0), (5.64,5.31), 5.0, 3.0, 90.0)
-# print(nav)
- 
-# dist = math.hypot(0, 5.31)
-# t_move = 1.5 * dist / nav["GS"]
-# print(f"dist={dist}, GS={nav['GS']:.3f}, t_move={t_move:.3f}")
-# print(f"снос X = {-3*math.sin(math.radians(90))*t_move:.3f}")
-# print(f"снос Y = {-3*math.cos(math.radians(90))*t_move:.3f}")
+
+def build_taxons_big_density(
+    L: float,  # ширина области (м)
+    H: float,  # высота области (м)
+    n_cols: float,  # количество столбцов (может быть дробным)
+    n_rows: float,  # количество строк (может быть дробным)
+    points: list[tuple[float, float]],  # исходные точки съёмки
+    v_min: float = 1.5,
+    t_ak: float = 1800.0,
+    t_js: float = 5.0,
+    initial_base_y: float = 0.0,
+    wind_speed: float = 0.0,
+    wind_dir_deg: float = 0.0,
+    wind_resistance: float = 0.0,
+    is_use_weather: bool = False
+) -> dict:
+    """
+    Построение таксонов для большой плотности точек.
+    
+    Поддержка дробных n_cols/n_rows: последние кадры по краям обрезаются,
+    но точки в них учитываются, и центры кадров вычисляются геометрически.
+    """
+    
+    use_wind = wind_speed > 1e-6 and is_use_weather
+    
+    # Количество целых кадров
+    n_cols_int = int(n_cols)
+    n_rows_int = int(n_rows)
+    
+    # Дробные части (размеры последних неполных кадров)
+    frac_cols = n_cols - n_cols_int
+    frac_rows = n_rows - n_rows_int
+    
+    # Размеры полных кадров
+    full_frame_width = L / n_cols if n_cols > 0 else 0
+    full_frame_height = H / n_rows if n_rows > 0 else 0
+    
+    # Размеры последних (обрезанных) кадров
+    last_frame_width = full_frame_width * frac_cols if frac_cols > 0 else full_frame_width
+    last_frame_height = full_frame_height * frac_rows if frac_rows > 0 else full_frame_height
+    
+    def get_frame_bounds(col: int, row: int) -> tuple[float, float, float, float]:
+        """
+        Возвращает границы кадра (x_min, y_min, x_max, y_max)
+        Учитывает, что последние кадры могут быть обрезаны
+        """
+        # Ширина текущего кадра
+        if col == n_cols_int and frac_cols > 0:
+            # Последний столбец (обрезанный)
+            width = last_frame_width
+        else:
+            width = full_frame_width
+        
+        # Высота текущего кадра
+        if row == n_rows_int and frac_rows > 0:
+            # Последняя строка (обрезанная)
+            height = last_frame_height
+        else:
+            height = full_frame_height
+        
+        x_min = col * full_frame_width
+        y_min = row * full_frame_height
+        x_max = x_min + width
+        y_max = y_min + height
+        
+        return (x_min, y_min, x_max, y_max)
+    
+    def get_frame_index(x: float, y: float) -> tuple[int, int]:
+        """
+        Определяет индекс кадра для точки.
+        Учитывает обрезанные краевые кадры.
+        """
+        # Определяем столбец
+        if x >= n_cols_int * full_frame_width and frac_cols > 0:
+            # Точка可能在 последнем обрезанном столбце
+            col = n_cols_int
+        else:
+            col = int(x / full_frame_width) if full_frame_width > 0 else 0
+        
+        # Определяем строку
+        if y >= n_rows_int * full_frame_height and frac_rows > 0:
+            # Точка可能在 последней обрезанной строке
+            row = n_rows_int
+        else:
+            row = int(y / full_frame_height) if full_frame_height > 0 else 0
+        
+        # Ограничиваем индексы
+        max_col = n_cols_int if frac_cols == 0 else n_cols_int
+        max_row = n_rows_int if frac_rows == 0 else n_rows_int
+        
+        col = max(0, min(col, max_col))
+        row = max(0, min(row, max_row))
+        
+        return (col, row)
+    
+    def get_frame_center(col: int, row: int) -> tuple[float, float]:
+        """
+        Возвращает геометрический центр кадра (x, y)
+        Учитывает обрезанные краевые кадры
+        """
+        x_min, y_min, x_max, y_max = get_frame_bounds(col, row)
+        center_x = (x_min + x_max) / 2
+        center_y = (y_min + y_max) / 2
+        return (center_x, center_y)
+    
+    # Определяем все возможные кадры
+    all_frames = {}
+    
+    # Количество кадров (включая обрезанные)
+    n_cols_total = n_cols_int + (1 if frac_cols > 0 else 0)
+    n_rows_total = n_rows_int + (1 if frac_rows > 0 else 0)
+    
+    for col in range(n_cols_total):
+        for row in range(n_rows_total):
+            x_min, y_min, x_max, y_max = get_frame_bounds(col, row)
+            
+            # Проверяем, существует ли кадр (имеет положительные размеры)
+            if x_max <= x_min or y_max <= y_min:
+                continue
+            
+            # Проверяем, является ли кадр полным (стандартного размера)
+            is_full = (abs(x_max - x_min - full_frame_width) < 1e-6 and 
+                      abs(y_max - y_min - full_frame_height) < 1e-6)
+            
+            # Геометрический центр кадра
+            center = get_frame_center(col, row)
+            
+            all_frames[(col, row)] = {
+                "bounds": (x_min, y_min, x_max, y_max),
+                "center": center,
+                "is_full": is_full,
+                "points": []
+            }
+    
+    # Распределяем точки по кадрам
+    points_outside = []  # точки за пределами всех кадров
+    for point in points:
+        frame_idx = get_frame_index(point[0], point[1])
+        
+        # Проверяем, попадает ли точка в границы кадра
+        if frame_idx in all_frames:
+            bounds = all_frames[frame_idx]["bounds"]
+            x_min, y_min, x_max, y_max = bounds
+            
+            # Проверяем, действительно ли точка внутри этого кадра
+            if x_min <= point[0] <= x_max and y_min <= point[1] <= y_max:
+                all_frames[frame_idx]["points"].append(point)
+            else:
+                # Точка не попала в кадр из-за погрешностей
+                points_outside.append(point)
+        else:
+            points_outside.append(point)
+    
+    # Формируем список кадров с точками
+    frames_with_points = []
+    for frame_idx, frame_data in all_frames.items():
+        if frame_data["points"]:
+            frames_with_points.append({
+                "frame_id": frame_idx,
+                "bounds": frame_data["bounds"],
+                "center": frame_data["center"],
+                "points": frame_data["points"],
+                "point_count": len(frame_data["points"]),
+                "is_full": frame_data["is_full"]
+            })
+    
+    # Если нет ни одного кадра с точками
+    if not frames_with_points:
+        return {
+            "N_k": 0,
+            "B": [],
+            "C": points,
+            "frame_info": {
+                "n_cols": n_cols,
+                "n_rows": n_rows,
+                "frame_width": full_frame_width,
+                "frame_height": full_frame_height,
+                "last_frame_width": last_frame_width,
+                "last_frame_height": last_frame_height,
+                "bounds": {"x_min": 0, "x_max": L, "y_min": 0, "y_max": H},
+                "frames_with_points": []
+            },
+            "errors": "No frames with points found"
+        }
+    
+    # ============================================================
+    # 2. ПОСТРОЕНИЕ ТАКСОНОВ ПО ЦЕНТРАМ КАДРОВ
+    # ============================================================
+    
+    # Извлекаем геометрические центры кадров
+    frame_centers = [frame["center"] for frame in frames_with_points]
+    
+    # Сортируем центры по X для жадного алгоритма
+    frame_centers_sorted = sorted(frame_centers, key=lambda pt: pt[0])
+    
+    # Создаём маппинг центра -> информация о кадре
+    center_to_frame = {frame["center"]: frame for frame in frames_with_points}
+    
+    v = v_min
+    n_frames = len(frame_centers_sorted)
+    visited_frames = set()
+    taxons = []
+    unreachable_points = []
+    
+    while len(visited_frames) < n_frames:
+        taxon_created = False
+        
+        for i, frame_center in enumerate(frame_centers_sorted):
+            if i in visited_frames:
+                continue
+            
+            # База располагается под центром кадра
+            base_x, base_y = frame_center[0], initial_base_y
+            route = [(base_x, base_y, 0.0)]
+            current_time = 0.0
+            
+            # Проверяем возможность долететь и вернуться
+            if use_wind:
+                t_to = time_between_with_wind((base_x, base_y), frame_center, v, wind_speed, wind_dir_deg, t_js, hover=True)
+                t_back = time_between_with_wind(frame_center, (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False)
+                if t_to == float('inf') or t_back == float('inf'):
+                    continue
+            else:
+                t_to = time_between((base_x, base_y), frame_center, v, t_js, hover=True)
+                t_back = time_between(frame_center, (base_x, base_y), v, t_js, hover=False)
+            
+            if t_to + t_back <= t_ak:
+                visited_frames.add(i)
+                current_time += t_to
+                route.append((frame_center[0], frame_center[1], current_time))
+                
+                # Жадное добавление дополнительных кадров
+                while len(visited_frames) < n_frames:
+                    best_idx = None
+                    best_time = float("inf")
+                    
+                    for j, candidate_center in enumerate(frame_centers_sorted):
+                        if j in visited_frames:
+                            continue
+                        
+                        last_point = (route[-1][0], route[-1][1])
+                        
+                        if use_wind:
+                            t_add = time_between_with_wind(last_point, candidate_center, v, wind_speed, wind_dir_deg, t_js, hover=True)
+                            t_return = time_between_with_wind(candidate_center, (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False)
+                            if t_add == float('inf') or t_return == float('inf'):
+                                continue
+                        else:
+                            t_add = time_between(last_point, candidate_center, v, t_js, hover=True)
+                            t_return = time_between(candidate_center, (base_x, base_y), v, t_js, hover=False)
+                        
+                        if current_time + t_add + t_return <= t_ak:
+                            if t_add < best_time:
+                                best_time = t_add
+                                best_idx = j
+                    
+                    if best_idx is None:
+                        break
+                    
+                    center_to_add = frame_centers_sorted[best_idx]
+                    route.append((center_to_add[0], center_to_add[1], current_time + best_time))
+                    current_time += best_time
+                    visited_frames.add(best_idx)
+                
+                # Возврат на базу
+                if len(route) > 1:
+                    last_point = (route[-1][0], route[-1][1])
+                    if use_wind:
+                        t_return = time_between_with_wind(last_point, (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False)
+                    else:
+                        t_return = time_between(last_point, (base_x, base_y), v, t_js, hover=False)
+                    
+                    route.append((base_x, base_y, current_time + t_return))
+                    current_time += t_return
+                
+                # 2-opt оптимизация
+                time_func = make_time_func_with_wind(v, wind_speed, wind_dir_deg, t_js) if use_wind else time_between
+                route_opt, time_opt = two_opt_optimize(route, v, t_js, time_func)
+                
+                # Собираем все исходные точки из кадров этого таксона
+                all_points_in_taxon = []
+                frames_in_taxon = []
+                
+                for point_on_route in route_opt[1:-1]:
+                    center = (point_on_route[0], point_on_route[1])
+                    if center in center_to_frame:
+                        frame_info = center_to_frame[center]
+                        all_points_in_taxon.extend(frame_info["points"])
+                        frames_in_taxon.append({
+                            "frame_id": frame_info["frame_id"],
+                            "center": center,
+                            "bounds": frame_info["bounds"],
+                            "point_count": frame_info["point_count"],
+                            "arrival_time": point_on_route[2]
+                        })
+
+                # Центры кадров в порядке обхода (без времени)
+                ordered_frame_centers = [
+                    (frame_center[0], frame_center[1])
+                    for frame_center in route_opt[1:-1]
+                ]
+
+                # Формируем результат
+                trajectory = {
+                    "base": (base_x, base_y),
+                    "frames": route_opt[1:-1],
+                    "frames_detail": frames_in_taxon,
+                    "points": ordered_frame_centers,  # центры кадров в порядке обхода
+                    "original_points": all_points_in_taxon,  # исходные точки
+                    "time_sec": time_opt,
+                    "route": route_opt,
+                }
+                
+                if use_wind:
+                    segments_data = compensate_route(route_opt, v, wind_speed, wind_dir_deg, t_js)
+                    trajectory["wind"] = {
+                        "speed": wind_speed,
+                        "dir_deg": wind_dir_deg,
+                        "TAS": v,
+                    }
+                    trajectory["segments"] = segments_data
+                
+                taxons.append(trajectory)
+                taxon_created = True
+                break
+        
+        if not taxon_created:
+            # Оставшиеся кадры недостижимы
+            for i, frame_center in enumerate(frame_centers_sorted):
+                if i not in visited_frames:
+                    frame_info = center_to_frame[frame_center]
+                    unreachable_points.extend(frame_info["points"])
+            break
+    
+    # Добавляем точки, которые не попали ни в один кадр
+    unreachable_points.extend(points_outside)
+    
+    # Формируем информацию о кадрах
+    frame_info = {
+        "n_cols": n_cols,
+        "n_rows": n_rows,
+        "n_cols_int": n_cols_int,
+        "n_rows_int": n_rows_int,
+        "frame_width": full_frame_width,
+        "frame_height": full_frame_height,
+        "last_frame_width": last_frame_width,
+        "last_frame_height": last_frame_height,
+        "bounds": {"x_min": 0, "x_max": L, "y_min": 0, "y_max": H},
+        "frames_with_points": frames_with_points
+    }
+    
+    return {
+        "N_k": len(taxons),
+        "B": taxons,
+        "C": unreachable_points,
+        "frame_info": frame_info,
+        "errors": None
+    }

@@ -14,7 +14,11 @@ import {
   TableHead,
   TableRow,
   Alert,
-  Card
+  Card,
+  FormControl, 
+  RadioGroup, 
+  FormControlLabel, 
+  Radio 
 } from "@mui/material";
 import { Line } from "react-chartjs-2";
 import {
@@ -296,7 +300,10 @@ const Method1Tab: React.FC<{ data: TrajectoryData }> = ({ data }) => {
   const totalTime = taxons.reduce((s, t) => s + t.time_sec, 0);
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pb: 2 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1, pl: 2, pb: 2, pr: 2, width: "100%" }}>
+    <Typography variant="h6" fontWeight={600}>
+      Расширенная аналитика результатов оптимизации по 1 методу
+    </Typography>
       {/* Сводка */}
       <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
         <Card
@@ -382,17 +389,25 @@ const CompareOptimizationMethodsStep: React.FC<
   const [selectedTab, setSelectedTab] = useState(0);
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <Box sx={{ display: "flex", height: "100%", width: "100%" }}>
       <Tabs
+        orientation="vertical"
         value={selectedTab}
         onChange={(_, v) => setSelectedTab(v)}
-        sx={{ mb: 2, borderBottom: "1px solid", borderColor: "divider" }}
+        sx={{       borderRight: "1px solid",
+      borderColor: "divider",
+      minWidth: 100, }}
       >
-        <Tab label="Метод 1 (МКТ)" sx={{ textTransform: "none" }} />
-        <Tab label="Метод 2 (БКТ)" sx={{ textTransform: "none" }} disabled />
-        <Tab label="Сравнение" sx={{ textTransform: "none" }} disabled />
+        <Tab label="Метод 1" sx={{ textTransform: "none" }} />
+        <Tab label="Метод 2" sx={{ textTransform: "none" }} />
+        <Tab label="Метод 3" sx={{ textTransform: "none" }} />
+        <Tab label="Сравнение" sx={{ textTransform: "none" }} />
       </Tabs>
-
+    <Box sx={{ 
+        flex: 1,           
+        overflow: "auto",
+        height: "100%",
+      }}>
       {selectedTab === 0 && (
         <>
           {trajectoryData ? (
@@ -420,6 +435,226 @@ const CompareOptimizationMethodsStep: React.FC<
           )}
         </>
       )}
+      {selectedTab === 3 && (
+  <Box sx={{ display: "flex", flexDirection: "column", gap: 3, pl: 2, pt: 1, pr: 2 }}>
+    <Typography variant="h6" fontWeight={600}>
+      Сравнение количественных показателей оптимизаций
+    </Typography>
+
+    <TableContainer component={Paper} variant="outlined">
+      <Table>
+        <TableHead>
+          <TableRow sx={{ backgroundColor: "action.hover" }}>
+            <TableCell><strong>Название метода</strong></TableCell>
+            <TableCell align="center"><strong>Время полёта</strong></TableCell>
+            <TableCell align="center"><strong>Количество кадров</strong></TableCell>
+            <TableCell align="center"><strong>Объём информации</strong></TableCell>
+            <TableCell align="center"><strong>Количество таксонов</strong></TableCell>
+            <TableCell align="center"><strong>Недостижимые точки</strong></TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {(() => {
+            const methods = [
+              {
+                name: "Метод 1 (МКТ)",
+                flightTime: trajectoryData?.method1?.flightTime ?? null,
+                frames: trajectoryData?.method1?.frames ?? null,
+                dataVolume: trajectoryData?.method1?.dataVolume ?? null,
+                taxons: trajectoryData?.method1?.taxons ?? null,
+                unreachable: trajectoryData?.method1?.unreachable ?? null,
+              },
+              {
+                name: "Метод 2 (БКТ)",
+                flightTime: trajectoryData?.method2?.flightTime ?? null,
+                frames: trajectoryData?.method2?.frames ?? null,
+                dataVolume: trajectoryData?.method2?.dataVolume ?? null,
+                taxons: trajectoryData?.method2?.taxons ?? null,
+                unreachable: trajectoryData?.method2?.unreachable ?? null,
+              },
+              {
+                name: "Метод 3 (Комби)",
+                flightTime: trajectoryData?.method3?.flightTime ?? null,
+                frames: trajectoryData?.method3?.frames ?? null,
+                dataVolume: trajectoryData?.method3?.dataVolume ?? null,
+                taxons: trajectoryData?.method3?.taxons ?? null,
+                unreachable: trajectoryData?.method3?.unreachable ?? null,
+              },
+            ];
+
+            const keys: (keyof typeof methods[0])[] = [
+              "flightTime", "frames", "dataVolume", "taxons", "unreachable",
+            ];
+
+            const mins: Record<string, number | null> = {};
+            keys.forEach((key) => {
+              const vals = methods
+                .map((m) => m[key] as number | null)
+                .filter((v): v is number => v !== null);
+              mins[key] = vals.length > 0 ? Math.min(...vals) : null;
+            });
+
+            const formatVal = (v: number | null) =>
+              v === null ? <Typography variant="body2" color="text.disabled">—</Typography> : v;
+
+            return methods.map((method) => (
+              <TableRow key={method.name} hover>
+                <TableCell>
+                  <Typography variant="body2" fontWeight={500}>
+                    {method.name}
+                  </Typography>
+                </TableCell>
+                {keys.map((key) => {
+                  const val = method[key] as number | null;
+                  const isMin = val !== null && mins[key] !== null && val === mins[key];
+                  return (
+                    <TableCell
+                      key={key}
+                      align="center"
+                      sx={{
+                        backgroundColor: isMin ? "success.light" : "transparent",
+                        color: isMin ? "success.contrastText" : "inherit",
+                        fontWeight: isMin ? 600 : 400,
+                        transition: "background-color 0.2s",
+                      }}
+                    >
+                      {formatVal(val)}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ));
+          })()}
+        </TableBody>
+      </Table>
+    </TableContainer>
+
+    {(() => {
+      // Recommendation logic:
+      // Score each method: +1 for each column where it has the minimum value.
+      // Tiebreak: prefer fewer unreachable points, then shorter flight time.
+      const methods = [
+        {
+          name: "Метод 1 (МКТ)",
+          flightTime: trajectoryData?.method1?.flightTime ?? null,
+          frames: trajectoryData?.method1?.frames ?? null,
+          dataVolume: trajectoryData?.method1?.dataVolume ?? null,
+          taxons: trajectoryData?.method1?.taxons ?? null,
+          unreachable: trajectoryData?.method1?.unreachable ?? null,
+        },
+        {
+          name: "Метод 2 (БКТ)",
+          flightTime: trajectoryData?.method2?.flightTime ?? null,
+          frames: trajectoryData?.method2?.frames ?? null,
+          dataVolume: trajectoryData?.method2?.dataVolume ?? null,
+          taxons: trajectoryData?.method2?.taxons ?? null,
+          unreachable: trajectoryData?.method2?.unreachable ?? null,
+        },
+        {
+          name: "Метод 3 (Комби)",
+          flightTime: trajectoryData?.method3?.flightTime ?? null,
+          frames: trajectoryData?.method3?.frames ?? null,
+          dataVolume: trajectoryData?.method3?.dataVolume ?? null,
+          taxons: trajectoryData?.method3?.taxons ?? null,
+          unreachable: trajectoryData?.method3?.unreachable ?? null,
+        },
+      ];
+
+      const keys: (keyof typeof methods[0])[] = [
+        "flightTime", "frames", "dataVolume", "taxons", "unreachable",
+      ];
+
+      const mins: Record<string, number | null> = {};
+      keys.forEach((key) => {
+        const vals = methods
+          .map((m) => m[key] as number | null)
+          .filter((v): v is number => v !== null);
+        mins[key] = vals.length > 0 ? Math.min(...vals) : null;
+      });
+
+      const scored = methods.map((method) => {
+        const score = keys.reduce((acc, key) => {
+          const val = method[key] as number | null;
+          return acc + (val !== null && val === mins[key] ? 1 : 0);
+        }, 0);
+        return { ...method, score };
+      });
+
+      scored.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        const ua = a.unreachable ?? Infinity;
+        const ub = b.unreachable ?? Infinity;
+        if (ua !== ub) return ua - ub;
+        const fa = a.flightTime ?? Infinity;
+        const fb = b.flightTime ?? Infinity;
+        return fa - fb;
+      });
+
+      const recommended = scored[0];
+
+      return (
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2.5,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            borderColor: "success.main",
+            borderWidth: 1.5,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="body1" color="text.secondary">
+              Рекомендованный метод оптимизации траектории:
+            </Typography>
+            <Typography variant="body1" fontWeight={700} color="success.dark">
+              {recommended.name}
+            </Typography>
+          </Box>
+
+          <Divider />
+
+          <Box sx={{ mt: 0, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
+  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
+    Приоритетный метод оптимизации:
+  </Typography>
+  
+  <FormControl component="fieldset">
+    <RadioGroup
+      name="priorityMethod"
+      defaultValue="method1"
+      onChange={(e) => console.log('Выбран метод:', e.target.value)}
+    >
+      <FormControlLabel 
+        value="method1" 
+        control={<Radio size="small" />} 
+        label="Метод 1" 
+      />
+      <FormControlLabel 
+        value="method2" 
+        control={<Radio size="small" />} 
+        label="Метод 2" 
+      />
+      <FormControlLabel 
+        value="method3" 
+        control={<Radio size="small" />} 
+        label="Метод 3" 
+      />
+    </RadioGroup>
+  </FormControl>
+</Box>
+            <Typography variant="body2" color="text.secondary">
+            Ознакомьтесь с полной информацией о карте полёта, нажав на кнопку{" "}
+            <strong>Просмотр карты</strong>. Данная информация будет сохранена,
+            и вы сможете её увидеть при просмотре подробностей в таблице с полётными картами.
+          </Typography>
+        </Paper>
+      );
+    })()}
+  </Box>
+)}
+</Box>
     </Box>
   );
 };

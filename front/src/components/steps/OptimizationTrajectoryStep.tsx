@@ -21,8 +21,12 @@ import {
   Chip,
   Dialog,
   DialogContent,
-  Alert
+  Alert,
+  CircularProgress
 } from "@mui/material";
+
+import { Menu, MenuItem, ListItemText } from '@mui/material';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -55,6 +59,8 @@ import SceneEditor from "../draw/SceneEditor";
 import StoryboardEditor from "../draw/StoryboardEditor";
 import SceneShower from "../draw/SceneShower";
 
+import { api } from "../../api/client";
+
 interface OptimizationTrajectoryStepProps {
   imageData: ImageData;
 
@@ -69,6 +75,9 @@ interface OptimizationTrajectoryStepProps {
 
   trajectoryData: any;
   setTrajectoryData: (data: any) => void;
+
+  trajectoryData2: any;
+  setTrajectoryData2: (data: any) => void;
 
   weatherConditions: Weather;
   setWeatherConditions: (data: Weather) => void;
@@ -92,6 +101,9 @@ interface OptimizationTrajectoryStepProps {
   setSelection: React.Dispatch<React.SetStateAction<any>>;
 
   flightLineY: number;
+
+  optimizationState: any;
+  setOptimizationState: (data: any) => void;
 }
 
 const colors = [
@@ -111,6 +123,11 @@ const colors = [
   "#b8a25b",
 ];
 
+interface OptimizationFlags {
+  small: boolean;
+  large: boolean;
+}
+
 const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   imageData,
   points,
@@ -119,6 +136,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   setDroneParams,
   trajectoryData,
   setTrajectoryData,
+  trajectoryData2,
+  setTrajectoryData2,
   weatherConditions,
   setWeatherConditions,
   storyboardsData,
@@ -134,10 +153,11 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   selection,
   setSelection,
   flightLineY,
+  optimizationState,
+  setOptimizationState
 }) => {
   const [activeImage, setActiveImage] = React.useState(0);
   const [image] = useImage(imageData.imageUrl);
-  const [isLoadingOptimization, setLoadingOptimization] = React.useState(false);
   const [showView, setShowView] = React.useState(false);
   const [showStoryboardEditor, setShowStoryboardEditor] = React.useState(false);
   const [open, setOpen] = React.useState(false);
@@ -146,9 +166,18 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
   const [isLegendOpen, setIsLegendOpen] = React.useState(false);
 
-  const [optimizationMethod, setOptimizationMethod] = React.useState<
-    "small" | "large"
-  >("small");
+  const updateOptimization = (type, updates) => {
+    setOptimizationState(prev => ({
+      ...prev,
+      [type]: { ...prev[type], ...updates }
+    }));
+  };
+
+  const isAnyRunning = React.useCallback(() => {
+    return Object.values(optimizationState).some(item => item.status === 'running');
+  }, [optimizationState]);
+
+  const isAnyOptimizationSelected = Object.values(optimizationState).some(item => item.flag);
 
   const [isConsiderWeather, setConsiderWeather] = React.useState(weatherConditions.isUse);
 
@@ -182,6 +211,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   const getTrajectoryData = () => {
     if (activeImage == 1) return trajectoryData;
 
+    if (activeImage == 2) return trajectoryData2;
+
     return null;
   };
   const handleClearTrajectoryData = () => {
@@ -190,67 +221,130 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
   const handleRunOptimization = async () => {
     if (!image || points.length === 0) return;
-    setActiveImage(1);
-    setLoadingOptimization(true);
-
-    // setLoading(true);
 
     const meterPerPixelX = width_m / image.width;
     const meterPerPixelY = height_m / image.height;
+    const GRID_COLS = droneParams.frameWidthBase / droneParams.frameWidthPlanned;
+    const GRID_ROWS = droneParams.frameHeightBase / droneParams.frameHeightPlanned;
 
     const pointsInMeters = points.map((p) => ({
       x: p.x * meterPerPixelX,
       y: (image.height - p.y) * meterPerPixelY,
     }));
 
-    const payload = {
-      width_m,
-      height_m,
-      lineY: (image.height - flightLineY) * meterPerPixelY,
-      points: pointsInMeters,
-      speed: droneParams.speed,
-      hoverTime: droneParams.hoverTime,
-      batteryTime: droneParams.batteryTime,
-      obstacles: [],
-      windResistance: droneParams.windResistance,
-      windSpeed: weatherConditions.windSpeed,
-      windDirection: weatherConditions.windDirection,
-      isUseWeather: weatherConditions.isUse
-    };
+    // Создаём массив промисов для запуска
+    const promises = [];
 
-    try {
-      const response = await fetch(
-        "http://nmstuvtip.ddnsking.com:5000/api/trajectory/calculate",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
-      const data = await response.json();
-      console.log("Ответ API:", data);
-
-      const preparedData = {
-        ...data,
-        B: data.B.map((taxon: any, index: any) => ({
-          ...taxon,
-          color: colors[index % colors.length],
-        })),
-        C: data.C,
+    if (optimizationState.small.flag) {
+      const payload = {
+        width_m,
+        height_m,
+        lineY: (image.height - flightLineY) * meterPerPixelY,
+        points: pointsInMeters,
+        speed: droneParams.speed,
+        hoverTime: droneParams.hoverTime,
+        batteryTime: droneParams.batteryTime,
+        obstacles: [],
+        windResistance: droneParams.windResistance,
+        windSpeed: weatherConditions.windSpeed,
+        windDirection: weatherConditions.windDirection,
+        isUseWeather: weatherConditions.isUse
       };
 
-      setTrajectoryData(preparedData);
-    } catch (err) {
-      console.error("Ошибка запроса:", err);
-    } finally {
-      // setLoading(false);
-      setLoadingOptimization(false);
-    }
-  };
+      // Запускаем small оптимизацию
+      const smallPromise = (async () => {
+        try {
+          setActiveImage(1);
+          // setOptimizationStatus(prev => ({ ...prev, small: 'running' }));
+          // setLoadingOptimization(prev => ({ ...prev, small: true }));
 
-  // const handleRunOptimization = () => {
-  //   console.log("Оптимизация запущена");
-  // };
+          updateOptimization("small", { isLoading: true, status: "running" });
+
+          const data = await api.trajectory.calculateMethod1(payload);
+          console.log("Ответ API (small):", data);
+
+          const preparedData = {
+            ...data,
+            B: data.B.map((taxon: any, index: any) => ({
+              ...taxon,
+              color: colors[index % colors.length],
+            })),
+            C: data.C,
+          };
+
+          setTrajectoryData(preparedData);
+        } catch (err) {
+          console.error("Ошибка small оптимизации:", err);
+        } finally {
+          // setOptimizationStatus(prev => ({ ...prev, small: 'completed' }));
+          // setLoadingOptimization(prev => ({ ...prev, small: false }));
+
+          updateOptimization("small", { isLoading: false, status: "completed" });
+
+          setActiveImage(1);
+        }
+      })();
+
+      promises.push(smallPromise);
+    }
+
+    if (optimizationState.large.flag) {
+      const payload = {
+        width_m,
+        height_m,
+        n_cols: GRID_COLS,
+        n_rows: GRID_ROWS,
+        lineY: (image.height - flightLineY) * meterPerPixelY,
+        points: pointsInMeters,
+        speed: droneParams.speed,
+        hoverTime: droneParams.hoverTime,
+        batteryTime: droneParams.batteryTime,
+        obstacles: [],
+        windResistance: droneParams.windResistance,
+        windSpeed: weatherConditions.windSpeed,
+        windDirection: weatherConditions.windDirection,
+        isUseWeather: weatherConditions.isUse
+      };
+
+      // Запускаем large оптимизацию
+      const largePromise = (async () => {
+        try {
+          setActiveImage(2);
+          // setOptimizationStatus(prev => ({ ...prev, large: 'running' }));
+          // setLoadingOptimization(prev => ({ ...prev, large: true }));
+          updateOptimization("large", { isLoading: true, status: "running" });
+
+          const data = await api.trajectory.calculateMethod2(payload);
+          console.log("Ответ API (large):", data);
+
+          const preparedData = {
+            ...data,
+            B: data.B.map((taxon: any, index: any) => ({
+              ...taxon,
+              color: colors[index % colors.length],
+            })),
+            C: data.C,
+          };
+
+          setTrajectoryData2(preparedData);
+        } catch (err) {
+          console.error("Ошибка large оптимизации:", err);
+        } finally {
+          updateOptimization("large", { isLoading: false, status: "completed" });
+
+          // setOptimizationStatus(prev => ({ ...prev, large: 'completed' }));
+          // setLoadingOptimization(prev => ({ ...prev, large: false }));
+          setActiveImage(2);
+        }
+      })();
+
+      promises.push(largePromise);
+    }
+
+    // Ждём завершения всех запущенных оптимизаций
+    await Promise.all(promises);
+    console.log("Все оптимизации завершены");
+  };
 
   const handleStoryboard = () => {
     setShowStoryboardEditor(true);
@@ -258,8 +352,9 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
   const trajectoryTitles = [
     "Пользовательская",
-    "Оптимум (МКТ)",
-    "Оптимум (БКТ)",
+    "Оптимум (НП)",
+    "Оптимум (ВП)",
+    "Оптимум (Комби)"
   ];
 
   const handleNext = () => {
@@ -269,6 +364,42 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   const handleDownloadScene = () => {
     sceneUserTrajectoryShower.current?.handleDownload();
   };
+
+  const [anchorEl, setAnchorEl] = React.useState(null);
+  const openMenu = Boolean(anchorEl);
+
+  const handleClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleDownload = (type) => {
+    // Логика скачивания в зависимости от type
+    if (type === 'schema') {
+      sceneUserTrajectoryShower.current?.handleDownload();
+
+      // handleDownloadScene()
+    } else if (type === 'heatmap') {
+      console.log('Скачиваем тепловую карту');
+      // handleDownloadHeatmap()
+    }
+    handleClose();
+  };
+
+  const getChipProps = (status) => {
+    switch (status) {
+      case 'running':
+        return { label: 'В процессе', color: 'warning', icon: <CircularProgress size={12} /> };
+      case 'completed':
+        return { label: 'Выполнено', color: 'success' };
+      default:
+        return { label: 'Не запущено', color: 'error' };
+    }
+  };
+
   const renderImage = (index: number) => {
     switch (index) {
       case 1:
@@ -307,12 +438,33 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showUserTrajectory={false}
             showObstacles={true}
             showTaxonTrajectory={true}
-            isLoadingOptimization={isLoadingOptimization}
+            isLoadingOptimization={optimizationState.small.isLoading}
             flightLineY={flightLineY}
             weatherConditions={weatherConditions}
           />
         );
       case 3:
+        return (
+          <SceneShower
+            imageData={imageData}
+            droneParams={droneParams}
+            points={points}
+            obstacles={obstacles}
+            trajectoryData={trajectoryData2}
+            showView={() => {
+              setShowView(true);
+            }}
+            ref={sceneUserTrajectoryShower}
+            showGrid={true}
+            showUserTrajectory={false}
+            showObstacles={true}
+            showTaxonTrajectory={true}
+            isLoadingOptimization={optimizationState.large.isLoading}
+            flightLineY={flightLineY}
+            weatherConditions={weatherConditions}
+          />
+        );
+      case 4:
         return (
           <SceneShower
             imageData={imageData}
@@ -328,7 +480,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showUserTrajectory={false}
             showObstacles={true}
             showTaxonTrajectory={false}
-            isLoadingOptimization={isLoadingOptimization}
+            isLoadingOptimization={optimizationState.combi.isLoading}
             flightLineY={flightLineY}
             weatherConditions={weatherConditions}
           />
@@ -366,10 +518,10 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                 {trajectoryTitles[activeImage]}
               </Typography>
 
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <Tooltip title="Просмотр схемы" enterDelay={500}>
                   <IconButton color="primary" onClick={() => setShowView(true)}>
-                    <VisibilityIcon />
+                    <VisibilityIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
 
@@ -380,21 +532,55 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                     onClick={() => setIsLegendOpen(true)}
                     aria-label="Легенда"
                   >
-                    <InfoIcon />
+                    <InfoIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
 
-                <Tooltip title="Скачать схему" enterDelay={500}>
+                {/* <Tooltip title="Скачать схему" enterDelay={500}>
                   <IconButton color="primary" onClick={handleDownloadScene}>
                     <DownloadIcon />
                   </IconButton>
-                </Tooltip>
+                </Tooltip> */}
+
+                <>
+                  <Tooltip title="Скачать" enterDelay={500}>
+                    <IconButton
+                      color="primary"
+                      onClick={handleClick}
+                      sx={{ gap: 0.5 }}
+                    >
+                      <DownloadIcon fontSize="small" />
+                      <ArrowDropDownIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+
+                  <Menu
+                    anchorEl={anchorEl}
+                    open={openMenu}
+                    onClose={handleClose}
+                    anchorOrigin={{
+                      vertical: 'bottom',
+                      horizontal: 'center',
+                    }}
+                    transformOrigin={{
+                      vertical: 'top',
+                      horizontal: 'center',
+                    }}
+                  >
+                    <MenuItem onClick={() => handleDownload('schema')}>
+                      <ListItemText>Схема</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={() => handleDownload('heatmap')}>
+                      <ListItemText>Тепловая карта</ListItemText>
+                    </MenuItem>
+                  </Menu>
+                </>
 
                 {/* Вертикальная палочка */}
                 <Divider
                   orientation="vertical"
                   flexItem
-                  sx={{ mr: 2, ml: 1 }}
+                  sx={{ mr: 1, ml: 1 }}
                 />
 
                 {/* Счётчик */}
@@ -470,47 +656,87 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
                 {/* Правая часть: статус */}
                 <Chip
-                  label={trajectoryData != null ? "Выполнено" : "Не запущено"}
+                  label={trajectoryData != null ? "Частично" : "Не запущено"}
                   size="small"
-                  color={trajectoryData != null ? "success" : "error"}
+                  color={trajectoryData != null ? "warning" : "error"}
                   variant="outlined"
                 />
               </Box>
             </AccordionSummary>
 
             <AccordionDetails>
-              <Typography variant="subtitle2" gutterBottom>
-                Метод оптимизации
+              <Typography variant="body2" color="text.secondary" mb={1.5}>
+                Выберите один или несколько методов оптимизации.
               </Typography>
 
-              <RadioGroup
-                value={optimizationMethod}
-                onChange={(e) => setOptimizationMethod(e.target.value as any)}
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  bgcolor: 'background.default',
+                  borderRadius: 2
+                }}
               >
-                <FormControlLabel
-                  value="small"
-                  control={<Radio />}
-                  label="Малое количество точек"
-                />
-                <FormControlLabel
-                  value="large"
-                  control={<Radio />}
-                  label="Большое количество точек"
-                  disabled
-                />
-              </RadioGroup>
 
-              {weatherConditions.windSpeed > droneParams.windResistance ? (
-                <Alert severity="warning" sx={{ alignItems: "center", mt: 1, mb: 1.5 }}>
-                  Скорость ветра ({(weatherConditions.windSpeed).toFixed(1)} м/с) превышает максимальную
-                  ветроустойчивость БПЛА ({droneParams.windResistance} м/с). Полёт может быть небезопасен.
-                </Alert>
-              ) : (
-                <Alert severity="success" sx={{ alignItems: "center", mt: 1, mb: 1.5 }}>
-                  Скорость ветра ({(weatherConditions.windSpeed).toFixed(1)} м/с) в окрестности указанной местности в пределах нормы при
-                  ветроустойчивости БПЛА {droneParams.windResistance} м/с.
-                </Alert>
-              )}
+                <Typography variant="subtitle2" gutterBottom>
+                  Методы оптимизации
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={optimizationState.small.flag}
+                          onChange={(e) => {
+                            updateOptimization('small', { flag: e.target.checked });
+                          }}
+                        />
+                      }
+                      label="Низкой плотности точек"
+                    />
+                    <Chip
+                      {...getChipProps(optimizationState.small.status)}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={optimizationState.large.flag}
+                          onChange={(e) => updateOptimization('large', { flag: e.target.checked })}
+                        />
+                      }
+                      label="Высокой плотности точек"
+                    />
+                    <Chip
+                      {...getChipProps(optimizationState.large.status)}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={optimizationState.combi.flag}
+                          onChange={(e) => updateOptimization('combi', { flag: e.target.checked })}
+                          disabled
+                        />
+                      }
+                      label="Комбинированный"
+                    />
+                    <Chip
+                      {...getChipProps(optimizationState.combi.status)}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </Box>
+                </Box>
+              </Paper>
 
               <FormControlLabel
                 control={
@@ -526,8 +752,28 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                   />
                 }
                 label="Учитывать погодные условия при построении маршрута"
-                sx={{ mb: 0.5 }}
+                sx={{ mt: 1 }}
               />
+
+              {weatherConditions.isUse && (
+                weatherConditions.windSpeed > droneParams.windResistance ? (
+                  <Alert severity="warning" sx={{ alignItems: "center", mt: 0.5, mb: 1.5 }}>
+                    Скорость ветра ({weatherConditions.windSpeed.toFixed(1)} м/с) превышает максимальную
+                    ветроустойчивость БПЛА ({droneParams.windResistance} м/с). Полёт может быть небезопасен.
+                  </Alert>
+                ) : (
+                  <Alert severity="success" sx={{ alignItems: "center", mt: 0.5, mb: 1.5 }}>
+                    Скорость ветра ({weatherConditions.windSpeed.toFixed(1)} м/с) в пределах нормы при
+                    ветроустойчивости БПЛА {droneParams.windResistance} м/с.
+                  </Alert>
+                )
+              )}
+
+              {weatherConditions.isUse && weatherConditions.windSpeed >= droneParams.speed && (
+                <Alert severity="warning" sx={{ alignItems: "center", mt: 1, mb: 1.5 }}>
+                  Скорость ветра ({(weatherConditions.windSpeed).toFixed(1)} м/с) больше или равна установленной рабочей скорости БПЛА ({droneParams.speed} м/с). Точки могут быть недостижимы.
+                </Alert>
+              )}
 
               <Typography variant="body2" color="text.secondary" mt={1} mb={2}>
                 Перед запуском оптимизации настройте параметры полёта.
@@ -551,6 +797,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                       minWidth: 120,
                       textTransform: "none",
                     }}
+                    disabled={!isAnyOptimizationSelected}
                   >
                     Запустить
                   </Button>
@@ -571,14 +818,16 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
                 <Box>
                   <Tooltip title="Параметры полёта">
-                    <IconButton onClick={() => setOpen(true)} size="small">
+                    <IconButton onClick={() => setOpen(true)} size="small"
+                      disabled={isAnyRunning()}
+                    >
                       <SettingsIcon />
                     </IconButton>
                   </Tooltip>
 
                   <DeleteButton
                     onClick={handleClearTrajectoryData}
-                    disabled={trajectoryData == null}
+                    disabled={trajectoryData == null || isAnyRunning()}
                     tooltip="Очистить оптимизированные траектории"
                   />
                 </Box>
@@ -625,6 +874,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                   size="small"
                   startIcon={<ViewListIcon />}
                   onClick={handleStoryboard}
+                  disabled={isAnyRunning()}
                 >
                   Раскадровать
                 </Button>
@@ -644,7 +894,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             onClose={() => setShowView(false)}
             imageData={imageData}
             droneParams={droneParams}
-            sceneTitle="Просмотр схемы полётов"
+            sceneTitle="Просмотр схемы полёта"
             points={getPoints()}
             setPoints={() => { }}
             obstacles={obstacles}
@@ -669,6 +919,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             points={points}
             obstacles={obstacles}
             trajectoryData={trajectoryData}
+            trajectoryData2={trajectoryData2}
             droneParams={droneParams}
             storyboardsData={storyboardsData}
             setStoryboardsData={setStoryboardsData}

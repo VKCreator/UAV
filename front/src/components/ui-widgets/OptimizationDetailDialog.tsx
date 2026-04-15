@@ -61,7 +61,7 @@ const OptimizationDetailDialog: FC<OptimizationDetailDialogProps> = ({
     if (reason === "escapeKeyDown" || reason === "backdropClick") return;
     onClose();
   }; 
-  
+
   return (
     <Dialog open={open} onClose={handleDialogClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ pr: 5 }}>
@@ -117,6 +117,9 @@ const TabContent: FC<{
   data: TrajectoryData | null;
   method: string;
 }> = ({ data, method }) => {
+
+  const totalFlightTime = data?.B.reduce((sum, taxon) => sum + taxon.time_sec, 0) ?? 0;
+
   if (!data) {
     return (
       <Typography color="text.secondary" sx={{ pt: 2 }}>
@@ -135,13 +138,16 @@ const TabContent: FC<{
         <Typography>
           <b>Количество таксонов:</b> {data.B.length} шт.
         </Typography>
+       <Typography>
+          <b>Общее время полёта:</b> {totalFlightTime.toFixed(1)} с
+        </Typography>
       </Stack>
 
       <Divider sx={{ mb: 1 }} />
 
       <Grid container spacing={2}>
         {data.B.map((taxon, idx) => (
-          <Grid size={{ xs: 12, md: 6 }} key={idx}>
+          <Grid size={{ xs: 12, md: 12 }} key={idx}>
             <TaxonCard taxon={taxon} index={idx} />
           </Grid>
         ))}

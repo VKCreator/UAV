@@ -220,8 +220,8 @@ const DashboardsPage = () => {
       setSchemas(response);
       localStorage.setItem("schemas-cache-v1", JSON.stringify(response));
     } catch (error) {
-      console.error("Ошибка загрузки схем:", error);
-      notifications.show("Ошибка загрузки схем", {
+      console.error("Ошибка загрузки карт:", error);
+      notifications.show("Ошибка загрузки карт", {
         severity: "error",
         autoHideDuration: 3000,
       });
@@ -455,12 +455,12 @@ const DashboardsPage = () => {
             // }}
           >
             <Typography variant="h5" sx={{ mb: 2 }}>
-              Схемы полётов
+              Полётные карты
             </Typography>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
-                  title="Количество схем"
+                  title="Количество карт"
                   value={schemas.length}
                   icon={<RouteIcon fontSize="large" />}
                 />
@@ -496,9 +496,9 @@ const DashboardsPage = () => {
               <Grid>
                 <Box display="flex" alignItems="center" gap={1}>
                   <Typography variant="h6">
-                    Последние созданные схемы
+                    Последние созданные карты
                   </Typography>
-                  <Tooltip title="Список последних созданных схем полётов">
+                  <Tooltip title="Список последних созданных карт полётов">
                     <InfoOutlinedIcon
                       fontSize="small"
                       sx={{ color: "text.secondary", cursor: "pointer" }}
@@ -507,7 +507,7 @@ const DashboardsPage = () => {
                 </Box>
               </Grid>
               <Grid>
-                 <Tooltip title="Создать схему">
+                 <Tooltip title="Создать карту">
                   <IconButton
                     color="primary"
                     component={Link}
@@ -578,7 +578,7 @@ const DashboardsPage = () => {
                 variant="text"
                 size="small"
               >
-                Показать все схемы ({schemas.length})...
+                Показать все карты ({schemas.length})...
               </Button>
             </Box>
           </Card>

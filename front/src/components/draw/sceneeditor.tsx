@@ -1,4 +1,4 @@
-import { FC, Fragment, useState, useRef, type JSX, useEffect } from "react";
+import { FC, Fragment, useState, useRef, type JSX, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Button,
@@ -19,17 +19,11 @@ import {
 
 import {
   Stage,
-  Layer,
   Image as KonvaImage,
-  Circle,
-  Text,
-  Arrow,
   Line,
-  Rect,
-  Group
+  Rect
 } from "react-konva";
 import useImage from "use-image";
-import Konva from "konva";
 
 import PanToolIcon from "@mui/icons-material/PanTool";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
@@ -53,6 +47,13 @@ import { Weather } from "../../types/uav.types";
 import { useLocalStorage } from "../../hooks/useLocalStorage/useLocalStorage";
 
 import FlightSchemaLegendDialog from "../ui-widgets/FlightSchemaLegendDialog";
+import { StaticLayer, UserPointsLayer, ObstaclesLayer, TrajectoryLayer, UILayer } from "./SceneLayers";
+
+const COLORS = [
+  "#65b9f7", "#ff6b6b", "#66a9ff", "#ffdd57", "#9e69c4", 
+  "#64f3f1", "#f59fe1", "#f4e24d", "#e38b5a", "#5e4a3a", 
+  "#7a9f60", "#a2b9d1", "#d1d1d1", "#b8a25b",
+] as const;
 
 const STAGE_WIDTH = 1100;
 const STAGE_HEIGHT = 700;
@@ -78,9 +79,6 @@ interface SceneEditorProps {
 
   weatherConditions?: Weather;
 }
-
-const TAXON_POINT_RADIUS = 10;
-const BASE_RADIUS = 4;
 
 const SceneEditor: FC<SceneEditorProps> = ({
   onClose,
@@ -122,7 +120,6 @@ const SceneEditor: FC<SceneEditorProps> = ({
   const [image] = useImage(imageData.imageUrl);
   const [currentPolygon, setCurrentPolygon] = useState<Point[]>([]);
 
-  const [loading, setLoading] = useState(false);
   const [hoveredObstacleId, setHoveredObstacleId] = useState<string | null>(
     null,
   );
@@ -132,32 +129,19 @@ const SceneEditor: FC<SceneEditorProps> = ({
   const [lineY, setLineY] = useState<number | null>(null);
 
   const stageRef = useRef<any>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
-  const colors = [
-    "#65b9f7", // яркий голубой
-    "#ff6b6b", // яркий красный
-    "#66a9ff", // яркий синий
-    "#ffdd57", // ярко-жёлто-оранжевый
-    "#9e69c4", // ярко-фиолетовый
-    "#64f3f1", // яркий циановый
-    "#f59fe1", // яркий лавандовый
-    "#f4e24d", // ярко-жёлтый
-    "#e38b5a", // тёплый бежевый
-    "#5e4a3a", // насыщенный коричневый
-    "#7a9f60", // ярко-зелёно-коричневый
-    "#a2b9d1", // светло-голубой
-    "#d1d1d1", // светло-серый
-    "#b8a25b", // жёлто-коричневый
-  ];
+  const colors = COLORS;
 
   const getNextPolygonColor = () => colors[obstacles.length % colors.length];
 
-  type ToolMode = "pan" | "points" | "polygons";
-
+ 
+  //  "pan" | "points" | "polygons";
   const [toolMode, setToolMode] = useState<string>(
     mode === undefined ? "pan" : mode,
   );
-  const getCursor = () => {
+
+  const getCursor = useCallback(() => {
     switch (toolMode) {
       case "pan":
         return "grab";
@@ -168,7 +152,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
       default:
         return "default";
     }
-  };
+  }, [toolMode]);
 
   const GRID_COLS = droneParams.frameWidthBase / droneParams.frameWidthPlanned;
   const GRID_ROWS =
@@ -183,10 +167,10 @@ const SceneEditor: FC<SceneEditorProps> = ({
   // Масштаб, чтобы изображение вписалось в Stage
   const scaleToFit = image
     ? Math.min(
-        1,
-        (STAGE_WIDTH / image.width) * 0.9,
-        (STAGE_HEIGHT / image.height) * 0.9,
-      )
+      1,
+      (STAGE_WIDTH / image.width) * 0.9,
+      (STAGE_HEIGHT / image.height) * 0.9,
+    )
     : 1;
 
   // Позиция изображения для центрирования
@@ -218,7 +202,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
     });
   };
 
-  const handleClick = (e: any) => {
+  const handleClick = useCallback((e: any) => {
     if (!image) return;
     if (toolMode == "pan") return;
 
@@ -256,13 +240,13 @@ const SceneEditor: FC<SceneEditorProps> = ({
     const newPoint = { x: xOnImage, y: yOnImage };
     if (toolMode === "points") {
       setPoints([...points, newPoint]);
-      setTrajectoryData(null);
+      // setTrajectoryData(null);
     }
 
     if (toolMode === "polygons") {
       setCurrentPolygon((prev) => [...prev, newPoint]);
     }
-  };
+  }, [image, toolMode, position, scale, imageX, scaleToFit, flightLineY, setPoints, points]);
 
   const handleClearPoints = () => {
     setPoints([]);
@@ -277,32 +261,35 @@ const SceneEditor: FC<SceneEditorProps> = ({
     setObstacles((prev) => prev.filter((o) => o.id !== id));
   };
 
-  const handleDragMove = (e: any) => {
+  const handleDragMove = useCallback((e: any) => {
     const stage = e.target;
     setPosition({
       x: stage.x(),
       y: stage.y(),
     });
-  };
+  }, []);
 
-  // Генерация линий сетки
-  const renderGrid = () => {
+  const gridLines = useMemo(() => {
     if (!image || !showGrid) return null;
+
     const lines: JSX.Element[] = [];
     const imgWidth = image.width * scaleToFit;
     const imgHeight = image.height * scaleToFit;
-    // const imgWidth = droneParams.uavParams.resolutionWidth * scaleToFit;
-    // const imgHeight = droneParams.uavParams.resolutionHeight * scaleToFit;
+
     // Вертикальные линии
     for (let i = 1; i < GRID_COLS; i++) {
       const x = imageX + (imgWidth / GRID_COLS) * i;
       lines.push(
-        <Line
+        <Rect
           key={`v-${i}`}
-          points={[x, imageY, x, imageY + imgHeight]}
-          stroke="rgba(255,255,255,0.6)"
-          strokeWidth={2}
-        />,
+          x={x}
+          y={imageY}
+          width={2}  // толщина линии
+          height={imgHeight}
+          fill="rgba(255, 255, 255, 0.8)"
+          stroke="rgb(0, 0, 0, 1)"
+          strokeWidth={0.1}
+        />
       );
     }
 
@@ -310,19 +297,24 @@ const SceneEditor: FC<SceneEditorProps> = ({
     for (let i = 1; i < GRID_ROWS; i++) {
       const y = imageY + imgHeight - (imgHeight / GRID_ROWS) * i;
       lines.push(
-        <Line
+        <Rect
           key={`h-${i}`}
-          points={[imageX, y, imageX + imgWidth, y]}
-          stroke="rgba(255,255,255,0.6)"
-          strokeWidth={2}
-        />,
+          x={imageX}
+          y={y}
+          width={imgWidth} 
+          height={2}
+          fill="rgba(255, 255, 255, 0.8)"
+          stroke="rgb(0, 0, 0, 1)"
+          strokeWidth={0.1}
+        />
       );
     }
 
     return lines;
-  };
+  }, [image, showGrid, GRID_COLS, GRID_ROWS, imageX, imageY, scaleToFit]);
 
-  const handleMouseMove = (e: any) => {
+
+  const handleMouseMove = useCallback((e: any) => {
     if (toolMode !== "line" || !image) return;
 
     const stage = e.target.getStage();
@@ -331,50 +323,40 @@ const SceneEditor: FC<SceneEditorProps> = ({
 
     const imageTop = imageY;
     const imageBottom = imageY + image.height * scaleToFit;
-
     const clampedY = Math.max(imageTop, Math.min(pointer.y, imageBottom));
 
-    setLineY(clampedY);
-  };
+    // Отменяем предыдущий запланированный фрейм
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
 
-  const handleStageClick = () => {
+    // Планируем обновление в следующем кадре анимации
+    animationFrameRef.current = requestAnimationFrame(() => {
+      setLineY(clampedY);
+      animationFrameRef.current = null;
+    });
+  }, [toolMode, image, imageY, scaleToFit]);
+
+  const handleStageClick = useCallback(() => {
     if (toolMode === "line" && lineY !== null) {
       setUavLineConfigured(true);
       setFlightLineY((lineY - imageY) / scaleToFit);
-      console.info((lineY - imageY) / scaleToFit);
-      // setToolMode("pan");
     }
-  };
-
-  const getArrowPoints = (
-    from: { x: number; y: number },
-    to: { x: number; y: number },
-    fromRadius: number,
-    toRadius: number,
-  ) => {
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-
-    if (length === 0) {
-      return [from.x, from.y, to.x, to.y];
-    }
-
-    const ux = dx / length;
-    const uy = dy / length;
-
-    return [
-      from.x + ux * fromRadius,
-      from.y + uy * fromRadius,
-      to.x - ux * toRadius,
-      to.y - uy * toRadius,
-    ];
-  };
+  }, [toolMode, lineY, imageY, scaleToFit, setFlightLineY]);
 
   useEffect(() => {
     if (!image || !scaleToFit) return;
 
     if (!flightLineY) setFlightLineY(image.height);
+  }, []);
+
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
   }, []);
 
   return (
@@ -391,7 +373,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
         <Box display="flex" alignItems="center" gap={1}>
           <IconButton
             size="small"
-            onClick={() => handleClose()}
+            onClick={handleClose}
             aria-label="назад"
           >
             <ArrowBackIcon />
@@ -412,7 +394,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
           borderColor="divider"
           p={2}
           sx={{
-            display: sceneMode == "Редактор схемы полётов" ? "block" : "none",
+            display: sceneMode == "Редактор схемы полёта" ? "block" : "none",
           }}
         >
           <Stack spacing={2}>
@@ -701,91 +683,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
               >
                 Обозначения на схеме
               </Button>
-              {/* 
-              <Tooltip title="Показать легенду" arrow>
-                <IconButton
-                  component="span"
-                  size="small"
-                  onClick={() => setIsLegendOpen(true)}
-                  aria-label="Легенда"
-                >
-                  <InfoOutlinedIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Typography variant="body2" color="text.secondary">
-                Обозначения на схеме
-              </Typography> */}
             </Box>
-            {/* <Box>
-              <Box
-                display="flex"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <Typography variant="subtitle1">
-                  Оптимизированная траектория
-                </Typography>
-                <Tooltip title="Показывать оптимизированную траекторию" arrow>
-                  <Checkbox
-                    checked={showTaxonTrajectory}
-                    onChange={(e) => setShowTaxonTrajectory(e.target.checked)}
-                    size="small"
-                    disabled={!trajectoryData || trajectoryData.B.length === 0}
-                  />
-                </Tooltip>
-              </Box>
-
-              <Stack
-                direction="row"
-                spacing={1}
-                justifyContent="space-between"
-                alignItems="center"
-              >
-                <Typography variant="body2" color="text.secondary">
-                  Всего таксонов:{" "}
-                  <Box
-                    component="span"
-                    fontWeight="bold"
-                    color="text.secondary"
-                  >
-                    {trajectoryData ? trajectoryData.B.length : 0}
-                  </Box>{" "}
-                  шт.
-                </Typography>
-
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={handleClearTaxonTrajectory}
-                  disabled={!trajectoryData || trajectoryData.B.length === 0}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Stack>
-
-              <Button
-                size="small"
-                variant="contained"
-                onClick={handleCalculateTrajectory}
-                disabled={points.length === 0}
-                sx={{ mt: 1 }}
-              >
-                Оптимизировать траекторию
-              </Button>
-            </Box> */}
-
-            {/* <Divider /> */}
-
-            {/* <Stack spacing={1}>
-              <Button
-                variant="contained"
-                color="success"
-                onClick={handleDownload}
-                disabled={!image}
-              >
-                Скачать схему
-              </Button>
-            </Stack> */}
           </Stack>
         </Box>
 
@@ -819,605 +717,68 @@ const SceneEditor: FC<SceneEditorProps> = ({
               onMouseMove={handleMouseMove}
               onClick={handleStageClick}
             >
-              <Layer>
-                {image && (
-                  <KonvaImage
-                    image={image}
-                    x={imageX}
-                    y={imageY}
-                    scaleX={scaleToFit}
-                    scaleY={scaleToFit}
-                    onClick={handleClick}
-                    onContextMenu={(e) => {
-                      e.evt.preventDefault();
-                    }}
-                  />
-                )}
+              <StaticLayer
+                image={image}
+                imageX={imageX}
+                imageY={imageY}
+                scaleToFit={scaleToFit}
+                gridLines={gridLines}
+                handleClick={handleClick}
+                STAGE_WIDTH={STAGE_WIDTH}
+                STAGE_HEIGHT={STAGE_HEIGHT}
+              />
 
-                {!image && (
-                  <>
-                    <Rect
-                      x={0}
-                      y={0}
-                      width={STAGE_WIDTH}
-                      height={STAGE_HEIGHT}
-                      fill="rgba(255,255,255,0.7)"
-                    />
-                    <Text 
-                      x={STAGE_WIDTH / 2 - 10}
-                      y={STAGE_HEIGHT / 2 - 10}
-                      text="Загрузка..."
-                      fontSize={20}
-                      fill="black"
-                      align="center"
-                      verticalAlign="middle"
-                    />
-                  </>
-                )}
+              <UserPointsLayer
+                points={points}
+                showUserTrajectory={showUserTrajectory}
+                scaleToFit={scaleToFit}
+                imageX={imageX}
+                imageY={imageY}
+                toolMode={toolMode}
+                setPoints={setPoints}
+                getCursor={getCursor}
+              />
 
-                {renderGrid()}
+              <ObstaclesLayer
+                obstacles={obstacles}
+                showObstacles={showObstacles}
+                scaleToFit={scaleToFit}
+                image={image}
+                imageX={imageX}
+                imageY={imageY}
+                hoveredObstacleId={hoveredObstacleId}
+                setHoveredObstacleId={setHoveredObstacleId}
+                getCursor={getCursor}
+              />
 
-                {toolMode === "line" && lineY !== null && image && (
-                  <Line
-                    points={[
-                      imageX,
-                      lineY,
-                      imageX + image.width * scaleToFit,
-                      lineY,
-                    ]}
-                    stroke="red"
-                    strokeWidth={2}
-                    dash={[8, 4]}
-                  />
-                )}
+              <TrajectoryLayer
+                trajectoryData={trajectoryData}
+                showTaxonTrajectory={showTaxonTrajectory}
+                image={image}
+                width_m={width_m}
+                height_m={height_m}
+                scaleToFit={scaleToFit}
+                imageX={imageX}
+                imageY={imageY}
+                colors={colors}
+              />
 
-                {showUserTrajectory &&
-                  points.length > 1 &&
-                  points.map((point, i) => {
-                    if (i === 0) return null;
+              <UILayer
+                toolMode={toolMode}
+                lineY={lineY}
+                image={image}
+                imageX={imageX}
+                imageY={imageY}
+                scaleToFit={scaleToFit}
+                weatherConditions={weatherConditions}
+                showUavLine={showUavLine}
+                flightLineY={flightLineY}
+                currentPolygon={currentPolygon}
+                STAGE_WIDTH={STAGE_WIDTH}
+                STAGE_HEIGHT={STAGE_HEIGHT}
+              />
 
-                    const prev = points[i - 1];
 
-                    const from = {
-                      x: prev.x * scaleToFit + imageX,
-                      y: prev.y * scaleToFit + imageY,
-                    };
-
-                    const to = {
-                      x: point.x * scaleToFit + imageX,
-                      y: point.y * scaleToFit + imageY,
-                    };
-
-                    const arrowPoints = getArrowPoints(
-                      from,
-                      to,
-                      TAXON_POINT_RADIUS,
-                      TAXON_POINT_RADIUS,
-                    ); // 10 = radius circle
-
-                    return (
-                      <Arrow
-                        key={`arrow-${i}`}
-                        points={arrowPoints}
-                        pointerLength={10}
-                        pointerWidth={7}
-                        fill="red"
-                        stroke="red"
-                        strokeWidth={2}
-                      />
-                    );
-                  })}
-
-                {showUserTrajectory &&
-                  points.map((point, i) => (
-                    <Fragment key={`point-${i}`}>
-                      <Circle
-                        x={point.x * scaleToFit + imageX}
-                        y={point.y * scaleToFit + imageY}
-                        radius={10}
-                        fill="blue"
-                        onContextMenu={(e) => {
-                          e.evt.preventDefault();
-
-                          if (toolMode === "points")
-                            setPoints(points.filter((_, idx) => idx !== i));
-                        }}
-                        onMouseEnter={(e) => {
-                          const stage = e.target.getStage();
-                          stage!.container().style.cursor = "pointer";
-                        }}
-                        onMouseLeave={(e) => {
-                          const stage = e.target.getStage();
-                          stage!.container().style.cursor = getCursor();
-                        }}
-                      />
-                      <Text
-                        x={point.x * scaleToFit + imageX - 6} // Смещение по X на половину размера текста
-                        y={point.y * scaleToFit + imageY - 6} // Смещение по Y на половину размера текста
-                        text={(i + 1).toString()}
-                        fontSize={12}
-                        fill="white"
-                        onContextMenu={(e) => {
-                          e.evt.preventDefault();
-
-                          if (toolMode === "points")
-                            setPoints(points.filter((_, idx) => idx !== i));
-                        }}
-                        onMouseEnter={(e) => {
-                          const stage = e.target.getStage();
-                          stage!.container().style.cursor = "pointer";
-                        }}
-                        onMouseLeave={(e) => {
-                          const stage = e.target.getStage();
-                          stage!.container().style.cursor = getCursor();
-                        }}
-                      />
-                    </Fragment>
-                  ))}
-
-                {showTaxonTrajectory &&
-                  image &&
-                  trajectoryData?.B?.map((taxon: any, idx: number) => {
-                    const color = colors[idx % colors.length];
-
-                    const meterPerPixelX = width_m / image.width;
-                    const meterPerPixelY = height_m / image.height;
-
-                    // База
-                    const baseX = taxon.base[0] / meterPerPixelX;
-                    const baseY = image.height - taxon.base[1] / meterPerPixelY;
-
-                    // Точки таксона
-                    const taxonPoints: TrajectoryPoint[] = taxon.points.map(
-                      (p: [number, number], i: number) => ({
-                        x: p[0] / meterPerPixelX,
-                        y: image.height - p[1] / meterPerPixelY,
-                        color,
-                        number: i + 1,
-                      }),
-                    );
-                    const flightPoints: TrajectoryPoint[] = (taxon.flight_points ?? []).map(
-                    (p: [number, number], i: number) => ({
-                      x: p[0] / meterPerPixelX,
-                      y: image.height - p[1] / meterPerPixelY,
-                      color: "#ff6b00",
-                      number: i + 1,
-                    }),
-                    );
-                    
-                    return (
-                      <Fragment key={`taxon-${idx}`}>
-                        {/* База */}
-                        <Line
-                          points={[
-                            baseX * scaleToFit + imageX - 8,
-                            baseY * scaleToFit + imageY - 8,
-                            baseX * scaleToFit + imageX + 8,
-                            baseY * scaleToFit + imageY,
-                            baseX * scaleToFit + imageX - 8,
-                            baseY * scaleToFit + imageY + 8,
-                          ]}
-                          fill={color}
-                          closed
-                        />
-
-                        {taxonPoints.length > 0 && (
-                          <>
-                            <Arrow
-                              points={getArrowPoints(
-                                {
-                                  x: baseX * scaleToFit + imageX,
-                                  y: baseY * scaleToFit + imageY,
-                                },
-                                {
-                                  x: taxonPoints[0].x * scaleToFit + imageX,
-                                  y: taxonPoints[0].y * scaleToFit + imageY,
-                                },
-                                BASE_RADIUS,
-                                TAXON_POINT_RADIUS,
-                              )}
-                              pointerLength={10}
-                              pointerWidth={7}
-                              fill={color}
-                              stroke={color}
-                              strokeWidth={2}
-                            />
-                            <Arrow
-                              points={getArrowPoints(
-                                {
-                                  x:
-                                    taxonPoints[taxonPoints.length - 1].x *
-                                      scaleToFit +
-                                    imageX,
-                                  y:
-                                    taxonPoints[taxonPoints.length - 1].y *
-                                      scaleToFit +
-                                    imageY,
-                                },
-                                {
-                                  x: baseX * scaleToFit + imageX,
-                                  y: baseY * scaleToFit + imageY,
-                                },
-                                TAXON_POINT_RADIUS,
-                                BASE_RADIUS,
-                              )}
-                              pointerLength={10}
-                              pointerWidth={7}
-                              fill={color}
-                              stroke={color}
-                              strokeWidth={2}
-                            />
-                          </>
-                        )}
-
-                        {taxonPoints.map((point, i) => {
-                          if (i === 0) return null;
-
-                          const prev = taxonPoints[i - 1];
-
-                          const from = {
-                            x: prev.x * scaleToFit + imageX,
-                            y: prev.y * scaleToFit + imageY,
-                          };
-
-                          const to = {
-                            x: point.x * scaleToFit + imageX,
-                            y: point.y * scaleToFit + imageY,
-                          };
-
-                          const arrowPoints = getArrowPoints(
-                            from,
-                            to,
-                            TAXON_POINT_RADIUS,
-                            TAXON_POINT_RADIUS,
-                          );
-
-                          return (
-                            <Arrow
-                              key={`taxon-arrow-${i}`}
-                              points={arrowPoints}
-                              pointerLength={10}
-                              pointerWidth={7}
-                              fill={color}
-                              stroke={color}
-                              strokeWidth={2}
-                            />
-                          );
-                        })}
-
-                      {flightPoints.map((fp, i) => {
-                        const tp = taxonPoints[i];
-                        
-                        // Предыдущая точка: если i=0 — это база таксона, иначе предыдущая flight_point
-                        const prevPoint = i === 0
-                          ? { x: baseX, y: baseY } 
-                          : flightPoints[i - 1];
-
-                         const prevTaxonPoint = i === 0
-                          ? { x: baseX, y: baseY } 
-                          : taxonPoints[i - 1];
-
-                        return (
-                          <Fragment key={`flight-point-${idx}-${i}`}>
-                            {tp && (() => {
-                              const fpx = fp.x * scaleToFit + imageX;
-                              const fpy = fp.y * scaleToFit + imageY;
-                              const tpx = prevTaxonPoint.x * scaleToFit + imageX;
-                              const tpy = prevTaxonPoint.y * scaleToFit + imageY;
-                              const ppx = prevPoint.x * scaleToFit + imageX;
-                              const ppy = prevPoint.y * scaleToFit + imageY;
-
-                              const currenttpx = tp.x * scaleToFit + imageX;
-                              const currenttpy = tp.y * scaleToFit + imageY;
- 
-                              return (
-                                <>
-                                  {/* Сторона 1: откуда летим → flight_point (курс носа дрона) */}
-                                  {/* <Line
-                                    points={[ppx, ppy, fpx, fpy]}
-                                    stroke="#ff6b00"
-                                    strokeWidth={5}
-                                    dash={[4, 4]}
-                                    opacity={0.8}
-                                  /> */}
-
-                                  <Line
-                                    points={[fpx, fpy, currenttpx, currenttpy]}
-                                    stroke="#ff6b00"
-                                    strokeWidth={5}
-                                    dash={[4, 4]}
-                                    opacity={0.6}
-                                  /> 
-
-                                  {/* Сторона 2: откуда летим → target_point (путевой вектор по земле)*/}
-                                  <Line
-                                    points={[fpx, fpy, tpx, tpy]}
-                                    stroke="#ff6b00"
-                                    strokeWidth={5}
-                                    dash={[4, 4]}
-                                    opacity={0.6}
-                                  /> 
-
-                                  {/* Сторона 3: вектор ветра — от target_point до flight_point */}
-                                  {/* <Line
-                                    points={[tpx, tpy, fpx, fpy]}
-                                    stroke="#ff6b00"
-                                    strokeWidth={5}
-                                    dash={[4, 4]}
-                                    opacity={0.8}
-                                  /> */}
-                                </>
-                              );
-                            })()}
-
-                            {/* Сама flight_point */}
-                            <Circle
-                              x={fp.x * scaleToFit + imageX}
-                              y={fp.y * scaleToFit + imageY}
-                              radius={7}
-                              fill="#ff6b00"
-                              opacity={0.85}
-                            />
-                            <Text
-                              x={fp.x * scaleToFit + imageX - 4}
-                              y={fp.y * scaleToFit + imageY - 6}
-                              text={`${i + 1}`}
-                              fontSize={10}
-                              fill="white"
-                            />
-                          </Fragment>
-                        );
-                      })}
-                      
-                        {/* Точки таксона и номера */}
-                        {taxonPoints.map((p, i) => (
-                          <Fragment key={`taxon-point-${idx}-${i}`}>
-                            <Circle
-                              x={p.x * scaleToFit + imageX}
-                              y={p.y * scaleToFit + imageY}
-                              radius={10}
-                              fill={p.color}
-                              // stroke="black"
-                              // strokeWidth={0.1}
-                            />
-                            <Text
-                              x={p.x * scaleToFit + imageX - 5}
-                              y={p.y * scaleToFit + imageY - 7}
-                              text={`${i + 1}`}
-                              fontSize={12}
-                              fill="black"
-                            />
-                          </Fragment>
-                        ))}
-                      </Fragment>
-                    );
-                  })}
-
-                        {/* Стрелка направления ветра */}
-                        {weatherConditions && weatherConditions.isUse && weatherConditions.windSpeed > 0 && (
-                          <Group>
-                            {/* Подложка */}
-                            <Rect
-                              x={20} y={20}
-                              width={90} height={90}
-                              fill="rgba(0,0,0,0.45)"
-                              cornerRadius={8}
-                            />
-
-                            {/* Стрелка — вращается по wind_dir_deg */}
-                            {(() => {
-                              const cx = 65, cy = 65;
-                              const len = 15;
-                              // ветер ДУЕТ В эту сторону (метеорологический = откуда, поэтому +180)
-                              const rad = Math.PI * (weatherConditions.windDirection + 180) / 180;
-                              const x2 = cx + len * Math.sin(rad);
-                              const y2 = cy - len * Math.cos(rad);
-                              const x1 = cx - len * Math.sin(rad);
-                              const y1 = cy + len * Math.cos(rad);
-                              return (
-                                <Arrow
-                                  points={[x1, y1, x2, y2]}
-                                  pointerLength={8}
-                                  pointerWidth={6}
-                                  fill="#ff6b00"
-                                  stroke="#ff6b00"
-                                  strokeWidth={2}
-                                />
-                              );
-                            })()}
-
-                            <Text
-                              x={20} y={24}
-                              width={90}
-                              text="ветер"
-                              fontSize={10}
-                              fill="white"
-                              align="center"
-                            />
-                            <Text
-                              x={20} y={88}  
-                              width={90}
-                              text={`${weatherConditions.windSpeed.toFixed(1)} м/с`}
-                              fontSize={10}
-                              fill="#ff6b00"
-                              align="center"
-                            />
-                          </Group>
-                        )}
-                        
-                {showTaxonTrajectory &&
-                  image &&
-                  trajectoryData?.C?.map(
-                    (point: [number, number], index: number) => {
-                      const meterPerPixelX = width_m / image.width;
-                      const meterPerPixelY = height_m / image.height;
-
-                      // Преобразуем координаты в пиксели
-                      let x = point[0] / meterPerPixelX;
-                      let y = image.height - point[1] / meterPerPixelY;
-                      const cx = x * scaleToFit + imageX;
-                      const cy = y * scaleToFit + imageY;
-                      const r = 10;
-
-                      return (
-                        <Fragment key={`unvisited-${index}`}>
-                          {/* Круг-фон */}
-                          <Circle
-                            x={cx}
-                            y={cy}
-                            radius={r}
-                            fill="rgba(255, 107, 53, 0.15)"
-                            stroke="#FF6B35"
-                            strokeWidth={1.5}
-                          />
-                          {/* Крестик внутри */}
-                          <Line
-                            points={[cx - 4, cy - 4, cx + 4, cy + 4]}
-                            stroke="#FF6B35"
-                            strokeWidth={2}
-                          />
-                          <Line
-                            points={[cx + 4, cy - 4, cx - 4, cy + 4]}
-                            stroke="#FF6B35"
-                            strokeWidth={2}
-                          />
-                        </Fragment>
-                      );
-                    },
-                  )}
-
-                {showObstacles &&
-                  obstacles.map((poly) => {
-                    const isHovered = hoveredObstacleId === poly.id;
-
-                    return (
-                      <Fragment key={poly.id}>
-                        <Line
-                          points={poly.points.flatMap((p) => [
-                            p.x * scaleToFit + imageX,
-                            p.y * scaleToFit + imageY,
-                          ])}
-                          closed
-                          fill={
-                            isHovered ? `${poly.color}55` : `${poly.color}20`
-                          }
-                          stroke={poly.color}
-                          strokeWidth={isHovered ? 3 : 2}
-                          onMouseEnter={(e) => {
-                            const stage = e.target.getStage();
-                            stage!.container().style.cursor = "pointer";
-                            setHoveredObstacleId(poly.id);
-                          }}
-                          onMouseLeave={(e) => {
-                            const stage = e.target.getStage();
-                            stage!.container().style.cursor = getCursor();
-                            setHoveredObstacleId(null);
-                          }}
-                          onContextMenu={(e) => {
-                            e.evt.preventDefault();
-                          }}
-                        />
-
-                        {poly.points.map((point, index) => (
-                          <Circle
-                            key={`${poly.id}-vertex-${index}`}
-                            x={point.x * scaleToFit + imageX}
-                            y={point.y * scaleToFit + imageY}
-                            radius={3}
-                            fill={`${poly.color}`}
-                          />
-                        ))}
-                      </Fragment>
-                    );
-                  })}
-
-                {showUavLine && flightLineY !== null && image && (
-                  <Fragment key="line">
-                    <Line
-                      points={[
-                        imageX,
-                        flightLineY * scaleToFit + imageY,
-                        imageX + image.width * scaleToFit,
-                        flightLineY * scaleToFit + imageY,
-                      ]}
-                      stroke="orange"
-                      strokeWidth={2}
-                    />
-
-                    <Rect
-                      x={imageX}
-                      y={flightLineY * scaleToFit + imageY}
-                      width={image.width * scaleToFit}
-                      height={(image.height - flightLineY) * scaleToFit}
-                      fill="rgba(128, 128, 128, 0.3)"
-                      listening={false}
-                    />
-
-                    {flightLineY < image.height - 0.01 && (
-                      <Text
-                        x={imageX}
-                        y={
-                          flightLineY * scaleToFit +
-                          imageY +
-                          ((image.height - flightLineY) * scaleToFit) / 2 -
-                          10
-                        }
-                        width={image.width * scaleToFit}
-                        text="Неинформативная зона"
-                        align="center"
-                        fontSize={16}
-                        fill="rgba(255,255,255,0.8)"
-                        listening={false}
-                      />
-                    )}
-                  </Fragment>
-                )}
-
-                {toolMode === "polygons" && currentPolygon.length > 0 && (
-                  <>
-                    <Line
-                      points={currentPolygon.flatMap((p) => [
-                        p.x * scaleToFit + imageX,
-                        p.y * scaleToFit + imageY,
-                      ])}
-                      stroke="orange"
-                      strokeWidth={2}
-                      dash={[6, 4]}
-                    />
-
-                    {currentPolygon.map((p, i) => (
-                      <Circle
-                        key={i}
-                        x={p.x * scaleToFit + imageX}
-                        y={p.y * scaleToFit + imageY}
-                        radius={6}
-                        fill="orange"
-                      />
-                    ))}
-                  </>
-                )}
-
-                {loading && (
-                  <>
-                    <Rect
-                      x={0}
-                      y={0}
-                      width={STAGE_WIDTH}
-                      height={STAGE_HEIGHT}
-                      fill="rgba(255,255,255,0.7)"
-                    />
-                    <Text
-                      x={STAGE_WIDTH / 2}
-                      y={STAGE_HEIGHT / 2 - 10}
-                      text="Загрузка..."
-                      fontSize={20}
-                      fill="black"
-                      align="center"
-                      verticalAlign="middle"
-                    />
-                  </>
-                )}
-              </Layer>
             </Stage>
           </Box>
           {toolMode === "pan" && (

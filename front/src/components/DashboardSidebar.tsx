@@ -259,7 +259,7 @@ export default function DashboardSidebar({
             {/* <DashboardSidebarHeaderItem>Полёты</DashboardSidebarHeaderItem> */}
             <DashboardSidebarPageItem
               id="flight-schemas"
-              title="Схемы полётов"
+              title="Полётные карты"
               icon={<MapRoundedIcon />}
               href="/trajectories"
               selected={
@@ -278,7 +278,7 @@ export default function DashboardSidebar({
             <DashboardSidebarHeaderItem>Действия</DashboardSidebarHeaderItem>
             <DashboardSidebarPageItem
               id="create-schema"
-              title="Создать схему"
+              title="Создать карту"
               icon={<NoteAddRoundedIcon />}
               href="/trajectories/new"
               selected={!!matchPath("/trajectories/new", pathname)}

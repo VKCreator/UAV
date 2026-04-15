@@ -59,7 +59,7 @@ const convertWindDirectionToDegrees = (windDir) => {
     'nnw': 337.5,
     'c': null // штиль - нет направления
   };
-  
+
   return directions[windDir] !== undefined ? directions[windDir] : null;
 };
 
@@ -79,6 +79,11 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
 
   const [mapOpen, setMapOpen] = useState(false);
   const [isLoadingWeather, setLoadingWeather] = useState(false);
+
+  const [weatherNotification, setWeatherNotification] = useState<{
+    message: string;
+    severity: 'success' | 'error';
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -140,90 +145,117 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
     try {
       setLoadingWeather(true);
 
-      // Пробуем альтернативный сервис (Weatherbit)
+      // Пробуем Open-meteo
+      try {
+        const data = await api.weather.getCurrent(lat, lon);
+
+        setForm((prev) => {
+          if (!prev.useWeatherApi) return prev; // Если выключил - не обновляем
+
+          setWeatherNotification({
+            message: "Данные о погоде обновлены (Open-meteo)",
+            severity: "success"
+          });
+
+          return {
+            ...prev,
+            windSpeed: data.current_weather.windspeed / 3.6,
+            windDirection: data.current_weather.winddirection,
+            lat,
+            lon,
+          };
+        });
+        return;
+
+      } catch (openMeteoError) {
+        console.warn('Open-meteo failed, trying Yandex:', openMeteoError);
+      }
+
+      // Пробуем Яндекс
+      try {
+        const yandexData = await api.weather.getYandexWeather(lat, lon);
+        const windDirectionDegrees = convertWindDirectionToDegrees(yandexData.fact.wind_dir);
+
+        setForm((prev) => {
+          if (!prev.useWeatherApi) return prev;
+
+          setWeatherNotification({
+            message: "Данные о погоде обновлены (Яндекс.Погода)",
+            severity: "success"
+          });
+
+          return {
+            ...prev,
+            windSpeed: yandexData.fact.wind_speed,
+            windDirection: windDirectionDegrees,
+            lat,
+            lon,
+          };
+        });
+        return;
+
+      } catch (yandexError) {
+        console.warn('Yandex failed, trying Weatherbit:', yandexError);
+      }
+
+      // Пробуем Weatherbit
       try {
         const alternativeData = await api.weather.getCurrentAlternative(lat, lon);
         const weather = alternativeData["data"][0];
 
-        setForm((prev) => ({
-          ...prev,
-          windSpeed: weather['wind_spd'], // уже в м/с
-          windDirection: weather['wind_dir'], // в градусах
-          useWeatherApi: true,
-          lat,
-          lon,
-        }));
+        setForm((prev) => {
+          if (!prev.useWeatherApi) return prev;
 
-        notifications.show("Данные о погоде обновлены (Weatherbit)", {
-          severity: "success",
-          autoHideDuration: 5000,
+          setWeatherNotification({
+            message: "Данные о погоде обновлены (Weatherbit)",
+            severity: "success"
+          });
+
+          return {
+            ...prev,
+            windSpeed: weather['wind_spd'],
+            windDirection: weather['wind_dir'],
+            lat,
+            lon,
+          };
         });
-      } catch (alternativeError) {
-        // Если Weatherbit недоступен, пробуем Яндекс Погоду
-        try {
-          setLoadingWeather(true);
-          const yandexData = await api.weather.getYandexWeather(lat, lon);
-          
-          // Конвертируем направление ветра из строки в градусы
-          const windDirectionDegrees = convertWindDirectionToDegrees(yandexData.fact.wind_dir);
-          
-          setForm((prev) => ({
-            ...prev,
-            windSpeed: yandexData.fact.wind_speed, // уже в м/с
-            windDirection: windDirectionDegrees,
-            useWeatherApi: true,
-            lat,
-            lon,
-          }));
 
-          notifications.show("Данные о погоде обновлены (Яндекс.Погода)", {
-            severity: "success",
-            autoHideDuration: 2000,
-          });
-        } catch (yandexError) {
-          setLoadingWeather(true);
-          // Если Яндекс Погода недоступна, пробуем Open-meteo
-          const data = await api.weather.getCurrent(lat, lon);
-          
-          setForm((prev) => ({
-            ...prev,
-            windSpeed: data.current_weather.windspeed / 3.6, // из км/ч в м/с
-            windDirection: data.current_weather.winddirection, // в градусах
-            useWeatherApi: true,
-            lat,
-            lon,
-          }));
+      } catch (weatherbitError) {
+        // Все сервисы недоступны
+        setForm((prev) => {
+          if (!prev.useWeatherApi) return prev;
 
-          notifications.show("Данные о погоде обновлены (Open-meteo)", {
-            severity: "success",
-            autoHideDuration: 2000,
+          setWeatherNotification({
+            message: "Не удалось получить данные о погоде",
+            severity: "error"
           });
-        } finally {
-          setLoadingWeather(false);
-        }
+
+          return {
+            ...prev,
+            useWeatherApi: false, // Выключаем чекбокс
+          };
+        });
       }
-      finally {
-          setLoadingWeather(false);
-      }
-    } catch (e) {
-      notifications.show("Не удалось получить данные о погоде", {
-        severity: "error",
-        autoHideDuration: 3000,
-      });
-      setForm((prev) => ({
-        ...prev,
-        useWeatherApi: false,
-      }));
+
     } finally {
       setLoadingWeather(false);
     }
   };
 
+  useEffect(() => {
+    if (weatherNotification) {
+      notifications.show(weatherNotification.message, {
+        severity: weatherNotification.severity,
+        autoHideDuration: 2000,
+      });
+      setWeatherNotification(null);
+    }
+  }, [weatherNotification]);
 
   return (
-    <Dialog open={open} onClose={handleDialogClose} maxWidth="sm" fullWidth   PaperProps={{
-    sx: { minHeight: 500 }
-  }}>
+    <Dialog open={open} onClose={handleDialogClose} maxWidth="sm" fullWidth PaperProps={{
+      sx: { minHeight: 560 }
+    }}>
       <DialogTitle sx={{ pr: 5 }}>
         Параметры и условия полёта БПЛА
         <IconButton
@@ -321,12 +353,15 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
               }
               label="Учитывать препятствия"
             />
+            <Alert severity="info" sx={{ mt: 1, alignItems: "center" }}>
+              Если кнопка «Применить» недоступна, дождитесь обновления данных о погоде.
+            </Alert>
           </Box>
         )}
 
         {tab === 1 && (
           <Box>
-                        <Typography
+            <Typography
               // variant="h6"
               sx={{
                 // fontWeight: "bold",
@@ -337,7 +372,7 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
               Установите значение скорости ветра и направления ветра вручную или получите данные о погоде со сторонних сервисов.
             </Typography>{" "}
             <FloatInput
-              label="Скорость ветра, м/с" 
+              label="Скорость ветра, м/с"
               fullWidth
               value={form.windSpeed}
               onChange={(val) => num("windSpeed")({ target: { value: String(val) } } as any)}
@@ -407,6 +442,9 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
 
                     if (e.target.checked) {
                       loadWeather(form.lat, form.lon);
+                    }
+                    else {
+                      setLoadingWeather(false);
                     }
                   }}
                 />

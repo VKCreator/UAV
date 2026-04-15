@@ -68,7 +68,7 @@ const glowPulse = keyframes`
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
-const DEFAULT_SCHEMA_NAME = "Новая схема полёта БПЛА";
+const DEFAULT_SCHEMA_NAME = "Новая карта полёта БПЛА";
 const DRONES_CACHE_KEY = "drones-cache-v1";
 const SCHEMA_NAME_MAX_LENGTH = 50;
 
@@ -147,7 +147,7 @@ const convertWindDirectionToDegrees = (windDir) => {
     'nnw': 337.5,
     'c': null // штиль
   };
-  
+
   return directions[windDir] !== undefined ? directions[windDir] : null;
 };
 
@@ -180,7 +180,7 @@ const TrajectoryStepper = () => {
   const navigate = useNavigate();
   const notifications = useNotifications();
   const { confirm } = useDialogs();
-  useDocumentTitle("Создание схемы | SkyPath Service");
+  useDocumentTitle("Создание карты | SkyPath Service");
 
   // ── UI-состояние ──────────────────────────────────────────────────────────
 
@@ -227,6 +227,9 @@ const TrajectoryStepper = () => {
   const [opt1TrajectoryData, setOpt1TrajectoryData] =
     React.useState<Opt1TrajectoryData | null>(null);
 
+  const [opt2TrajectoryData, setOpt2TrajectoryData] =
+    React.useState<Opt1TrajectoryData | null>(null);
+
   const [weatherConditions, setWeatherConditions] =
     React.useState<Weather>(INITIAL_WEATHER);
 
@@ -236,6 +239,31 @@ const TrajectoryStepper = () => {
     width: number;
     height: number;
   } | null>(null);
+
+  const [optimizationState, setOptimizationState] = React.useState({
+    small: {
+      flag: true,
+      status: 'idle',
+      isLoading: false
+    },
+    large: {
+      flag: true,
+      status: 'idle',
+      isLoading: false
+    },
+    combi: {
+      flag: false,
+      status: 'idle',
+      isLoading: false
+    }
+  });
+
+  const updateOptimization = (type, updates) => {
+    setOptimizationState(prev => ({
+      ...prev,
+      [type]: { ...prev[type], ...updates }
+    }));
+  };
 
   // ── Раскадровки ──────────────────────────────────────────────────────────
 
@@ -261,7 +289,9 @@ const TrajectoryStepper = () => {
   const clearPointBasedStoryboards = React.useCallback(() => {
     setStoryboardsData((prev) => ({
       ...prev,
-      point: { ...EMPTY_STORYBOARD_ENTRY },
+      point: {
+        ...EMPTY_STORYBOARD_ENTRY
+      },
     }));
     setFramesUrlsPointBased((prev) => {
       prev.forEach((url) => URL.revokeObjectURL(url));
@@ -272,7 +302,11 @@ const TrajectoryStepper = () => {
   const clearRecommendedStoryboards = React.useCallback(() => {
     setStoryboardsData((prev) => ({
       ...prev,
-      recommended: { ...EMPTY_STORYBOARD_ENTRY },
+      recommended: {
+        ...EMPTY_STORYBOARD_ENTRY,
+        step_x: prev.recommended.step_x,
+        step_y: prev.recommended.step_y,
+      },
     }));
     setFramesUrlsRecommended((prev) => {
       prev.forEach((url) => URL.revokeObjectURL(url));
@@ -384,8 +418,6 @@ const TrajectoryStepper = () => {
       frameHeightBase: height,
       frameWidthBase: width,
     }));
-    // Намеренно не включаем droneParams целиком, чтобы не зациклиться.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [droneParams.distance, droneParams.uavCameraParams]);
 
   React.useEffect(() => {
@@ -404,10 +436,9 @@ const TrajectoryStepper = () => {
       frameHeightPlanned: height,
       frameWidthPlanned: width,
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [droneParams.plannedDistance, droneParams.uavCameraParams]);
 
-  // ── Сброс результатов при изменении параметров кадра ─────────────────────
+  // Сброс результатов при изменении параметров кадра 
   //
   // Разделён на два эффекта по зонам ответственности:
   // один следит за размерами кадра, другой — за остальными параметрами дрона.
@@ -448,8 +479,13 @@ const TrajectoryStepper = () => {
       storyboardsData.optimal.applied ||
       storyboardsData.recommended.applied;
 
-    if (opt1TrajectoryData !== null) {
+    if (opt1TrajectoryData !== null || opt2TrajectoryData !== null) {
       setOpt1TrajectoryData(null);
+      setOpt2TrajectoryData(null);
+
+      updateOptimization("small", { status: "idle" })
+      updateOptimization("large", { status: "idle" })
+
       notifications.show(
         "Изменены параметры съёмки. Результаты оптимизации очищены.",
         { severity: "info", autoHideDuration: 5000 },
@@ -481,8 +517,13 @@ const TrajectoryStepper = () => {
       return;
     }
 
-    if (opt1TrajectoryData !== null) {
+    if (opt1TrajectoryData !== null || opt2TrajectoryData !== null) {
       setOpt1TrajectoryData(null);
+      setOpt2TrajectoryData(null);
+
+      updateOptimization("small", { status: "idle" })
+      updateOptimization("large", { status: "idle" })
+
       notifications.show(
         "Изменены параметры полёта. Результаты оптимизации очищены.",
         { severity: "info", autoHideDuration: 5000 },
@@ -518,6 +559,19 @@ const TrajectoryStepper = () => {
   React.useEffect(() => {
     clearPointBasedStoryboards();
     clearOptimalStoryboards();
+
+    if (opt1TrajectoryData !== null || opt2TrajectoryData !== null) {
+      setOpt1TrajectoryData(null);
+      setOpt2TrajectoryData(null);
+
+      updateOptimization("small", { status: "idle" })
+      updateOptimization("large", { status: "idle" })
+
+      notifications.show(
+        "Изменены точки съёмки. Результаты оптимизации очищены.",
+        { severity: "info", autoHideDuration: 5000 },
+      );
+    }
     // points — массив, сравнение по ссылке корректно: setPoints всегда даёт новый массив
   }, [points, clearPointBasedStoryboards, clearOptimalStoryboards]);
 
@@ -525,7 +579,7 @@ const TrajectoryStepper = () => {
     clearOptimalStoryboards();
   }, [opt1TrajectoryData, clearOptimalStoryboards]);
 
-  // ── Загрузка дронов ───────────────────────────────────────────────────────
+  // Загрузка дронов
 
   React.useEffect(() => {
     let isMounted = true;
@@ -578,7 +632,7 @@ const TrajectoryStepper = () => {
           ...prev,
           selectedDroneId: String(selectedDrone.id),
           uavCameraParams: newCameraParams,
-          speed: (selectedDrone.min_speed + 5) * 5,
+          speed: selectedDrone.min_speed + 5,
           batteryTime: selectedDrone.battery_life ?? 0,
           windResistance: selectedDrone.max_wind_resistance ?? 0,
           model: selectedDrone.model,
@@ -612,16 +666,14 @@ const TrajectoryStepper = () => {
 
     const fetchWeather = async () => {
       try {
-        // Пробуем альтернативный сервис (Weatherbit) сначала
-        const alternativeData = await api.weather.getCurrentAlternative(
+        const data = await api.weather.getCurrent(
           weatherConditions.position.lat,
           weatherConditions.position.lon,
         );
-        const weather = alternativeData["data"][0];
         setWeatherConditions((prev) => ({
           ...prev,
-          windSpeed: weather['wind_spd'], // уже в м/с
-          windDirection: weather['wind_dir'], // в градусах
+          windSpeed: data.current_weather.windspeed / 3.6, // из км/ч в м/с
+          windDirection: data.current_weather.winddirection, // в градусах
         }));
       } catch (alternativeError) {
         // Если Weatherbit недоступен, пробуем Яндекс Погоду
@@ -630,10 +682,10 @@ const TrajectoryStepper = () => {
             weatherConditions.position.lat,
             weatherConditions.position.lon,
           );
-          
+
           // Конвертируем направление ветра из строки в градусы
           const windDirectionDegrees = convertWindDirectionToDegrees(yandexData.fact.wind_dir);
-          
+
           setWeatherConditions((prev) => ({
             ...prev,
             windSpeed: yandexData.fact.wind_speed, // уже в м/с
@@ -642,15 +694,18 @@ const TrajectoryStepper = () => {
         } catch (yandexError) {
           // Если Яндекс Погода недоступна, пробуем Open-meteo
           try {
-            const data = await api.weather.getCurrent(
+            // Пробуем альтернативный сервис (Weatherbit) сначала
+            const alternativeData = await api.weather.getCurrentAlternative(
               weatherConditions.position.lat,
               weatherConditions.position.lon,
             );
+            const weather = alternativeData["data"][0];
             setWeatherConditions((prev) => ({
               ...prev,
-              windSpeed: data.current_weather.windspeed / 3.6, // из км/ч в м/с
-              windDirection: data.current_weather.winddirection, // в градусах
+              windSpeed: weather['wind_spd'], // уже в м/с
+              windDirection: weather['wind_dir'], // в градусах
             }));
+
           } catch {
             notifications.show("Не удалось получить данные о погоде.", {
               severity: "error",
@@ -666,6 +721,7 @@ const TrajectoryStepper = () => {
   }, []);
 
   React.useEffect(() => {
+    console.info("framewidthplanned", droneParams.frameWidthPlanned)
     setStoryboardsData((prev) => {
       // if (
       //   prev.recommended?.step_x !== undefined &&
@@ -717,7 +773,7 @@ const TrajectoryStepper = () => {
     }
 
     const shouldLeave = await confirm(
-      "Вы хотите прервать создание схемы полёта?",
+      "Вы хотите прервать создание карты полёта?",
       { title: "Подтверждение", okText: "Да", cancelText: "Нет" },
     );
 
@@ -737,7 +793,7 @@ const TrajectoryStepper = () => {
 
   //   if (isDefaultName) {
   //     const confirmed = await confirm(
-  //       "Название схемы полётов задано по умолчанию. Вы действительно желаете создать схему?",
+  //       "Название полётной карты задано по умолчанию. Вы действительно желаете создать схему?",
   //       { title: "Предупреждение", okText: "Да", cancelText: "Нет" },
   //     );
   //     if (!confirmed) return;
@@ -801,7 +857,7 @@ const TrajectoryStepper = () => {
 
     if (isDefaultName) {
       const confirmed = await confirm(
-        "Название схемы полётов задано по умолчанию. Вы действительно желаете создать схему?",
+        "Название полётной карты задано по умолчанию. Вы действительно желаете создать карту?",
         { title: "Предупреждение", okText: "Да", cancelText: "Нет" },
       );
       if (!confirmed) return;
@@ -908,7 +964,7 @@ const TrajectoryStepper = () => {
       setIsCreating(false);
       setIsFadingOut(false);
       notifications.show(
-        `Не удалось создать схему. Причина: ${(err as Error).message}`,
+        `Не удалось создать карту. Причина: ${(err as Error).message}`,
         { severity: "error", autoHideDuration: 5000 },
       );
     }
@@ -945,7 +1001,7 @@ const TrajectoryStepper = () => {
   const handleSaveSchemaName = React.useCallback(() => {
     const trimmed = nameDialogValue.trim();
     if (!trimmed) {
-      setNameDialogError("Название схемы обязательно");
+      setNameDialogError("Название карты обязательно");
       return;
     }
     if (trimmed.length > SCHEMA_NAME_MAX_LENGTH) {
@@ -1027,6 +1083,10 @@ const TrajectoryStepper = () => {
             setDroneParams={setDroneParams}
             trajectoryData={opt1TrajectoryData}
             setTrajectoryData={setOpt1TrajectoryData}
+            trajectoryData2={opt2TrajectoryData}
+            setTrajectoryData2={setOpt2TrajectoryData}
+            optimizationState={optimizationState}
+            setOptimizationState={setOptimizationState}
             weatherConditions={weatherConditions}
             setWeatherConditions={setWeatherConditions}
             storyboardsData={storyboardsData}
@@ -1195,7 +1255,7 @@ const TrajectoryStepper = () => {
               onClick={() => setPreviewPage(true)}
               startIcon={<VisibilityIcon />}
             >
-              Просмотр схемы
+              Просмотр карты
             </Button>
           )}
 
@@ -1218,11 +1278,11 @@ const TrajectoryStepper = () => {
                 sx={
                   !isNextDisabled
                     ? {
-                        animation: `${glowPulse} 1.5s ease-out infinite`,
-                        // опционально — чуть усилить сам цвет кнопки
-                        // backgroundColor: "success.main",
-                        // "&:hover": { backgroundColor: "success.dark" },
-                      }
+                      animation: `${glowPulse} 1.5s ease-out infinite`,
+                      // опционально — чуть усилить сам цвет кнопки
+                      // backgroundColor: "success.main",
+                      // "&:hover": { backgroundColor: "success.dark" },
+                    }
                     : {}
                 }
               >
@@ -1242,12 +1302,12 @@ const TrajectoryStepper = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Изменить название схемы</DialogTitle>
+        <DialogTitle>Изменить название карты</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="Название схемы"
+            label="Название карты"
             type="text"
             fullWidth
             variant="outlined"
@@ -1256,7 +1316,7 @@ const TrajectoryStepper = () => {
               const value = e.target.value;
               setNameDialogValue(value);
               setNameDialogError(
-                value.trim() ? "" : "Название схемы обязательно",
+                value.trim() ? "" : "Название карты обязательно",
               );
             }}
             error={!!nameDialogError}

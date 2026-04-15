@@ -246,7 +246,7 @@ export default function LoginPage() {
                       opacity: 0.8,
                     }}
                   >
-                    Версия: 2026.4.6
+                    Версия: 2026.4.13
                   </Typography>
                 </form>
               </CardContent>
