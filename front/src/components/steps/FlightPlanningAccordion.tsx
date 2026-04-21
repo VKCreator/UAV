@@ -235,7 +235,13 @@ export default function FlightPlanningAccordion({
                 fullWidth
                 label="Расстояние от объекта до камеры, м"
                 value={droneParams.distance}
-                onChange={(val) => setDroneParams((prev) => ({ ...prev, distance: val }))}
+                onChange={(val) => {
+                  setDroneParams((prev) => ({ ...prev, distance: val }))
+
+                  if (val < droneParams.plannedDistance) {
+                    setDroneParams((prev) => ({ ...prev, plannedDistance: val }))
+                  }
+                }}
                 min={0.1}
                 sx={{ mb: 1.5 }}
               />
@@ -253,7 +259,11 @@ export default function FlightPlanningAccordion({
                 fullWidth
                 label="Расстояние от объекта до камеры, м"
                 value={droneParams.plannedDistance}
-                onChange={(val) => setDroneParams((prev) => ({ ...prev, plannedDistance: val }))}
+                onChange={(val) => {
+                  const maxValue = droneParams.distance;
+                  const correctedValue = Math.min(val, maxValue);
+                  setDroneParams((prev) => ({ ...prev, plannedDistance: correctedValue }))
+                }}
                 min={0.1}
                 max={droneParams.distance}
                 sx={{ mb: 1.5 }}

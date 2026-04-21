@@ -44,7 +44,7 @@ import ClearIcon from "@mui/icons-material/Clear";
 import { DateToPrettyLocalDateTime } from "../../utils/dateUtils";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
 
-const BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
+const BASE_URL = "http://skypath.ddnsking.com:5000";
 
 interface MethodConfig {
   label: string;

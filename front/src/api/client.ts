@@ -1,8 +1,8 @@
 // src/api/client.ts
 import { jwtDecode } from "jwt-decode";
 
-// const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
-const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
+// const API_BASE_URL = "http://skypath.ddnsking.com:5000";
+const API_BASE_URL = "http://skypath.ddnsking.com:5000";
 const TOKEN = "3757f6dc6b074ddf85e66383af8e0cc8";
 
 // Универсальная функция для HTTP-запросов

@@ -79,6 +79,9 @@ interface OptimizationTrajectoryStepProps {
   trajectoryData2: any;
   setTrajectoryData2: (data: any) => void;
 
+  trajectoryData3: any;
+  setTrajectoryData3: (data: any) => void;
+
   weatherConditions: Weather;
   setWeatherConditions: (data: Weather) => void;
 
@@ -93,6 +96,12 @@ interface OptimizationTrajectoryStepProps {
 
   framesUrlsOptimal: string[];
   setFramesUrlsOptimal: React.Dispatch<React.SetStateAction<string[]>>;
+
+  framesUrlsOptimal2: string[];
+  setFramesUrlsOptimal2: React.Dispatch<React.SetStateAction<string[]>>;
+
+  framesUrlsOptimal3: string[];
+  setFramesUrlsOptimal3: React.Dispatch<React.SetStateAction<string[]>>;
 
   pointsRecommended: Point[];
   setPointsRecommended: React.Dispatch<React.SetStateAction<Point[]>>;
@@ -138,6 +147,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   setTrajectoryData,
   trajectoryData2,
   setTrajectoryData2,
+  trajectoryData3,
+  setTrajectoryData3,
   weatherConditions,
   setWeatherConditions,
   storyboardsData,
@@ -148,6 +159,10 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   setFramesUrlsRecommended,
   framesUrlsOptimal,
   setFramesUrlsOptimal,
+  framesUrlsOptimal2,
+  setFramesUrlsOptimal2,
+  framesUrlsOptimal3,
+  setFramesUrlsOptimal3,
   pointsRecommended,
   setPointsRecommended,
   selection,
@@ -173,8 +188,16 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     }));
   };
 
-  const isAnyRunning = React.useCallback(() => {
-    return Object.values(optimizationState).some(item => item.status === 'running');
+  const isAllCompleted = React.useMemo(() => {
+    return Object.entries(optimizationState).every(([key, item]) => item.status === 'completed');
+  }, [optimizationState]);
+
+  const isAnyCompleted = React.useMemo(() => {
+    return Object.entries(optimizationState).some(([key, item]) => item.status === 'completed');
+  }, [optimizationState]);
+
+  const isAnyRunning = React.useMemo(() => {
+    return Object.entries(optimizationState).some(([key, item]) => item.status === 'running');
   }, [optimizationState]);
 
   const isAnyOptimizationSelected = Object.values(optimizationState).some(item => item.flag);
@@ -210,13 +233,20 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
   const getTrajectoryData = () => {
     if (activeImage == 1) return trajectoryData;
-
     if (activeImage == 2) return trajectoryData2;
+    if (activeImage == 3) return trajectoryData3;
 
     return null;
   };
+
   const handleClearTrajectoryData = () => {
     setTrajectoryData(null);
+    setTrajectoryData2(null);
+    setTrajectoryData3(null);
+
+    updateOptimization("small", { isLoading: false, status: "idle" });
+    updateOptimization("large", { isLoading: false, status: "idle" });
+    updateOptimization("combi", { isLoading: false, status: "idle" });
   };
 
   const handleRunOptimization = async () => {
@@ -341,9 +371,59 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       promises.push(largePromise);
     }
 
+    if (optimizationState.combi.flag) {
+      const payload = {
+        width_m,
+        height_m,
+        n_cols: GRID_COLS,
+        n_rows: GRID_ROWS,
+        lineY: (image.height - flightLineY) * meterPerPixelY,
+        points: pointsInMeters,
+        speed: droneParams.speed,
+        hoverTime: droneParams.hoverTime,
+        batteryTime: droneParams.batteryTime,
+        obstacles: [],
+        windResistance: droneParams.windResistance,
+        windSpeed: weatherConditions.windSpeed,
+        windDirection: weatherConditions.windDirection,
+        isUseWeather: weatherConditions.isUse
+      };
+
+      // Запускаем large оптимизацию
+      const combiPromise = (async () => {
+        try {
+          setActiveImage(3);
+          // setOptimizationStatus(prev => ({ ...prev, large: 'running' }));
+          // setLoadingOptimization(prev => ({ ...prev, large: true }));
+          updateOptimization("combi", { isLoading: true, status: "running" });
+
+          const data = await api.trajectory.calculateMethod3(payload);
+          console.log("Ответ API (combi):", data);
+
+          const preparedData = {
+            ...data,
+            B: data.B.map((taxon: any, index: any) => ({
+              ...taxon,
+              color: colors[index % colors.length],
+            })),
+            C: data.C,
+          };
+
+          setTrajectoryData3(preparedData);
+        } catch (err) {
+          console.error("Ошибка combi оптимизации:", err);
+        } finally {
+          updateOptimization("combi", { isLoading: false, status: "completed" });
+
+          setActiveImage(3);
+        }
+      })();
+
+      promises.push(combiPromise);
+    }
+
     // Ждём завершения всех запущенных оптимизаций
     await Promise.all(promises);
-    console.log("Все оптимизации завершены");
   };
 
   const handleStoryboard = () => {
@@ -352,8 +432,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
   const trajectoryTitles = [
     "Пользовательская",
-    "Оптимум (НП)",
-    "Оптимум (ВП)",
+    "Оптимум (НПТ)",
+    "Оптимум (ВПТ)",
     "Оптимум (Комби)"
   ];
 
@@ -471,7 +551,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             droneParams={droneParams}
             points={points}
             obstacles={obstacles}
-            trajectoryData={trajectoryData}
+            trajectoryData={trajectoryData3}
             showView={() => {
               setShowView(true);
             }}
@@ -479,7 +559,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showGrid={true}
             showUserTrajectory={false}
             showObstacles={true}
-            showTaxonTrajectory={false}
+            showTaxonTrajectory={true}
             isLoadingOptimization={optimizationState.combi.isLoading}
             flightLineY={flightLineY}
             weatherConditions={weatherConditions}
@@ -651,15 +731,27 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                   <Typography fontWeight={600}>
                     1. Оптимизация пользовательской траектории
                   </Typography>
-                  <HelpIconTooltip title="На этом этапе выполняется оптимизация траектории, заданной пользователем, двумя методами." />
+                  <HelpIconTooltip title="На этом этапе выполняется оптимизация траектории, заданной пользователем, тремя методами." />
                 </Box>
 
                 {/* Правая часть: статус */}
                 <Chip
-                  label={trajectoryData != null ? "Частично" : "Не запущено"}
+                  label={
+                    isAllCompleted ? "Выполнено"
+                      : isAnyRunning ? "В процессе"
+                        : isAnyCompleted ? "Частично"
+                          : "Не запущено"
+                  }
                   size="small"
-                  color={trajectoryData != null ? "warning" : "error"}
+                  color={
+                    isAllCompleted ? "success"
+                      : isAnyRunning ? "info"
+                        : isAnyCompleted ? "warning"
+                          : "error"
+                  }
                   variant="outlined"
+                  icon={isAnyRunning ? <CircularProgress size={12} /> : undefined}
+                  sx={isAnyRunning ? { pl: 0.5 } : undefined}
                 />
               </Box>
             </AccordionSummary>
@@ -694,11 +786,20 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                       }
                       label="Низкой плотности точек"
                     />
-                    <Chip
-                      {...getChipProps(optimizationState.small.status)}
-                      size="small"
-                      variant="outlined"
-                    />
+                    <Tooltip title="Показать схему" arrow placement="left">
+
+                      <Chip
+                        {...getChipProps(optimizationState.small.status)}
+                        size="small"
+                        variant="outlined"
+                        onClick={() => setActiveImage(1)}
+                        sx={{
+                          cursor: 'pointer',
+                          ...(optimizationState.small.status == "running" ? { pl: 0.5 } : undefined)
+                        }}
+                      />
+                    </Tooltip>
+
                   </Box>
 
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -711,11 +812,20 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                       }
                       label="Высокой плотности точек"
                     />
-                    <Chip
-                      {...getChipProps(optimizationState.large.status)}
-                      size="small"
-                      variant="outlined"
-                    />
+                    <Tooltip title="Показать схему" arrow placement="left">
+
+                      <Chip
+                        {...getChipProps(optimizationState.large.status)}
+                        size="small"
+                        variant="outlined"
+                        onClick={() => setActiveImage(2)}
+                        sx={{
+                          cursor: 'pointer',
+                          ...(optimizationState.large.status == "running" ? { pl: 0.5 } : undefined)
+                        }}
+                      />
+                    </Tooltip>
+
                   </Box>
 
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -724,16 +834,22 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                         <Checkbox
                           checked={optimizationState.combi.flag}
                           onChange={(e) => updateOptimization('combi', { flag: e.target.checked })}
-                          disabled
                         />
                       }
                       label="Комбинированный"
                     />
-                    <Chip
-                      {...getChipProps(optimizationState.combi.status)}
-                      size="small"
-                      variant="outlined"
-                    />
+                    <Tooltip title="Показать схему" arrow placement="left">
+                      <Chip
+                        {...getChipProps(optimizationState.combi.status)}
+                        size="small"
+                        variant="outlined"
+                        onClick={() => setActiveImage(3)}
+                        sx={{
+                          cursor: 'pointer',
+                          ...(optimizationState.combi.status == "running" ? { pl: 0.5 } : undefined)
+                        }}
+                      />
+                    </Tooltip>
                   </Box>
                 </Box>
               </Paper>
@@ -810,7 +926,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                     sx={{
                       textTransform: "none",
                     }}
-                    disabled={trajectoryData == null}
+                    disabled={trajectoryData == null && trajectoryData2 == null && trajectoryData3 == null}
                   >
                     Детали оптимизации
                   </Button>
@@ -819,7 +935,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                 <Box>
                   <Tooltip title="Параметры полёта">
                     <IconButton onClick={() => setOpen(true)} size="small"
-                      disabled={isAnyRunning()}
+                      disabled={isAnyRunning}
                     >
                       <SettingsIcon />
                     </IconButton>
@@ -827,7 +943,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
                   <DeleteButton
                     onClick={handleClearTrajectoryData}
-                    disabled={trajectoryData == null || isAnyRunning()}
+                    disabled={!isAnyCompleted || isAnyRunning}
                     tooltip="Очистить оптимизированные траектории"
                   />
                 </Box>
@@ -874,7 +990,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                   size="small"
                   startIcon={<ViewListIcon />}
                   onClick={handleStoryboard}
-                  disabled={isAnyRunning()}
+                  disabled={isAnyRunning}
                 >
                   Раскадровать
                 </Button>
@@ -920,6 +1036,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             obstacles={obstacles}
             trajectoryData={trajectoryData}
             trajectoryData2={trajectoryData2}
+            trajectoryData3={trajectoryData3}
             droneParams={droneParams}
             storyboardsData={storyboardsData}
             setStoryboardsData={setStoryboardsData}
@@ -929,6 +1046,10 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             setFramesUrlsRecommended={setFramesUrlsRecommended}
             framesUrlsOptimal={framesUrlsOptimal}
             setFramesUrlsOptimal={setFramesUrlsOptimal}
+            framesUrlsOptimal2={framesUrlsOptimal2}
+            setFramesUrlsOptimal2={setFramesUrlsOptimal2}
+            framesUrlsOptimal3={framesUrlsOptimal3}
+            setFramesUrlsOptimal3={setFramesUrlsOptimal3}    
             pointsRecommended={pointsRecommended}
             setPointsRecommended={setPointsRecommended}
             selection={selection}

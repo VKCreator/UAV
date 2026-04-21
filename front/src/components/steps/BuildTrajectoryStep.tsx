@@ -247,7 +247,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
             {!isResolutionMatch && (
               <Alert severity="warning" sx={{ alignItems: "center", mt: 2 }}>
                 Обратите внимание, что разрешение камеры выбранного БПЛА не
-                совпадают с разрешением базового слоя. Выберите другую модель БПЛА или настройте параметры.
+                совпадает с разрешением базового слоя. Выберите другую модель БПЛА или настройте параметры камеры.
               </Alert>
             )}
           </Paper>

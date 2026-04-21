@@ -73,9 +73,10 @@ export const UserPointsLayer = React.memo(({
   imageY, 
   toolMode, 
   setPoints,
-  getCursor 
+  getCursor,
+  image
 }: any) => {
-  if (!showUserTrajectory) return null;
+  if (!showUserTrajectory || !image) return null;
   
   return (
     <Layer>
@@ -366,6 +367,8 @@ export const UILayer = React.memo(({
   STAGE_WIDTH,
   STAGE_HEIGHT
 }: any) => {
+  if (!image) return null;
+
   return (
     <Layer>
       {/* Линия при режиме line */}

@@ -11,4 +11,6 @@ export interface Storyboards {
   point: Storyboard;
   recommended: Storyboard;
   optimal: Storyboard;
+  optimal_big_density: Storyboard;
+  optimal_combi: Storyboard;
 }

@@ -34,7 +34,7 @@ import { api, Drone, TrajectorySchema } from "../../api/client";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle/useDocumentTitle";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 
-const API_BASE_URL = "http://nmstuvtip.ddnsking.com:5000";
+const API_BASE_URL = "http://skypath.ddnsking.com:5000";
 
 const formatDate = (isoString: string) => {
   if (!isoString) return "";

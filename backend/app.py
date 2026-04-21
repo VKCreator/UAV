@@ -31,6 +31,9 @@ from models import (
 )
 from db import db
 from trajectory.planner import build_taxons
+from trajectory.planner import build_taxons_big_density
+from trajectory.planner import build_taxons_hybrid
+
 from trajectory.flight_time import calculate_total_flight_time
 
 # ─── Константы ────────────────────────────────────────────────────────────────
@@ -38,8 +41,9 @@ from trajectory.flight_time import calculate_total_flight_time
 ALLOWED_ORIGINS = [
     "http://192.168.1.43:7777",
     "http://localhost:5173",
+    "http://192.168.1.57:7777",
     "http://nmstuvtip.ddns.net:7777",
-    "http://nmstuvtip.ddnsking.com:7777",
+    "http://skypath.ddnsking.com:7777",
 ]
 
 migrate = Migrate()
@@ -344,16 +348,64 @@ def create_app():
 
     # ─── /trajectory/calculate ────────────────────────────────────────────────
 
-    @ns_traj.route("/calculate")
+    @ns_traj.route("/calculate/method1")
     class TrajectoryCalculate(Resource):
         @ns_traj.expect(trajectory_input)
         def post(self):
-            """Рассчитать оптимизированную траекторию"""
+            """Рассчитать оптимизированную траекторию по методу 1 (НП)"""
             data = request.json
             print(data)
             result = build_taxons(
                 data["width_m"],
                 data["height_m"],
+                [(p["x"], p["y"]) for p in data["points"]],
+                data["speed"],
+                data["batteryTime"] * 60,
+                data["hoverTime"],
+                data["lineY"],
+                data["windSpeed"],
+                data["windDirection"],
+                data["windResistance"],
+                data["isUseWeather"]
+            )
+            return result
+
+    @ns_traj.route("/calculate/method2")
+    class TrajectoryCalculateMethod2(Resource):
+        @ns_traj.expect(trajectory_input)
+        def post(self):
+            """Рассчитать оптимизированную траекторию по методу 2 (ВП)"""
+            data = request.json
+            print(data)
+            result = build_taxons_big_density(
+                data["width_m"],
+                data["height_m"],
+                data["n_cols"],
+                data["n_rows"],
+                [(p["x"], p["y"]) for p in data["points"]],
+                data["speed"],
+                data["batteryTime"] * 60,
+                data["hoverTime"],
+                data["lineY"],
+                data["windSpeed"],
+                data["windDirection"],
+                data["windResistance"],
+                data["isUseWeather"]
+            )
+            return result
+
+    @ns_traj.route("/calculate/method3")
+    class TrajectoryCalculateMethod3(Resource):
+        @ns_traj.expect(trajectory_input)
+        def post(self):
+            """Рассчитать оптимизированную траекторию по методу 3 (Комби)"""
+            data = request.json
+            print(data)
+            result = build_taxons_hybrid(
+                data["width_m"],
+                data["height_m"],
+                data["n_cols"],
+                data["n_rows"],
                 [(p["x"], p["y"]) for p in data["points"]],
                 data["speed"],
                 data["batteryTime"] * 60,

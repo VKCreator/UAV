@@ -100,12 +100,12 @@ const OptimizationDetailDialog: FC<OptimizationDetailDialogProps> = ({
           {tabIndex === 1 && <TabContent data={null} method="Метод 2" />}
         </Box>
 
-        <Box textAlign="right" mt={2}>
+        {/* <Box textAlign="right" mt={2}>
           <Divider sx={{ mb: 2 }} />
           <Button onClick={onClose} variant="outlined">
             Закрыть
           </Button>
-        </Box>
+        </Box> */}
       </DialogContent>
     </Dialog>
   );

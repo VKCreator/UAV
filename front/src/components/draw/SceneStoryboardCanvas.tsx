@@ -25,13 +25,16 @@ interface SceneCanvasProps {
 
   points?: Point[];
   pointsRecommended?: Point[];
-  pointsOptimal?: Point[];
   obstacles?: Polygon[];
   trajectoryData?: any;
+  trajectoryData2?: any;
+  trajectoryData3?: any;
 
   showPoints?: boolean;
   showObstacles?: boolean;
-  showTaxons?: boolean;
+  showTaxonsMethod1?: boolean;
+  showTaxonsMethod2?: boolean;
+  showTaxonsMethod3?: boolean;
 
   frameWidthPx: number;
   frameHeightPx: number;
@@ -39,6 +42,8 @@ interface SceneCanvasProps {
   applyPointBasedStoryboard: boolean;
   applyRecommendedStoryboard: boolean;
   applyOptimalStoryboard: boolean;
+  applyOptimal2Storyboard: boolean;
+  applyOptimal3Storyboard: boolean;
 
   isSelecting: boolean;
 
@@ -58,17 +63,22 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
   imageData,
   points = [],
   pointsRecommended = [],
-  pointsOptimal = [],
   obstacles = [],
   trajectoryData,
+  trajectoryData2,
+  trajectoryData3,
   showPoints = true,
   showObstacles = true,
-  showTaxons = true,
+  showTaxonsMethod1 = false,
+  showTaxonsMethod2 = false,
+  showTaxonsMethod3 = false,
   frameWidthPx,
   frameHeightPx,
   applyPointBasedStoryboard,
   applyRecommendedStoryboard,
   applyOptimalStoryboard,
+  applyOptimal2Storyboard,
+  applyOptimal3Storyboard,
   isSelecting,
   activeType,
   selection,
@@ -85,10 +95,10 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
 
   const scaleToFit = image
     ? Math.min(
-        1,
-        (STAGE_WIDTH / image.width) * 0.9,
-        (STAGE_HEIGHT / image.height) * 0.9,
-      )
+      1,
+      (STAGE_WIDTH / image.width) * 0.9,
+      (STAGE_HEIGHT / image.height) * 0.9,
+    )
     : 1;
 
   const imageX = image ? (STAGE_WIDTH - image.width * scaleToFit) / 2 : 0;
@@ -96,10 +106,10 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
 
   const GRID_COLS = droneParams.frameWidthBase / droneParams.frameWidthPlanned;
   const GRID_ROWS =
-      droneParams.frameHeightBase / droneParams.frameHeightPlanned;
+    droneParams.frameHeightBase / droneParams.frameHeightPlanned;
 
-    const width_m = droneParams.frameWidthBase;
-    const height_m = droneParams.frameHeightBase;
+  const width_m = droneParams.frameWidthBase;
+  const height_m = droneParams.frameHeightBase;
 
   const [isClickSelecting, setIsClickSelecting] = useState(false);
 
@@ -161,7 +171,7 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
     // console.info(i)
   };
 
-    const handleWheel = (e: any) => {
+  const handleWheel = (e: any) => {
     e.evt.preventDefault();
 
     const scaleBy = 1.1;
@@ -244,41 +254,41 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
   };
 
 
-    // Генерация линий сетки
-    const renderGrid = () => {
-      if (!image) return null;
-      const lines: JSX.Element[] = [];
-      const imgWidth = image.width * scaleToFit;
-      const imgHeight = image.height * scaleToFit;
+  // Генерация линий сетки
+  const renderGrid = () => {
+    if (!image) return null;
+    const lines: JSX.Element[] = [];
+    const imgWidth = image.width * scaleToFit;
+    const imgHeight = image.height * scaleToFit;
 
-      // Вертикальные линии
-      for (let i = 1; i < GRID_COLS; i++) {
-        const x = imageX + (imgWidth / GRID_COLS) * i;
-        lines.push(
-          <Line
-            key={`v-${i}`}
-            points={[x, imageY, x, imageY + imgHeight]}
-            stroke="rgba(255,255,255,0.6)"
-            strokeWidth={2}
-          />,
-        );
-      }
-  
-      // Горизонтальные линии
-      for (let i = 1; i < GRID_ROWS; i++) {
-        const y = imageY + imgHeight - (imgHeight / GRID_ROWS) * i;
-        lines.push(
-          <Line
-            key={`h-${i}`}
-            points={[imageX, y, imageX + imgWidth, y]}
-            stroke="rgba(255,255,255,0.6)"
-            strokeWidth={2}
-          />,
-        );
-      }
-  
-      return lines;
-    };
+    // Вертикальные линии
+    for (let i = 1; i < GRID_COLS; i++) {
+      const x = imageX + (imgWidth / GRID_COLS) * i;
+      lines.push(
+        <Line
+          key={`v-${i}`}
+          points={[x, imageY, x, imageY + imgHeight]}
+          stroke="rgba(255,255,255,0.6)"
+          strokeWidth={2}
+        />,
+      );
+    }
+
+    // Горизонтальные линии
+    for (let i = 1; i < GRID_ROWS; i++) {
+      const y = imageY + imgHeight - (imgHeight / GRID_ROWS) * i;
+      lines.push(
+        <Line
+          key={`h-${i}`}
+          points={[imageX, y, imageX + imgWidth, y]}
+          stroke="rgba(255,255,255,0.6)"
+          strokeWidth={2}
+        />,
+      );
+    }
+
+    return lines;
+  };
 
   useEffect(() => {
     const container = stageRef.current?.container();
@@ -298,7 +308,7 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
         x={position.x}
         y={position.y}
         onWheel={handleWheel}
-        style={{cursor: "grab"}}
+        style={{ cursor: "grab" }}
         draggable={!isSelecting}
         onDragMove={handleDragMove}
         onMouseDown={handleMouseDown}
@@ -447,9 +457,10 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
 
           {applyRecommendedStoryboard && renderSnakePath(pointsRecommended)}
 
-          {showTaxons &&
+          {showTaxonsMethod1 &&
             image &&
             trajectoryData?.B?.map((taxon: any, idx: number) => {
+
               const color = taxon.color;
 
               const meterPerPixelX = width_m / image.width;
@@ -511,11 +522,11 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
                           {
                             x:
                               taxonPoints[taxonPoints.length - 1].x *
-                                scaleToFit +
+                              scaleToFit +
                               imageX,
                             y:
                               taxonPoints[taxonPoints.length - 1].y *
-                                scaleToFit +
+                              scaleToFit +
                               imageY,
                           },
                           {
@@ -596,8 +607,8 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
                         y={p.y * scaleToFit + imageY}
                         radius={10}
                         fill={p.color}
-                        // stroke="black"
-                        // strokeWidth={0.1}
+                      // stroke="black"
+                      // strokeWidth={0.1}
                       />
                       <Text
                         x={p.x * scaleToFit + imageX - 5}
@@ -611,7 +622,347 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
                 </Fragment>
               );
             })}
-          </Layer>
+
+
+          {showTaxonsMethod2 &&
+            image &&
+            trajectoryData2?.B?.map((taxon: any, idx: number) => {
+
+              const color = taxon.color;
+
+              const meterPerPixelX = width_m / image.width;
+              const meterPerPixelY = height_m / image.height;
+
+              // База
+              const baseX = taxon.base[0] / meterPerPixelX;
+              const baseY = image.height - taxon.base[1] / meterPerPixelY;
+
+              // Точки таксона
+              const taxonPoints: TrajectoryPoint[] = taxon.points.map(
+                (p: [number, number], i: number) => ({
+                  x: p[0] / meterPerPixelX,
+                  y: image.height - p[1] / meterPerPixelY,
+                  color,
+                  number: i + 1,
+                }),
+              );
+
+              return (
+                <Fragment key={`taxon-${idx}`}>
+                  {/* База */}
+                  <Line
+                    points={[
+                      baseX * scaleToFit + imageX - 8,
+                      baseY * scaleToFit + imageY - 8,
+                      baseX * scaleToFit + imageX + 8,
+                      baseY * scaleToFit + imageY,
+                      baseX * scaleToFit + imageX - 8,
+                      baseY * scaleToFit + imageY + 8,
+                    ]}
+                    fill={color}
+                    closed
+                  />
+
+                  {taxonPoints.length > 0 && (
+                    <>
+                      <Arrow
+                        points={getArrowPoints(
+                          {
+                            x: baseX * scaleToFit + imageX,
+                            y: baseY * scaleToFit + imageY,
+                          },
+                          {
+                            x: taxonPoints[0].x * scaleToFit + imageX,
+                            y: taxonPoints[0].y * scaleToFit + imageY,
+                          },
+                          BASE_RADIUS,
+                          TAXON_POINT_RADIUS,
+                        )}
+                        pointerLength={10}
+                        pointerWidth={7}
+                        fill={color}
+                        stroke={color}
+                        strokeWidth={2}
+                      />
+                      <Arrow
+                        points={getArrowPoints(
+                          {
+                            x:
+                              taxonPoints[taxonPoints.length - 1].x *
+                              scaleToFit +
+                              imageX,
+                            y:
+                              taxonPoints[taxonPoints.length - 1].y *
+                              scaleToFit +
+                              imageY,
+                          },
+                          {
+                            x: baseX * scaleToFit + imageX,
+                            y: baseY * scaleToFit + imageY,
+                          },
+                          TAXON_POINT_RADIUS,
+                          BASE_RADIUS,
+                        )}
+                        pointerLength={10}
+                        pointerWidth={7}
+                        fill={color}
+                        stroke={color}
+                        strokeWidth={2}
+                      />
+                    </>
+                  )}
+
+                  {taxonPoints.map((point, i) => {
+                    if (i === 0) return null;
+
+                    const prev = taxonPoints[i - 1];
+
+                    const from = {
+                      x: prev.x * scaleToFit + imageX,
+                      y: prev.y * scaleToFit + imageY,
+                    };
+
+                    const to = {
+                      x: point.x * scaleToFit + imageX,
+                      y: point.y * scaleToFit + imageY,
+                    };
+
+                    const arrowPoints = getArrowPoints(
+                      from,
+                      to,
+                      TAXON_POINT_RADIUS,
+                      TAXON_POINT_RADIUS,
+                    );
+
+                    return (
+                      <Arrow
+                        key={`taxon-arrow-${i}`}
+                        points={arrowPoints}
+                        pointerLength={10}
+                        pointerWidth={7}
+                        fill={color}
+                        stroke={color}
+                        strokeWidth={2}
+                      />
+                    );
+                  })}
+
+                  {/* Точки таксона и номера */}
+                  {taxonPoints.map((p, i) => (
+                    <Fragment key={`taxon-point-${idx}-${i}`}>
+                      {applyOptimal2Storyboard && (
+                        <Rect
+                          x={
+                            p.x * scaleToFit +
+                            imageX -
+                            (frameWidthPx * scaleToFit) / 2
+                          }
+                          y={
+                            p.y * scaleToFit +
+                            imageY -
+                            (frameHeightPx * scaleToFit) / 2
+                          }
+                          width={frameWidthPx * scaleToFit}
+                          height={frameHeightPx * scaleToFit}
+                          stroke="#000000"
+                          strokeWidth={2}
+                          fill="#3a5cf322"
+                        />
+                      )}
+                      <Circle
+                        x={p.x * scaleToFit + imageX}
+                        y={p.y * scaleToFit + imageY}
+                        radius={10}
+                        fill={p.color}
+                      // stroke="black"
+                      // strokeWidth={0.1}
+                      />
+                      <Text
+                        x={p.x * scaleToFit + imageX - 5}
+                        y={p.y * scaleToFit + imageY - 7}
+                        text={`${i + 1}`}
+                        fontSize={12}
+                        fill="black"
+                      />
+                    </Fragment>
+                  ))}
+
+
+                  
+                </Fragment>
+              );
+            })}
+
+
+                      {showTaxonsMethod3 &&
+            image &&
+            trajectoryData3?.B?.map((taxon: any, idx: number) => {
+
+              const color = taxon.color;
+
+              const meterPerPixelX = width_m / image.width;
+              const meterPerPixelY = height_m / image.height;
+
+              // База
+              const baseX = taxon.base[0] / meterPerPixelX;
+              const baseY = image.height - taxon.base[1] / meterPerPixelY;
+
+              // Точки таксона
+              const taxonPoints: TrajectoryPoint[] = taxon.points.map(
+                (p: [number, number], i: number) => ({
+                  x: p[0] / meterPerPixelX,
+                  y: image.height - p[1] / meterPerPixelY,
+                  color,
+                  number: i + 1,
+                }),
+              );
+
+              return (
+                <Fragment key={`taxon-${idx}`}>
+                  {/* База */}
+                  <Line
+                    points={[
+                      baseX * scaleToFit + imageX - 8,
+                      baseY * scaleToFit + imageY - 8,
+                      baseX * scaleToFit + imageX + 8,
+                      baseY * scaleToFit + imageY,
+                      baseX * scaleToFit + imageX - 8,
+                      baseY * scaleToFit + imageY + 8,
+                    ]}
+                    fill={color}
+                    closed
+                  />
+
+                  {taxonPoints.length > 0 && (
+                    <>
+                      <Arrow
+                        points={getArrowPoints(
+                          {
+                            x: baseX * scaleToFit + imageX,
+                            y: baseY * scaleToFit + imageY,
+                          },
+                          {
+                            x: taxonPoints[0].x * scaleToFit + imageX,
+                            y: taxonPoints[0].y * scaleToFit + imageY,
+                          },
+                          BASE_RADIUS,
+                          TAXON_POINT_RADIUS,
+                        )}
+                        pointerLength={10}
+                        pointerWidth={7}
+                        fill={color}
+                        stroke={color}
+                        strokeWidth={2}
+                      />
+                      <Arrow
+                        points={getArrowPoints(
+                          {
+                            x:
+                              taxonPoints[taxonPoints.length - 1].x *
+                              scaleToFit +
+                              imageX,
+                            y:
+                              taxonPoints[taxonPoints.length - 1].y *
+                              scaleToFit +
+                              imageY,
+                          },
+                          {
+                            x: baseX * scaleToFit + imageX,
+                            y: baseY * scaleToFit + imageY,
+                          },
+                          TAXON_POINT_RADIUS,
+                          BASE_RADIUS,
+                        )}
+                        pointerLength={10}
+                        pointerWidth={7}
+                        fill={color}
+                        stroke={color}
+                        strokeWidth={2}
+                      />
+                    </>
+                  )}
+
+                  {taxonPoints.map((point, i) => {
+                    if (i === 0) return null;
+
+                    const prev = taxonPoints[i - 1];
+
+                    const from = {
+                      x: prev.x * scaleToFit + imageX,
+                      y: prev.y * scaleToFit + imageY,
+                    };
+
+                    const to = {
+                      x: point.x * scaleToFit + imageX,
+                      y: point.y * scaleToFit + imageY,
+                    };
+
+                    const arrowPoints = getArrowPoints(
+                      from,
+                      to,
+                      TAXON_POINT_RADIUS,
+                      TAXON_POINT_RADIUS,
+                    );
+
+                    return (
+                      <Arrow
+                        key={`taxon-arrow-${i}`}
+                        points={arrowPoints}
+                        pointerLength={10}
+                        pointerWidth={7}
+                        fill={color}
+                        stroke={color}
+                        strokeWidth={2}
+                      />
+                    );
+                  })}
+
+                  {/* Точки таксона и номера */}
+                  {taxonPoints.map((p, i) => (
+                    <Fragment key={`taxon-point-${idx}-${i}`}>
+                      {applyOptimal3Storyboard && (
+                        <Rect
+                          x={
+                            p.x * scaleToFit +
+                            imageX -
+                            (frameWidthPx * scaleToFit) / 2
+                          }
+                          y={
+                            p.y * scaleToFit +
+                            imageY -
+                            (frameHeightPx * scaleToFit) / 2
+                          }
+                          width={frameWidthPx * scaleToFit}
+                          height={frameHeightPx * scaleToFit}
+                          stroke="#000000"
+                          strokeWidth={2}
+                          fill="#3a5cf322"
+                        />
+                      )}
+                      <Circle
+                        x={p.x * scaleToFit + imageX}
+                        y={p.y * scaleToFit + imageY}
+                        radius={10}
+                        fill={p.color}
+                      // stroke="black"
+                      // strokeWidth={0.1}
+                      />
+                      <Text
+                        x={p.x * scaleToFit + imageX - 5}
+                        y={p.y * scaleToFit + imageY - 7}
+                        text={`${i + 1}`}
+                        fontSize={12}
+                        fill="black"
+                      />
+                    </Fragment>
+                  ))}
+
+
+                  
+                </Fragment>
+              );
+            })}
+        </Layer>
       </Stage>
     </Box>
   );

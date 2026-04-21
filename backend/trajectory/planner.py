@@ -18,6 +18,7 @@ def wind_components(wind_speed: float, wind_dir_deg: float) -> tuple:
 
 # Навигационный треугольник
 def navigation_triangle(p_from, p_to, v_drone, wind_speed, wind_dir_deg):
+    print(p_from, p_to)
     """
     Вектор воздуха - воздушная скорость (v_drone)
     Вектор ветра (wind_speed, wind_dir_deg)
@@ -43,22 +44,24 @@ def navigation_triangle(p_from, p_to, v_drone, wind_speed, wind_dir_deg):
         if abs(sin_DA) - 1.0 < 1e-12:
             DA = 90.0 if sin_DA > 0 else -90.0
         else:
-            # ветер сильнее воздушной скорости
+            # ветер сильнее воздушной скорости 
             print("DA", sin_DA) 
             return None
     else:
         # угол сноса
         DA = math.degrees(math.asin(sin_DA))
 
-    # курс летательного аппарата
+    # курс летательного аппарата 
     TA = (TC - DA) % 360
-
+ 
     # путевая скорость
     GS = v_drone * math.cos(math.radians(DA)) + wind_speed * math.cos(math.radians(WA))
+    print("in triangle", GS) 
 
     if GS <= 1e-6:
         return None
-
+ 
+    print({"TC": TC, "NW": NW, "WA": WA, "DA": DA, "TA": TA, "GS": GS})
     return {"TC": TC, "NW": NW, "WA": WA, "DA": DA, "TA": TA, "GS": GS}
 
 def segment_with_wind(p_from, p_to, v_drone, wind_speed, wind_dir_deg, t_js=5.0, is_hover=True):
@@ -164,6 +167,7 @@ def compensate_route(
 def time_between_with_wind(p_from, p_to, v, wind_speed, wind_dir_deg, t_js=5.0, hover=True):
     """Время перемещения между точками с учётом ветра"""
     nav = navigation_triangle(p_from, p_to, v, wind_speed, wind_dir_deg)
+    print("IN TIME. nav", nav)
 
     if nav is None:
         return float('inf')  # невозможно лететь
@@ -171,7 +175,9 @@ def time_between_with_wind(p_from, p_to, v, wind_speed, wind_dir_deg, t_js=5.0, 
     dist = math.hypot(p_to[0] - p_from[0], p_to[1] - p_from[1])
     GS = nav["GS"]
     
-    if abs(GS) < 1e-6:
+    print("IN TIME. GS", GS)
+
+    if abs(GS) < 1e-6: 
         return float('inf')
     
     t_move = 1.5 * dist / GS
@@ -326,7 +332,7 @@ def build_taxons(
             if use_wind: 
                 t_to_pt = time_between_with_wind((base_x, base_y), pt, v, wind_speed, wind_dir_deg, t_js, hover=True)
                 t_back = time_between_with_wind(pt, (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False)
-
+                 
                 if t_to_pt == float('inf') or t_back == float('inf'):
                     continue  
             else:
@@ -428,7 +434,6 @@ def build_taxons(
 
     return {"N_k": len(B), "B": B, "C": C, "errors": None}
 
-
 def build_taxons_big_density(
     L: float,  # ширина области (м)
     H: float,  # высота области (м)
@@ -502,14 +507,14 @@ def build_taxons_big_density(
         """
         # Определяем столбец
         if x >= n_cols_int * full_frame_width and frac_cols > 0:
-            # Точка可能在 последнем обрезанном столбце
+            #  последнем обрезанном столбце
             col = n_cols_int
         else:
             col = int(x / full_frame_width) if full_frame_width > 0 else 0
         
         # Определяем строку
         if y >= n_rows_int * full_frame_height and frac_rows > 0:
-            # Точка可能在 последней обрезанной строке
+            #  последней обрезанной строке
             row = n_rows_int
         else:
             row = int(y / full_frame_height) if full_frame_height > 0 else 0
@@ -784,5 +789,320 @@ def build_taxons_big_density(
         "B": taxons,
         "C": unreachable_points,
         "frame_info": frame_info,
+        "errors": None
+    }
+
+
+def build_taxons_hybrid(
+    L: float,
+    H: float,
+    n_cols: float,
+    n_rows: float,
+    points: list[tuple[float, float]],
+    v_min: float = 1.5,
+    t_ak: float = 1800.0,
+    t_js: float = 5.0,
+    initial_base_y: float = 0.0,
+    wind_speed: float = 0.0,
+    wind_dir_deg: float = 0.0,
+    wind_resistance: float = 0.0,
+    is_use_weather: bool = False,
+    density_threshold: int = 2  # если точек >= threshold, заменяем на центр кадра
+) -> dict:
+    """
+    Комбинированный метод построения таксонов.
+    
+    Алгоритм:
+    1. Разбиваем область на сетку n_cols x n_rows
+    2. Распределяем точки по ячейкам
+    3. Если в ячейке точек >= density_threshold -> заменяем их на центр кадра
+    4. Если в ячейке точек < density_threshold -> оставляем все точки как есть
+    5. К полученному набору точек применяем метод 1 (жадный алгоритм)
+    """
+    
+    use_wind = wind_speed > 1e-6 and is_use_weather
+    
+    # ============================================================
+    # 1. РАЗБИЕНИЕ НА СЕТКУ
+    # ============================================================
+    
+    n_cols_int = int(n_cols)
+    n_rows_int = int(n_rows)
+    
+    frac_cols = n_cols - n_cols_int
+    frac_rows = n_rows - n_rows_int
+    
+    full_frame_width = L / n_cols if n_cols > 0 else 0
+    full_frame_height = H / n_rows if n_rows > 0 else 0
+    
+    last_frame_width = full_frame_width * frac_cols if frac_cols > 0 else full_frame_width
+    last_frame_height = full_frame_height * frac_rows if frac_rows > 0 else full_frame_height
+    
+    def get_frame_bounds(col: int, row: int) -> tuple[float, float, float, float]:
+        width = last_frame_width if (col == n_cols_int and frac_cols > 0) else full_frame_width
+        height = last_frame_height if (row == n_rows_int and frac_rows > 0) else full_frame_height
+        x_min = col * full_frame_width
+        y_min = row * full_frame_height
+        return (x_min, y_min, x_min + width, y_min + height)
+    
+    def get_frame_center(col: int, row: int) -> tuple[float, float]:
+        x_min, y_min, x_max, y_max = get_frame_bounds(col, row)
+        return ((x_min + x_max) / 2, (y_min + y_max) / 2)
+    
+    # Определяем все ячейки
+    n_cols_total = n_cols_int + (1 if frac_cols > 0 else 0)
+    n_rows_total = n_rows_int + (1 if frac_rows > 0 else 0)
+    
+    cells = {}
+    for col in range(n_cols_total):
+        for row in range(n_rows_total):
+            x_min, y_min, x_max, y_max = get_frame_bounds(col, row)
+            if x_max <= x_min or y_max <= y_min:
+                continue
+            
+            cells[(col, row)] = {
+                "bounds": (x_min, y_min, x_max, y_max),
+                "center": get_frame_center(col, row),
+                "points": [],
+                "col": col,
+                "row": row
+            }
+    
+    # Распределяем точки по ячейкам
+    points_outside = []
+    for point in points:
+        x, y = point
+        
+        # Определяем столбец
+        if x >= n_cols_int * full_frame_width and frac_cols > 0:
+            col = n_cols_int
+        else:
+            col = int(x / full_frame_width) if full_frame_width > 0 else 0
+        
+        # Определяем строку
+        if y >= n_rows_int * full_frame_height and frac_rows > 0:
+            row = n_rows_int
+        else:
+            row = int(y / full_frame_height) if full_frame_height > 0 else 0
+        
+        col = max(0, min(col, n_cols_total - 1))
+        row = max(0, min(row, n_rows_total - 1))
+        
+        if (col, row) in cells:
+            bounds = cells[(col, row)]["bounds"]
+            if bounds[0] <= x <= bounds[2] and bounds[1] <= y <= bounds[3]:
+                cells[(col, row)]["points"].append(point)
+            else:
+                points_outside.append(point)
+        else:
+            points_outside.append(point)
+    
+    # ============================================================
+    # 2. ПРЕОБРАЗОВАНИЕ ТОЧЕК В ЗАВИСИМОСТИ ОТ ПЛОТНОСТИ
+    # ============================================================
+    
+    transformed_points = []
+    cells_info = []
+    
+    for cell_id, cell_data in cells.items():
+        point_count = len(cell_data["points"])
+        
+        if point_count == 0:
+            continue
+        
+        if point_count >= density_threshold:
+            # Плотная ячейка: заменяем все точки на центр кадра
+            center = cell_data["center"]
+            transformed_points.append(center)
+            cells_info.append({
+                "cell_id": cell_id,
+                "type": "dense",
+                "original_points": cell_data["points"],
+                "replaced_by": center,
+                "point_count": point_count
+            })
+        else:
+            # Разреженная ячейка: оставляем все точки как есть
+            for pt in cell_data["points"]:
+                transformed_points.append(pt)
+            cells_info.append({
+                "cell_id": cell_id,
+                "type": "sparse",
+                "points": cell_data["points"],
+                "point_count": point_count
+            })
+    
+    # Добавляем точки, которые не попали ни в одну ячейку
+    transformed_points.extend(points_outside)
+    
+    if not transformed_points:
+        return {
+            "N_k": 0,
+            "B": [],
+            "C": points,
+            "method": "hybrid",
+            "errors": "No points after transformation"
+        }
+    
+    # ============================================================
+    # 3. ПРИМЕНЯЕМ МЕТОД 1 К ПРЕОБРАЗОВАННОМУ НАБОРУ ТОЧЕК
+    # ============================================================
+    
+    # Сортируем точки по X для жадного алгоритма
+    points_sorted = sorted(transformed_points, key=lambda pt: pt[0])
+    
+    visited = set()
+    B = []
+    C = []
+    v = v_min
+    
+    # Для отслеживания оригинальных точек в таксонах
+    taxon_to_original_points = {}
+    
+    while len(visited) < len(points_sorted):
+        for i, pt in enumerate(points_sorted):
+            if i in visited:
+                continue
+            
+            base_x, base_y = pt[0], initial_base_y
+            route = [(base_x, base_y, 0)]
+            current_time = 0.0
+            
+            # Проверяем возможность долететь до точки и вернуться
+            if use_wind:
+                t_to_pt = time_between_with_wind((base_x, base_y), pt, v, wind_speed, wind_dir_deg, t_js, hover=True)
+                t_back = time_between_with_wind(pt, (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False)
+                if t_to_pt == float('inf') or t_back == float('inf'):
+                    continue
+            else:
+                t_to_pt = time_between((base_x, base_y), pt, v=v, t_js=t_js, hover=True)
+                t_back = time_between(pt, (base_x, base_y), v=v, t_js=t_js, hover=False)
+            
+            t_direct = t_to_pt + t_back
+            
+            if t_direct <= t_ak:
+                visited.add(i)
+                current_time += t_to_pt
+                route.append((pt[0], pt[1], current_time))
+                
+                # Жадный алгоритм
+                while len(visited) < len(points_sorted):
+                    best_i = None
+                    best_t = float("inf")
+                    
+                    for j, cand in enumerate(points_sorted):
+                        if j in visited:
+                            continue
+                        
+                        if use_wind:
+                            t_to = time_between_with_wind((route[-1][0], route[-1][1]), cand, v, wind_speed, wind_dir_deg, t_js, hover=True)
+                            t_back_cand = time_between_with_wind(cand, (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False)
+                            if t_to == float('inf') or t_back_cand == float('inf'):
+                                continue
+                        else:
+                            t_to = time_between((route[-1][0], route[-1][1]), cand, v=v, t_js=t_js, hover=True)
+                            t_back_cand = time_between(cand, (base_x, base_y), v=v, t_js=t_js, hover=False)
+                        
+                        if current_time + t_to + t_back_cand <= t_ak:
+                            if t_to < best_t:
+                                best_t = t_to
+                                best_i = j
+                    
+                    if best_i is None:
+                        break
+                    
+                    cand_pt = points_sorted[best_i]
+                    route.append((cand_pt[0], cand_pt[1], current_time + best_t))
+                    current_time += best_t
+                    visited.add(best_i)
+                
+                # Возврат на базу
+                if len(route) > 1:
+                    if use_wind:
+                        t_back_final = time_between_with_wind((route[-1][0], route[-1][1]), (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False)
+                    else:
+                        t_back_final = time_between((route[-1][0], route[-1][1]), (base_x, base_y), v, t_js, hover=False)
+                    
+                    route.append((base_x, base_y, current_time + t_back_final))
+                    current_time += t_back_final
+                
+                # 2-opt оптимизация
+                time_func = time_between
+                if use_wind:
+                    time_func = make_time_func_with_wind(v, wind_speed, wind_dir_deg, t_js)
+                
+                route_opt, time_opt = two_opt_optimize(route, v, t_js, time_func)
+                
+                # Собираем оригинальные точки для этого таксона
+                original_points_in_taxon = []
+                for point_on_route in route_opt[1:-1]:
+                    # Ищем, откуда взялась эта точка
+                    point_xy = (point_on_route[0], point_on_route[1])
+                    for cell_info in cells_info:
+                        if cell_info["type"] == "dense" and cell_info["replaced_by"] == point_xy:
+                            original_points_in_taxon.extend(cell_info["original_points"])
+                            break
+                        elif cell_info["type"] == "sparse" and point_xy in cell_info.get("points", []):
+                            original_points_in_taxon.append(point_xy)
+                            break
+                    else:
+                        # Если точка из points_outside
+                        if point_xy in points_outside:
+                            original_points_in_taxon.append(point_xy)
+                
+                trajectory = {
+                    "base": (base_x, base_y),
+                    "points": route_opt[1:-1],  # преобразованные точки
+                    "original_points": original_points_in_taxon,  # оригинальные точки съёмки
+                    "time_sec": time_opt,
+                    "route": route_opt,
+                }
+                
+                if use_wind:
+                    segments_data = compensate_route(route_opt, v, wind_speed, wind_dir_deg, t_js)
+                    trajectory["wind"] = {
+                        "speed": wind_speed,
+                        "dir_deg": wind_dir_deg,
+                        "TAS": v,
+                    }
+                    trajectory["segments"] = segments_data
+                
+                B.append(trajectory)
+                break
+        
+        else:
+            # Недостижимые точки
+            for i, pt in enumerate(points_sorted):
+                if i not in visited:
+                    # Находим оригинальные точки для недостижимой преобразованной точки
+                    point_xy = (pt[0], pt[1])
+                    for cell_info in cells_info:
+                        if cell_info["type"] == "dense" and cell_info["replaced_by"] == point_xy:
+                            C.extend(cell_info["original_points"])
+                            break
+                        elif cell_info["type"] == "sparse" and point_xy in cell_info.get("points", []):
+                            C.append(point_xy)
+                            break
+                    else:
+                        if point_xy in points_outside:
+                            C.append(point_xy)
+            break
+    
+    # Формируем статистику
+    stats = {
+        "total_cells": len(cells),
+        "dense_cells": sum(1 for ci in cells_info if ci["type"] == "dense"),
+        "sparse_cells": sum(1 for ci in cells_info if ci["type"] == "sparse"),
+        "original_points": len(points),
+        "transformed_points": len(transformed_points),
+        "density_threshold": density_threshold
+    }
+    
+    return {
+        "N_k": len(B),
+        "B": B,
+        "C": C,
+        "method": "hybrid",
+        "statistics": stats,
         "errors": None
     }

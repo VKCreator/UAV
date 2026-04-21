@@ -732,6 +732,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                 points={points}
                 showUserTrajectory={showUserTrajectory}
                 scaleToFit={scaleToFit}
+                image={image}
                 imageX={imageX}
                 imageY={imageY}
                 toolMode={toolMode}

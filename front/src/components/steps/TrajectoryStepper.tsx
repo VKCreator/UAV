@@ -68,7 +68,7 @@ const glowPulse = keyframes`
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
-const DEFAULT_SCHEMA_NAME = "Новая карта полёта БПЛА";
+const DEFAULT_SCHEMA_NAME = "Объект. Здание. Фасад";
 const DRONES_CACHE_KEY = "drones-cache-v1";
 const SCHEMA_NAME_MAX_LENGTH = 50;
 
@@ -116,6 +116,8 @@ const INITIAL_STORYBOARDS: Storyboards = {
   point: { ...EMPTY_STORYBOARD_ENTRY },
   recommended: { ...EMPTY_STORYBOARD_ENTRY },
   optimal: { ...EMPTY_STORYBOARD_ENTRY },
+  optimal_big_density: { ...EMPTY_STORYBOARD_ENTRY },
+  optimal_combi: { ...EMPTY_STORYBOARD_ENTRY },
 };
 
 const STEPS = [
@@ -230,6 +232,9 @@ const TrajectoryStepper = () => {
   const [opt2TrajectoryData, setOpt2TrajectoryData] =
     React.useState<Opt1TrajectoryData | null>(null);
 
+  const [opt3TrajectoryData, setOpt3TrajectoryData] =
+    React.useState<Opt1TrajectoryData | null>(null);
+
   const [weatherConditions, setWeatherConditions] =
     React.useState<Weather>(INITIAL_WEATHER);
 
@@ -264,6 +269,9 @@ const TrajectoryStepper = () => {
       [type]: { ...prev[type], ...updates }
     }));
   };
+  const isAnyRunning = React.useMemo(() => {
+    return Object.entries(optimizationState).some(([key, item]) => item.status === 'running');
+  }, [optimizationState]);
 
   // ── Раскадровки ──────────────────────────────────────────────────────────
 
@@ -273,12 +281,23 @@ const TrajectoryStepper = () => {
   const [framesUrlsPointBased, setFramesUrlsPointBased] = React.useState<
     string[]
   >([]);
+
   const [framesUrlsRecommended, setFramesUrlsRecommended] = React.useState<
     string[]
   >([]);
+
   const [framesUrlsOptimal, setFramesUrlsOptimal] = React.useState<string[]>(
     [],
   );
+
+  const [framesUrlsOptimal2, setFramesUrlsOptimal2] = React.useState<string[]>(
+    [],
+  );
+
+  const [framesUrlsOptimal3, setFramesUrlsOptimal3] = React.useState<string[]>(
+    [],
+  );
+  
   const [pointsRecommended, setPointsRecommended] = React.useState<Point[]>([]);
 
   // ── Очистка раскадровок ───────────────────────────────────────────────────
@@ -325,6 +344,24 @@ const TrajectoryStepper = () => {
       prev.forEach((url) => URL.revokeObjectURL(url));
       return [];
     });
+
+    setStoryboardsData((prev) => ({
+      ...prev,
+      optimal_big_density: { ...EMPTY_STORYBOARD_ENTRY },
+    }));
+    setFramesUrlsOptimal2((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
+
+    setStoryboardsData((prev) => ({
+      ...prev,
+      optimal_combi: { ...EMPTY_STORYBOARD_ENTRY },
+    }));
+    setFramesUrlsOptimal3((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
   }, []);
 
   const clearAllStoryboards = React.useCallback(() => {
@@ -352,6 +389,8 @@ const TrajectoryStepper = () => {
     setPoints([]);
     setObstacles([]);
     setOpt1TrajectoryData(null);
+    setOpt2TrajectoryData(null);
+    setOpt3TrajectoryData(null);
     clearAllStoryboards();
   }, [clearAllStoryboards]);
 
@@ -477,14 +516,18 @@ const TrajectoryStepper = () => {
     const hasAppliedStoryboards =
       storyboardsData.point.applied ||
       storyboardsData.optimal.applied ||
+      storyboardsData.optimal_big_density.applied ||
+      storyboardsData.optimal_combi.applied ||
       storyboardsData.recommended.applied;
 
-    if (opt1TrajectoryData !== null || opt2TrajectoryData !== null) {
+    if (opt1TrajectoryData !== null || opt2TrajectoryData !== null || opt3TrajectoryData !== null) {
       setOpt1TrajectoryData(null);
       setOpt2TrajectoryData(null);
+      setOpt3TrajectoryData(null);
 
       updateOptimization("small", { status: "idle" })
       updateOptimization("large", { status: "idle" })
+      updateOptimization("combi", { status: "idle" })
 
       notifications.show(
         "Изменены параметры съёмки. Результаты оптимизации очищены.",
@@ -517,12 +560,14 @@ const TrajectoryStepper = () => {
       return;
     }
 
-    if (opt1TrajectoryData !== null || opt2TrajectoryData !== null) {
+    if (opt1TrajectoryData !== null || opt2TrajectoryData !== null || opt3TrajectoryData !== null) {
       setOpt1TrajectoryData(null);
       setOpt2TrajectoryData(null);
+      setOpt3TrajectoryData(null);
 
       updateOptimization("small", { status: "idle" })
       updateOptimization("large", { status: "idle" })
+      updateOptimization("combi", { status: "idle" })
 
       notifications.show(
         "Изменены параметры полёта. Результаты оптимизации очищены.",
@@ -552,6 +597,7 @@ const TrajectoryStepper = () => {
     // Погодные условия
     weatherConditions.windSpeed,
     weatherConditions.windDirection,
+    weatherConditions.isUse
   ]);
 
   // ── Сброс раскадровок при смене точек и траектории ───────────────────────
@@ -563,9 +609,11 @@ const TrajectoryStepper = () => {
     if (opt1TrajectoryData !== null || opt2TrajectoryData !== null) {
       setOpt1TrajectoryData(null);
       setOpt2TrajectoryData(null);
+      setOpt3TrajectoryData(null);
 
-      updateOptimization("small", { status: "idle" })
-      updateOptimization("large", { status: "idle" })
+      updateOptimization("small", { status: "idle" });
+      updateOptimization("large", { status: "idle" });
+      updateOptimization("combi", { status: "idle" });
 
       notifications.show(
         "Изменены точки съёмки. Результаты оптимизации очищены.",
@@ -1030,15 +1078,24 @@ const TrajectoryStepper = () => {
           "Для шага 3 требуется построение пользовательской траектории",
       };
     }
-    if (activeStep === 2 && opt1TrajectoryData === null) {
+    if (activeStep === 2 && opt1TrajectoryData === null && opt2TrajectoryData === null) {
       return {
         isNextDisabled: true,
         nextTooltip:
           "Для шага 4 требуется оптимизация пользовательской траектории",
       };
-    }
+    } 
+
+    if (activeStep === 2 && isAnyRunning) {
+      return {
+        isNextDisabled: true,
+        nextTooltip:
+          "Для шага 4 дождитесь завершения оптимизаций",
+      };
+    } 
+
     return { isNextDisabled: false, nextTooltip: "" };
-  }, [activeStep, imageUrl, points.length, drones.length, opt1TrajectoryData]);
+  }, [activeStep, imageUrl, points.length, drones.length, opt1TrajectoryData, opt2TrajectoryData, isAnyRunning]);
 
   // ── Содержимое шага ───────────────────────────────────────────────────────
 
@@ -1085,6 +1142,8 @@ const TrajectoryStepper = () => {
             setTrajectoryData={setOpt1TrajectoryData}
             trajectoryData2={opt2TrajectoryData}
             setTrajectoryData2={setOpt2TrajectoryData}
+            trajectoryData3={opt3TrajectoryData}
+            setTrajectoryData3={setOpt3TrajectoryData}
             optimizationState={optimizationState}
             setOptimizationState={setOptimizationState}
             weatherConditions={weatherConditions}
@@ -1097,6 +1156,10 @@ const TrajectoryStepper = () => {
             setFramesUrlsRecommended={setFramesUrlsRecommended}
             framesUrlsOptimal={framesUrlsOptimal}
             setFramesUrlsOptimal={setFramesUrlsOptimal}
+            framesUrlsOptimal2={framesUrlsOptimal2}
+            setFramesUrlsOptimal2={setFramesUrlsOptimal2}
+            framesUrlsOptimal3={framesUrlsOptimal3}
+            setFramesUrlsOptimal3={setFramesUrlsOptimal3}
             pointsRecommended={pointsRecommended}
             setPointsRecommended={setPointsRecommended}
             selection={selection}
@@ -1106,7 +1169,7 @@ const TrajectoryStepper = () => {
         );
       case 3:
         return (
-          <CompareOptimizationMethodsStep trajectoryData={opt1TrajectoryData} />
+          <CompareOptimizationMethodsStep trajectoryData={opt1TrajectoryData} trajectoryData2={opt2TrajectoryData} />
         );
       default:
         return null;
@@ -1315,24 +1378,40 @@ const TrajectoryStepper = () => {
             onChange={(e) => {
               const value = e.target.value;
               setNameDialogValue(value);
-              setNameDialogError(
-                value.trim() ? "" : "Название карты обязательно",
-              );
+              
+              // Валидация формата Объект.Элемент.Компонент
+              // Функция для экранирования спецсимволов
+              function escapeRegex(string: string) {
+                return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              }
+
+              const allowedChars = 'A-Za-zА-Яа-я0-9!@#$%^№&*()_+=[\]{};:\'"\\|,.<>/?~` -';
+              const escapedChars = escapeRegex(allowedChars);
+              const formatRegex = new RegExp(`^[${escapedChars}]+\\. ?[${escapedChars}]+\\. ?[${escapedChars}]+$`);
+              const isValid = formatRegex.test(value);
+
+              if (!value.trim()) {
+                setNameDialogError("Название карты обязательно");
+              } else if (!isValid) {
+                setNameDialogError("Формат: Объект. Элемент. Компонент (например, ММК. ЛПЦ. Крыша)");
+              } else {
+                setNameDialogError("");
+              }
             }}
             error={!!nameDialogError}
             helperText={nameDialogError}
             inputProps={{ maxLength: SCHEMA_NAME_MAX_LENGTH }}
+            placeholder="Объект. Элемент. Компонент"
+            required
           />
           {!nameDialogError && (
-            <Typography
-              variant="caption"
-              color="textSecondary"
-              sx={{ pl: "14px" }}
-            >
-              Количество символов: {nameDialogValue.length}/
-              {SCHEMA_NAME_MAX_LENGTH}
+            <Typography variant="caption" color="textSecondary" sx={{ pl: "14px" }}>
+              Количество символов: {nameDialogValue.length}/{SCHEMA_NAME_MAX_LENGTH}
             </Typography>
           )}
+            {/* <Typography variant="caption" color="textSecondary" sx={{ pl: "14px", display: "block", mt: 1, mb: 0, pb: 0 }}>
+              Пример: ММК. ПТЛ. Крыша 
+            </Typography> */}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseNameDialog} variant="outlined">
