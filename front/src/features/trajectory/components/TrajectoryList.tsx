@@ -44,6 +44,7 @@ import ClearIcon from "@mui/icons-material/Clear";
 import { DateToPrettyLocalDateTime } from "../../../utils/dateUtils";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle/useDocumentTitle";
 import { API_BASE_URL } from "../../../api/config";
+import DownloadIcon from "@mui/icons-material/Download";
 
 interface MethodConfig {
   label: string;
@@ -447,7 +448,7 @@ export default function TrajectoryList() {
         renderCell: (params) => {
           const id = params.id.toString();
           return (
-            <Box className="actions-wrapper" sx={{ display: "flex", gap: 1 }}>
+            <Box className="actions-wrapper" sx={{ display: "flex", gap: 0.5 }}>
               <Tooltip title="Просмотр" arrow>
                 <IconButton
                   size="medium"
@@ -457,12 +458,24 @@ export default function TrajectoryList() {
                     handleView(id);
                   }}
                 >
-                  <VisibilityIcon fontSize="medium" />
+                  <VisibilityIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Скачать" arrow>
+                <IconButton
+                  size="small"
+                  color="primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // handleView(id);
+                  }}
+                >
+                  <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Удалить" arrow>
                 <IconButton
-                  size="medium"
+                  size="small"
                   color="error"
                   onClick={async (e) => {
                     e.stopPropagation();
@@ -493,7 +506,7 @@ export default function TrajectoryList() {
                     }
                   }}
                 >
-                  <DeleteIcon fontSize="medium" />
+                  <DeleteIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             </Box>
