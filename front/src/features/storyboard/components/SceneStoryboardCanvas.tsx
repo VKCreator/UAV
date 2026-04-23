@@ -316,14 +316,22 @@ const SceneCanvas: FC<SceneCanvasProps> = ({
         onMouseUp={handleMouseUp}
       >
         <Layer>
-          {image && (
-            <KonvaImage
-              image={image}
-              x={imageX}
-              y={imageY}
-              scaleX={scaleToFit}
-              scaleY={scaleToFit}
-            />
+
+          {image ? (
+            <>
+              <KonvaImage
+                image={image}
+                x={imageX}
+                y={imageY}
+                scaleX={scaleToFit}
+                scaleY={scaleToFit}
+              />
+            </>
+          ) : (
+            <>
+              <Rect x={0} y={0} width={STAGE_WIDTH} height={STAGE_HEIGHT} fill="rgba(255,255,255,0.7)" />
+              <Text x={STAGE_WIDTH / 2 - 10} y={STAGE_HEIGHT / 2 - 10} text="Загрузка..." fontSize={20} fill="black" />
+            </>
           )}
 
           {renderGrid()}

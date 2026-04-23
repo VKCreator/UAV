@@ -31,6 +31,8 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import { useEffect, useState, useMemo } from "react";
 import { CircularProgress } from "@mui/material";
 import { schemasApi } from "../api/schemas.api";
+import { dronesApi } from "../api/drones.api";
+
 import type { TrajectorySchema } from "../features/flight/types/schema.types";
 import type { Drone } from "../features/uav/types/uav.types";
 

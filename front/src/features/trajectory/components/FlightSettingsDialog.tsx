@@ -173,7 +173,7 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
 
       // Пробуем Яндекс
       try {
-        const yandexData = await weatherApi.getYandexWeather(lat, lon);
+        const yandexData = await weatherApi.getYandex(lat, lon);
         const windDirectionDegrees = convertWindDirectionToDegrees(yandexData.fact.wind_dir);
 
         setForm((prev) => {

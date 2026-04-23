@@ -17,4 +17,5 @@ export interface Taxon {
 export interface Opt1TrajectoryData {
   N_k: number;
   B: Taxon[];
+  C: number[];
 }

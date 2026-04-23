@@ -43,6 +43,9 @@ import type { Opt1TrajectoryData } from "../../../types/optTrajectory.types";
 import type { Storyboards } from "../../../types/storyboards.types";
 
 import { dronesApi } from "../../../api/drones.api";
+import { weatherApi } from "../../../api/weather.api";
+import { schemasApi } from "../../../api/schemas.api";
+
 import type { Drone } from "../../uav/types/uav.types";
 
 import { getUserFromStorage } from "../../../utils/auth";
@@ -728,7 +731,7 @@ const TrajectoryStepper = () => {
       } catch (alternativeError) {
         // Если Weatherbit недоступен, пробуем Яндекс Погоду
         try {
-          const yandexData = await weatherApi.getYandexWeather(
+          const yandexData = await weatherApi.getYandex(
             weatherConditions.position.lat,
             weatherConditions.position.lon,
           );

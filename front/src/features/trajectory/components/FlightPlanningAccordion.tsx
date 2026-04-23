@@ -21,7 +21,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import { Drone } from "../../../features/uav/types/uav.types";
 
 import UavSelector from "../../uav/components/UavSelector";
-import UavParamsDialog from "../../uav/components/UavSelector";
+import UavParamsDialog from "../../uav/components/UavParamsDialog";
 import { FloatInput } from "../../../components/ui/FloatInput";
 
 import type { Polygon, Point, ImageData } from "../../../types/scene.types";
