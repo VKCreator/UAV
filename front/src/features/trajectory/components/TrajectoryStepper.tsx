@@ -42,7 +42,9 @@ import type { DroneParams, Weather } from "../../../types/uav.types";
 import type { Opt1TrajectoryData } from "../../../types/optTrajectory.types";
 import type { Storyboards } from "../../../types/storyboards.types";
 
-import { api, Drone } from "../../../api/client";
+import { dronesApi } from "../../../api/drones.api";
+import type { Drone } from "../../uav/types/uav.types";
+
 import { getUserFromStorage } from "../../../utils/auth";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle/useDocumentTitle";
 
@@ -640,7 +642,7 @@ const TrajectoryStepper = () => {
         if (cached) {
           dronesData = JSON.parse(cached);
         } else {
-          dronesData = await api.drones.getAll();
+          dronesData = await dronesApi.getAll();
           sessionStorage.setItem(DRONES_CACHE_KEY, JSON.stringify(dronesData));
         }
 
@@ -714,7 +716,7 @@ const TrajectoryStepper = () => {
 
     const fetchWeather = async () => {
       try {
-        const data = await api.weather.getCurrent(
+        const data = await weatherApi.getCurrent(
           weatherConditions.position.lat,
           weatherConditions.position.lon,
         );
@@ -726,7 +728,7 @@ const TrajectoryStepper = () => {
       } catch (alternativeError) {
         // Если Weatherbit недоступен, пробуем Яндекс Погоду
         try {
-          const yandexData = await api.weather.getYandexWeather(
+          const yandexData = await weatherApi.getYandexWeather(
             weatherConditions.position.lat,
             weatherConditions.position.lon,
           );
@@ -743,7 +745,7 @@ const TrajectoryStepper = () => {
           // Если Яндекс Погода недоступна, пробуем Open-meteo
           try {
             // Пробуем альтернативный сервис (Weatherbit) сначала
-            const alternativeData = await api.weather.getCurrentAlternative(
+            const alternativeData = await weatherApi.getCurrentAlternative(
               weatherConditions.position.lat,
               weatherConditions.position.lon,
             );
@@ -864,7 +866,7 @@ const TrajectoryStepper = () => {
   //   setIsCreating(true);
 
   //   try {
-  //     await api.schemas.create(formData);
+  //     await schemasApi.create(formData);
 
   //     setIsFadingOut(true);
 
@@ -997,7 +999,7 @@ const TrajectoryStepper = () => {
     setIsCreating(true);
 
     try {
-      const data = await api.schemas.createFull(formData); // POST /api/schemas
+      const data = await schemasApi.createFull(formData); // POST /api/schemas
 
       setIsFadingOut(true);
       setTimeout(() => {

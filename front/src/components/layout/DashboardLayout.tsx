@@ -6,7 +6,7 @@ import { Outlet } from "react-router";
 import DashboardSidebar from "./DashboardSidebar";
 import AppIcon from "../icons/AppIcon";
 import { useNavigate, useLocation } from "react-router";
-import { api } from "../../api/client";
+import { authApi } from "../../api/auth.api";
 import useNotifications from "../../hooks/useNotifications/useNotifications";
 
 export default function DashboardLayout() {
@@ -57,7 +57,7 @@ export default function DashboardLayout() {
   React.useEffect(() => {
     const verifyToken = async () => {
       try {
-        const result = await api.auth.check();
+        const result = await authApi.check();
         if (!result) {
           navigate("/login");
           notifications.show("Сессия истекла. Повторно выполните вход", {
@@ -66,7 +66,7 @@ export default function DashboardLayout() {
           });
         }
       } catch {
-        api.auth.logout();
+        authApi.logout();
         navigate("/login");
       }
     };

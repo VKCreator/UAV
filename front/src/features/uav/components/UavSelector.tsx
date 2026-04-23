@@ -7,7 +7,7 @@ import {
   CircularProgress,
   SelectChangeEvent
 } from "@mui/material";
-import { Drone } from "../../../api/client";
+import type { Drone } from "../types/uav.types";
 
 interface UavSelectorProps {
   drones: Drone[];

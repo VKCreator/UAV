@@ -1,0 +1,20 @@
+export interface CurrentWeather {
+  temperature: number; // °C
+  windspeed: number; // км/ч или м/c
+  winddirection: number; // °
+  weathercode: number;
+  time: string;
+}
+
+export interface WeatherResponse {
+  latitude: number;
+  longitude: number;
+  current_weather: CurrentWeather;
+}
+
+export interface YandexWeatherResponse {
+  fact: {
+    wind_speed: number;
+    wind_dir: string;
+  };
+}

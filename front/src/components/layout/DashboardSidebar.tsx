@@ -33,7 +33,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import CloudIcon from '@mui/icons-material/Cloud';
 
 import Avatar from "@mui/material/Avatar";
-import { api } from "../../api/client";
+import { authApi } from "../../api/auth.api";
 import { useNavigate } from "react-router";
 import { getUserFromStorage } from "../../utils/auth";
 
@@ -358,7 +358,7 @@ export default function DashboardSidebar({
                   aria-label="Выйти"
                   onClick={async () => {
                     try {
-                      await api.auth.logout();
+                      await authApi.logout();
                       // navigate("/");
                       window.location.href = "/";
                     } catch (error) {

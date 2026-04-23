@@ -30,11 +30,14 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 
 import { useEffect, useState, useMemo } from "react";
 import { CircularProgress } from "@mui/material";
-import { api, Drone, TrajectorySchema } from "../api/client";
+import { schemasApi } from "../api/schemas.api";
+import type { TrajectorySchema } from "../features/flight/types/schema.types";
+import type { Drone } from "../features/uav/types/uav.types";
+
 import { useDocumentTitle } from "../hooks/useDocumentTitle/useDocumentTitle";
 import useNotifications from "../hooks/useNotifications/useNotifications";
 
-const API_BASE_URL = "http://skypath.ddnsking.com:5000";
+import { API_BASE_URL } from "../api/config";
 
 const formatDate = (isoString: string) => {
   if (!isoString) return "";
@@ -192,7 +195,7 @@ const DashboardsPage = () => {
       }
 
       // Всё равно запрашиваем свежие данные
-      const response = await api.drones.getAll();
+      const response = await dronesApi.getAll();
       setDrones(response);
       localStorage.setItem("drones-cache-v1", JSON.stringify(response));
     } catch (error) {
@@ -216,7 +219,7 @@ const DashboardsPage = () => {
       }
 
       // Всё равно запрашиваем свежие данные
-      const response = await api.schemas.getAllFull();
+      const response = await schemasApi.getAllFull();
       setSchemas(response);
       localStorage.setItem("schemas-cache-v1", JSON.stringify(response));
     } catch (error) {

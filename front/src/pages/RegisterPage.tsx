@@ -6,7 +6,7 @@ import {
     InputAdornment,
 } from "@mui/material";
 import { Person, Lock, Email, Badge } from "@mui/icons-material";
-import { api } from "../api/client";
+import { authApi } from "../api/auth.api";
 import AppIcon from "../components/icons/AppIcon";
 import { useDocumentTitle } from "../hooks/useDocumentTitle/useDocumentTitle";
 import useNotifications from "../hooks/useNotifications/useNotifications";
@@ -41,7 +41,7 @@ export default function RegisterPage() {
         }
         try {
             setLoading(true);
-            await api.auth.register({
+            await authApi.register({
                 username: form.username,
                 password: form.password,
                 email: form.email,

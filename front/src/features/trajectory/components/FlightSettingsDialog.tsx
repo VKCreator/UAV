@@ -31,7 +31,7 @@ import CloseIcon from "@mui/icons-material/Close";
 
 import IconButton from "@mui/material/IconButton";
 
-import { api } from "../../../api/client";
+import { weatherApi } from "../../../api/weather.api";
 import { LocationPickerDialog } from "./LocationPickerDialog";
 import type { FlightSettings } from "../../../types/uav.types";
 
@@ -147,7 +147,7 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
 
       // Пробуем Open-meteo
       try {
-        const data = await api.weather.getCurrent(lat, lon);
+        const data = await weatherApi.getCurrent(lat, lon);
 
         setForm((prev) => {
           if (!prev.useWeatherApi) return prev; // Если выключил - не обновляем
@@ -173,7 +173,7 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
 
       // Пробуем Яндекс
       try {
-        const yandexData = await api.weather.getYandexWeather(lat, lon);
+        const yandexData = await weatherApi.getYandexWeather(lat, lon);
         const windDirectionDegrees = convertWindDirectionToDegrees(yandexData.fact.wind_dir);
 
         setForm((prev) => {
@@ -200,7 +200,7 @@ const FlightSettingsDialog: FC<Props> = ({ open, data, onClose, onSave }) => {
 
       // Пробуем Weatherbit
       try {
-        const alternativeData = await api.weather.getCurrentAlternative(lat, lon);
+        const alternativeData = await weatherApi.getCurrentAlternative(lat, lon);
         const weather = alternativeData["data"][0];
 
         setForm((prev) => {

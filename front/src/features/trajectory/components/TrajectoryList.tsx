@@ -33,18 +33,17 @@ import ScatterPlotIcon from "@mui/icons-material/ScatterPlot";
 import PersonIcon from "@mui/icons-material/Person";
 
 import PageContainer from "../../../components/layout/PageContainer";
-import { TrajectorySchema } from "../../../api/client";
+import type { TrajectorySchema } from "../../flight/types/schema.types";
 import { russianLocale } from "../../../constants";
 import useNotifications from "../../../hooks/useNotifications/useNotifications";
 import { useDialogs } from "../../../hooks/useDialogs/useDialogs";
 
-import { api } from "../../../api/client";
+import { schemasApi } from "../../../api/schemas.api";
 import ClearIcon from "@mui/icons-material/Clear";
 
 import { DateToPrettyLocalDateTime } from "../../../utils/dateUtils";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle/useDocumentTitle";
-
-const BASE_URL = "http://skypath.ddnsking.com:5000";
+import { API_BASE_URL } from "../../../api/config";
 
 interface MethodConfig {
   label: string;
@@ -179,8 +178,8 @@ export default function TrajectoryList() {
     }
 
     try {
-      // const response = await api.schemas.getAll();
-      const response = await api.schemas.getAllFull();
+      // const response = await schemasApi.getAll();
+      const response = await schemasApi.getAllFull();
 
       setRowsState({ rows: response, rowCount: response.length });
       localStorage.setItem("schemas-cache-v1", JSON.stringify(response));
@@ -291,7 +290,7 @@ export default function TrajectoryList() {
           return (
             <Box
               component="img"
-              src={`${BASE_URL}/uploads/thumbs/${fileName}`}
+              src={`${API_BASE_URL}/uploads/thumbs/${fileName}`}
               alt="Схема"
               sx={{
                 width: "100%",
@@ -476,7 +475,7 @@ export default function TrajectoryList() {
                     if (!confirmed) return;
                     try {
                       setIsLoading(true);
-                      await api.schemas.delete(Number(id));
+                      await schemasApi.delete(Number(id));
                       notifications.show("Схема удалена",
                         {
                           severity: "success",

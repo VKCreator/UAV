@@ -24,7 +24,9 @@ import { useNavigate } from "react-router";
 import useNotifications from "../../../hooks/useNotifications/useNotifications";
 
 import PageContainer from "../../../components/layout/PageContainer";
-import { api, Drone } from "../../../api/client";
+import { dronesApi } from "../../../api/drones.api";
+import type { Drone } from "../types/uav.types";
+
 import { russianLocale } from "../../../constants";
 
 export default function DronesList() {
@@ -65,7 +67,7 @@ export default function DronesList() {
     }
 
     try {
-      const response = await api.drones.getAll();
+      const response = await dronesApi.getAll();
       const data = response || [];
       setRowsState({ rows: data, rowCount: data.length });
       localStorage.setItem("drones-cache-v1", JSON.stringify(data));

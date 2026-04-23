@@ -37,7 +37,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-import { api } from "../api/client";
+import { weatherApi } from "../api/weather.api";
 import useNotifications from "../hooks/useNotifications/useNotifications";
 import { useDocumentTitle } from "../hooks/useDocumentTitle/useDocumentTitle";
 import PageContainer from "../components/layout/PageContainer";
@@ -305,7 +305,7 @@ const WeatherPage: React.FC = () => {
   const fetchWeatherbit = React.useCallback(async (c: Coords) => {
     setServiceState("weatherbit", { status: "loading", error: null });
     try {
-      const data = await api.weather.getCurrentAlternative(c.lat, c.lon);
+      const data = await weatherApi.getCurrentAlternative(c.lat, c.lon);
       const w = data["data"][0];
       setServiceState("weatherbit", {
         status: "ok",
@@ -323,7 +323,7 @@ const WeatherPage: React.FC = () => {
   const fetchYandex = React.useCallback(async (c: Coords) => {
     setServiceState("yandex", { status: "loading", error: null });
     try {
-      const data = await api.weather.getYandexWeather(c.lat, c.lon);
+      const data = await weatherApi.getYandex(c.lat, c.lon);
       setServiceState("yandex", {
         status: "ok",
         windSpeed: data.fact.wind_speed,
@@ -340,7 +340,7 @@ const WeatherPage: React.FC = () => {
   const fetchOpenMeteo = React.useCallback(async (c: Coords) => {
     setServiceState("openmeteo", { status: "loading", error: null });
     try {
-      const data = await api.weather.getCurrent(c.lat, c.lon);
+      const data = await weatherApi.getCurrent(c.lat, c.lon);
       setServiceState("openmeteo", {
         status: "ok",
         windSpeed: data.current_weather.windspeed / 3.6,

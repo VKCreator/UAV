@@ -1,0 +1,9 @@
+export interface TrajectorySchema {
+  id: string;
+  schemaName: string;
+  schemaImage: string;
+  pointCount: number;
+  distanceToCamera: number;
+  flightTime: number;
+  methodType: string;
+}

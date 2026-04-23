@@ -12,17 +12,15 @@ import { useRef, useEffect, useState } from "react";
 import Konva from "konva";
 
 import FlightSchemaPage from "./FlightSchemaPage";
-import { api } from "../api/client";
 import type { DroneParams, Weather } from "../types/uav.types";
 import type { Storyboards } from "../types/storyboards.types";
 import type { Point } from "../types/scene.types";
 
 import { useDocumentTitle } from "../hooks/useDocumentTitle/useDocumentTitle";
+import { API_BASE_URL } from "../api/config";
+import { schemasApi } from "../api/schemas.api";
 
-// ─── Константы ───────────────────────────────────────────────────────────────
-
-const API_BASE_URL = "http://skypath.ddnsking.com:5000";
-
+//  Константы
 const FALLBACK_DRONE_PARAMS: DroneParams = {
   selectedDroneId: undefined,
   frameHeightBase: 0,
@@ -150,7 +148,7 @@ export default function TrajectoryDetails() {
     setLoading(true);
     setError(null);
 
-    api.schemas
+    schemasApi
       .getById(Number(id))
       .then((data: any) => setSchemaData(data))
       .catch(() => setError("Не удалось загрузить карту полёта"))

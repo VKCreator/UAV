@@ -22,7 +22,7 @@ import {
   Lock,
   Notifications,
 } from "@mui/icons-material";
-import { api } from "../api/client";
+import { authApi } from "../api/auth.api";
 import AppIcon from "../components/icons/AppIcon";
 import { Link } from "react-router";
 
@@ -50,7 +50,7 @@ export default function LoginPage() {
     setError("");
     try {
       setLoading(true);
-      await api.auth.login(username, password);
+      await authApi.login(username, password);
       notifications.show("Вход успешно выполнен", {
         severity: "success",
         autoHideDuration: 3000,
@@ -246,7 +246,7 @@ export default function LoginPage() {
                       opacity: 0.8,
                     }}
                   >
-                    Версия: 2026.4.19
+                    Версия: 2026.4.23
                   </Typography>
                 </form>
               </CardContent>

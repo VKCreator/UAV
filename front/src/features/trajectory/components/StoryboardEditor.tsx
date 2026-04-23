@@ -31,7 +31,7 @@ import Konva from "konva";
 
 import useNotifications from "../../../hooks/useNotifications/useNotifications";
 import { HelpIconTooltip } from "../../../components/ui/HelpIconTooltip";
-import { api } from "../../../api/client";
+import { trajectoryApi } from "../../../api/trajectory.api";
 import { FloatInput } from "../../../components/ui/FloatInput";
 
 interface StoryboardEditorProps {
@@ -451,7 +451,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
           return [xMeters, yMeters];
         });
 
-        const flightTime = await api.trajectory.getFlightTime(
+        const flightTime = await trajectoryApi.getFlightTime(
           pointsArray,
           droneParams.speed,
           droneParams.hoverTime,
@@ -487,7 +487,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
           return [xMeters, yMeters];
         });
 
-        const flightTime = await api.trajectory.getFlightTime(
+        const flightTime = await trajectoryApi.getFlightTime(
           pointsArray,
           droneParams.speed,
           droneParams.hoverTime,
@@ -518,7 +518,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
         const flightTimes = await Promise.all(
           trajectoryData.B.map((bItem: any) => {
             const pointsArray = bItem.points.map((p: any) => [p[0], p[1]]);
-            return api.trajectory.getFlightTime(
+            return trajectoryApi.getFlightTime(
               pointsArray,
               droneParams.speed,
               droneParams.hoverTime,
@@ -554,7 +554,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
         const flightTimes = await Promise.all(
           trajectoryData2.B.map((bItem: any) => {
             const pointsArray = bItem.points.map((p: any) => [p[0], p[1]]);
-            return api.trajectory.getFlightTime(
+            return trajectoryApi.getFlightTime(
               pointsArray,
               droneParams.speed,
               droneParams.hoverTime,
@@ -590,7 +590,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
         const flightTimes = await Promise.all(
           trajectoryData3.B.map((bItem: any) => {
             const pointsArray = bItem.points.map((p: any) => [p[0], p[1]]);
-            return api.trajectory.getFlightTime(
+            return trajectoryApi.getFlightTime(
               pointsArray,
               droneParams.speed,
               droneParams.hoverTime,

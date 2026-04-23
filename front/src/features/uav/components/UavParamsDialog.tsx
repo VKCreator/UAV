@@ -16,7 +16,8 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
-import type { Drone } from "../../../api/client";
+import type { Drone } from "../types/uav.types";
+
 import type { UAVCameraParams } from "../../../types/uav.types";
 
 interface UavParamsDialogProps {

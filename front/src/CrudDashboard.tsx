@@ -25,7 +25,7 @@ import AppTheme from "./theme/AppTheme";
 import { datePickersCustomizations } from "./theme/customizations";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
-import { api } from "./api/client";
+import { authApi } from "./api/auth.api";
 import DashboardsPage from "./pages/DashboardsPage";
 import ProfilePage from "./pages/ProfilePage";
 
@@ -48,7 +48,7 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
       // navigate("/dashboards");
 
       try {
-        const result = await api.auth.check();
+        const result = await authApi.check();
         if (!result) {
           localStorage.removeItem("token");
           setIsAuthenticated(false);

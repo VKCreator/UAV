@@ -59,7 +59,7 @@ import SceneEditor from "./SceneEditor";
 import StoryboardEditor from "./StoryboardEditor";
 import SceneShower from "./SceneShower";
 
-import { api } from "../../../api/client";
+import { trajectoryApi } from "../../../api/trajectory.api";
 
 interface OptimizationTrajectoryStepProps {
   imageData: ImageData;
@@ -290,7 +290,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
           updateOptimization("small", { isLoading: true, status: "running" });
 
-          const data = await api.trajectory.calculateMethod1(payload);
+          const data = await trajectoryApi.calculateMethod1(payload);
           console.log("Ответ API (small):", data);
 
           const preparedData = {
@@ -344,7 +344,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
           // setLoadingOptimization(prev => ({ ...prev, large: true }));
           updateOptimization("large", { isLoading: true, status: "running" });
 
-          const data = await api.trajectory.calculateMethod2(payload);
+          const data = await trajectoryApi.calculateMethod2(payload);
           console.log("Ответ API (large):", data);
 
           const preparedData = {
@@ -397,7 +397,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
           // setLoadingOptimization(prev => ({ ...prev, large: true }));
           updateOptimization("combi", { isLoading: true, status: "running" });
 
-          const data = await api.trajectory.calculateMethod3(payload);
+          const data = await trajectoryApi.calculateMethod3(payload);
           console.log("Ответ API (combi):", data);
 
           const preparedData = {

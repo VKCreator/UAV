@@ -24,7 +24,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import BadgeIcon from "@mui/icons-material/Badge";
 
-import { api } from "../api/client";
+import { authApi } from "../api/auth.api";
 import useNotifications from "../hooks/useNotifications/useNotifications";
 import { useDocumentTitle } from "../hooks/useDocumentTitle/useDocumentTitle";
 import PageContainer from "../components/layout/PageContainer";
@@ -106,7 +106,7 @@ const ProfilePage: React.FC = () => {
       setError(null);
 
       try {
-        const data = await api.users.getMe();
+        const data = await authApi.getMe();
 
         // Сохраняем в кэш
         const cache: ProfileCache = { data, cachedAt: Date.now() };

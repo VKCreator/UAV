@@ -34,7 +34,7 @@ import FlightSchemaLegendDialog from "./FlightSchemaLegendDialog";
 import type { Point, Polygon, ImageData } from "../../../types/scene.types";
 import useNotifications from "../../../hooks/useNotifications/useNotifications";
 import { useDialogs } from "../../../hooks/useDialogs/useDialogs";
-import { Drone } from "../../../api/client";
+import { Drone } from "../../uav/types/uav.types";
 
 interface BuildTrajectoryStepProps {
   imageData: ImageData;

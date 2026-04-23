@@ -18,7 +18,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SettingsIcon from "@mui/icons-material/Settings";
 import EditIcon from "@mui/icons-material/Edit";
 
-import { Drone } from "../../../api/client";
+import { Drone } from "../../../features/uav/types/uav.types";
 
 import UavSelector from "../../uav/components/UavSelector";
 import UavParamsDialog from "../../uav/components/UavSelector";
