@@ -1,6 +1,6 @@
 import CssBaseline from "@mui/material/CssBaseline";
 // import { createHashRouter, RouterProvider, Navigate } from "react-router";
-import DashboardLayout from "./components/DashboardLayout";
+import DashboardLayout from "./components/layout/DashboardLayout";
 import { type JSX, useState, useEffect } from "react";
 
 import {
@@ -10,14 +10,14 @@ import {
   useNavigate,
 } from "react-router";
 
-import TrajectoriesList from "./components/steps/TrajectoryList";
-import TrajectoryCreate from "./components/steps/TrajectoryCreate";
-import DronesList from "./components/steps/DronesList";
-import TrajectoryDetails from "./components/pages/TrajectoryDetails";
+import TrajectoriesList from "./features/trajectory/components/TrajectoryList";
+import TrajectoryCreate from "./features/trajectory/components/TrajectoryCreate";
+import DronesList from "./features/uav/components/DronesList";
+import TrajectoryDetails from "./pages/TrajectoryDetailsPage";
 
-import LoginPage from "./components/pages/LoginPage";
-import RegisterPage from "./components/pages/RegisterPage";
-import WeatherPage from "./components/pages/WeatherPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import WeatherPage from "./pages/WeatherPage";
 
 import NotificationsProvider from "./hooks/useNotifications/NotificationsProvider";
 import DialogsProvider from "./hooks/useDialogs/DialogsProvider";
@@ -26,8 +26,8 @@ import { datePickersCustomizations } from "./theme/customizations";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { api } from "./api/client";
-import DashboardsPage from "./components/pages/DashboardsPage";
-import ProfilePage from "./components/pages/ProfilePage";
+import DashboardsPage from "./pages/DashboardsPage";
+import ProfilePage from "./pages/ProfilePage";
 
 // -------- ProtectedRoute --------
 function ProtectedRoute({ children }: { children: JSX.Element }) {
