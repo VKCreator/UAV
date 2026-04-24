@@ -63,6 +63,8 @@ import DownloadIcon from '@mui/icons-material/Download';
 import UndoIcon from "@mui/icons-material/Undo";
 import { convexHull, outwardUnitNormal } from "../utils/Geometry";
 
+import { SceneStage } from "./SceneStage";
+
 const COLORS = [
   "#65b9f7", "#ff6b6b", "#66a9ff", "#ffdd57", "#9e69c4",
   "#64f3f1", "#f59fe1", "#f4e24d", "#e38b5a", "#5e4a3a",
@@ -1072,119 +1074,46 @@ const SceneEditor: FC<SceneEditorProps> = ({
           bgcolor="#f4f6f8"
           flexDirection="column"
         >
-          <Box
-            boxShadow={3}
-            bgcolor="#fff"
-            minWidth={STAGE_WIDTH}
-            minHeight={STAGE_HEIGHT}
-          >
-            <Stage
-              ref={stageRef}
-              width={STAGE_WIDTH}
-              height={STAGE_HEIGHT}
-              scaleX={scale}
-              scaleY={scale}
-              x={position.x}
-              y={position.y}
-              draggable
-              onDragMove={handleDragMove}
-              onWheel={handleWheel}
-              style={{ cursor: getCursor() }}
-              onMouseMove={handleMouseMove}
-              onClick={handleStageClick}
-            >
-              <StaticLayer
-                image={image}
-                imageX={imageX}
-                imageY={imageY}
-                scaleToFit={scaleToFit}
-                gridLines={gridLines}
-                handleClick={handleClick}
-                STAGE_WIDTH={STAGE_WIDTH}
-                STAGE_HEIGHT={STAGE_HEIGHT}
-              />
+          <SceneStage
+            stageRef={stageRef}
+            scale={scale}
+            position={position}
+            toolMode={toolMode}
+            lineY={lineY}
+            loading={loading}
+            STAGE_WIDTH={STAGE_WIDTH}
+            STAGE_HEIGHT={STAGE_HEIGHT}
+            image={image}
+            imageX={imageX}
+            imageY={imageY}
+            scaleToFit={scaleToFit}
+            gridLines={gridLines}
+            points={points}
+            showUserTrajectory={showUserTrajectory}
+            setPoints={setPoints}
+            obstacles={obstacles}
+            showObstacles={showObstacles}
+            hoveredObstacleId={hoveredObstacleId}
+            setHoveredObstacleId={setHoveredObstacleId}
+            pxPerMeterX={(image?.width || 1) / width_m}
+            pxPerMeterY={(image?.height || 1) / height_m}
+            trajectoryData={trajectoryData}
+            showTaxonTrajectory={showTaxonTrajectory}
+            width_m={width_m}
+            height_m={height_m}
+            colors={colors}
+            weatherConditions={weatherConditions}
+            showUavLine={showUavLine}
+            flightLineY={flightLineY}
+            currentPolygon={currentPolygon}
+            handleDragMove={handleDragMove}
+            handleWheel={handleWheel}
+            getCursor={getCursor}
+            handleMouseMove={handleMouseMove}
+            handleStageClick={handleStageClick}
+            handleClick={handleClick}
+          />
 
-              <UserPointsLayer
-                points={points}
-                showUserTrajectory={showUserTrajectory}
-                scaleToFit={scaleToFit}
-                image={image}
-                imageX={imageX}
-                imageY={imageY}
-                toolMode={toolMode}
-                setPoints={setPoints}
-                getCursor={getCursor}
-              />
-
-              <ObstaclesLayer
-                obstacles={obstacles}
-                showObstacles={showObstacles}
-                scaleToFit={scaleToFit}
-                image={image}
-                imageX={imageX}
-                imageY={imageY}
-                hoveredObstacleId={hoveredObstacleId}
-                setHoveredObstacleId={setHoveredObstacleId}
-                getCursor={getCursor}
-                pxPerMeterX={(image?.width || 1) / width_m}
-                pxPerMeterY={(image?.height || 1) / height_m}
-              />
-
-              <TrajectoryLayer
-                trajectoryData={trajectoryData}
-                showTaxonTrajectory={showTaxonTrajectory}
-                image={image}
-                width_m={width_m}
-                height_m={height_m}
-                scaleToFit={scaleToFit}
-                imageX={imageX}
-                imageY={imageY}
-                colors={colors}
-              />
-
-              <UILayer
-                toolMode={toolMode}
-                lineY={lineY}
-                image={image}
-                imageX={imageX}
-                imageY={imageY}
-                scaleToFit={scaleToFit}
-                weatherConditions={weatherConditions}
-                showUavLine={showUavLine}
-                flightLineY={flightLineY}
-                currentPolygon={currentPolygon}
-                STAGE_WIDTH={STAGE_WIDTH}
-                STAGE_HEIGHT={STAGE_HEIGHT}
-              />
-
-              <Layer>
-                {(loading) && (
-                  <>
-                    <Rect
-                      x={0}
-                      y={0}
-                      width={STAGE_WIDTH}
-                      height={STAGE_HEIGHT}
-                      fill="rgba(255,255,255,0.7)"
-                    />
-                    <Text
-                      x={STAGE_WIDTH / 2}
-                      y={STAGE_HEIGHT / 2}
-                      text="Загрузка..."
-                      fontSize={18}
-                      fontStyle="bold"
-                      fill="#004E9E"
-                      align="center"
-                      verticalAlign="middle"
-                      fontFamily="Inter"
-                      offsetX={50}
-                      offsetY={10}
-                    />
-                  </>
-                )}
-              </Layer>
-            </Stage>
-          </Box>
           {toolMode === "pan" && (
             <Box
               position="absolute"
