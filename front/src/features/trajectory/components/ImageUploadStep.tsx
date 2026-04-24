@@ -58,6 +58,8 @@ const EXIF_LABELS: Partial<Record<keyof ExifData, string>> = {
   focalLengthIn35mmFormat: "Фокус (35мм)",
   latitude: "Широта",
   longitude: "Долгота",
+  relativeAltitude: "Относ. высота, м",
+  subjectDistance: "Расст. до объекта, м"
 };
 
 const EXIF_KEYS_GROUP_1: (keyof ExifData)[] = [
@@ -83,6 +85,8 @@ const EXIF_KEYS_GROUP_3: (keyof ExifData)[] = [
   "focalLengthIn35mmFormat",
   "latitude",
   "longitude",
+  "relativeAltitude",
+  "subjectDistance"
 ];
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
@@ -159,7 +163,6 @@ const ExifTable: React.FC<ExifTableProps> = ({ data, keys, title }) => {
   };
 
   return (
-    // Убрали component={Paper}, чтобы не было двойной тени/рамки от TableContainer
     <TableContainer
       sx={{
         height: "100%",
@@ -169,7 +172,6 @@ const ExifTable: React.FC<ExifTableProps> = ({ data, keys, title }) => {
         borderColor: "divider",
         overflowY: "auto",
         borderRadius: 1,
-        overflow: "hidden",
       }}
     >
       <Table size="small">
@@ -252,7 +254,12 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
 
       try {
         const exifr = await import("exifr");
-        const tags = await exifr.parse(file);
+        const tags = await exifr.parse(file, {
+          xmp: true,
+          exif: true,
+          gps: true,
+          tiff: true,
+        });
 
         let width: number;
         let height: number;
@@ -263,6 +270,11 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         } else {
           ({ width, height } = await readImageDimensions(file));
         }
+
+        const relativeAltitude =
+          tags?.RelativeAltitude != null
+            ? parseFloat(tags.RelativeAltitude)
+            : undefined;
 
         const newExifData: ExifData = {
           fileName: file.name,
@@ -287,6 +299,10 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             tags?.longitude != null && !Number.isNaN(tags.longitude)
               ? String(tags.longitude)
               : "",
+          relativeAltitude: relativeAltitude != null && !Number.isNaN(relativeAltitude)
+            ? String(relativeAltitude)
+            : "",
+          subjectDistance: tags?.SubjectDistance,
         };
 
         setExifData([newExifData]);
@@ -453,6 +469,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
+                      imageRendering: "auto"
                     }}
                   />
                 )}
@@ -600,7 +617,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           sx: {
             display: "flex",
             flexDirection: "column",
-            overflow: "hidden",
+            overflow: "hidden",   // ← Paper не скроллит сам
             height: "90vh",
           },
         }}
@@ -642,44 +659,46 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
 
         <DialogContent
           sx={{
+            flex: 1,
+            minHeight: 0,         // ← ключевое
+            overflow: "hidden",   // DialogContent тоже не скроллит
             display: "flex",
             flexDirection: "column",
-            flex: 1,
-            overflow: "hidden",
             p: 2,
           }}
         >
           <Box
             sx={{
               flex: 1,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
+              minHeight: 0,
               overflow: showOriginalSize ? "auto" : "hidden",
-              width: "100%",
+              backgroundColor: "#f5f5f5",
+              borderRadius: 1,
+              display: showOriginalSize ? "block" : "flex",
+              justifyContent: "center",
+              alignItems: showOriginalSize ? "flex-start" : "center",
             }}
           >
-            {imageUrl && (
-              <img
-                src={imageUrl}
-                alt="Полноэкранный просмотр"
-                style={
-                  showOriginalSize
-                    ? {} // натуральный размер, скролл через родителя
-                    : {
-                      maxWidth: "100%",
-                      maxHeight: "100%",
-                      objectFit: "contain",
-                    }
-                }
-              />
-            )}
+            <img
+              src={imageUrl}
+              style={
+                showOriginalSize
+                  ? {
+                    display: "block",
+                  }
+                  : {
+                    display: "block",
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    objectFit: "contain",
+                  }
+              }
+            />
           </Box>
-
           {showOriginalSize && (
             <Typography
               variant="caption"
-              color="text.secondary"
+              color="textSecondary"
               sx={{ mt: 1, textAlign: "center" }}
             >
               Используйте полосы прокрутки для перемещения по изображению

@@ -17,4 +17,6 @@ export interface ExifData {
   focalLengthIn35mmFormat: number;
   latitude: string;
   longitude: string;
+  relativeAltitude: string;
+  subjectDistance: number;
 }
