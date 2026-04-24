@@ -7,6 +7,57 @@ import { Point, Polygon, TrajectoryPoint } from "./scene.types";
 const TAXON_POINT_RADIUS = 10;
 const BASE_RADIUS = 4;
 
+
+// Выпуклая оболочка (алгоритм Эндрю)
+const convexHull = (points: Point[]): Point[] => {
+  if (points.length < 3) return [...points];
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (O: Point, A: Point, B: Point) =>
+    (A.x - O.x) * (B.y - O.y) - (A.y - O.y) * (B.x - O.x);
+
+  const lower: Point[] = [];
+  for (const p of sorted) {
+    while (
+      lower.length >= 2 &&
+      cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0
+    ) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+
+  const upper: Point[] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (
+      upper.length >= 2 &&
+      cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0
+    ) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+
+  lower.pop();
+  upper.pop();
+  return [...lower, ...upper];
+};
+
+// Внешняя единичная нормаль ребра (from -> to) относительно центроида
+const outwardUnitNormal = (from: Point, to: Point, centroid: Point): Point => {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len === 0) return { x: 0, y: 0 };
+  const n = { x: dy / len, y: -dx / len };
+  const midToCentroidX = centroid.x - (from.x + to.x) / 2;
+  const midToCentroidY = centroid.y - (from.y + to.y) / 2;
+  if (n.x * midToCentroidX + n.y * midToCentroidY > 0) {
+    return { x: -n.x, y: -n.y };
+  }
+  return n;
+};
+
 // Вспомогательная функция для стрелок
 const getArrowPoints = (
   from: { x: number; y: number },
@@ -141,83 +192,111 @@ export const UserPointsLayer = React.memo(({
 });
 
 // СЛОЙ ПРЕПЯТСТВИЙ
-export const ObstaclesLayer = React.memo(({ 
-  obstacles, 
-  showObstacles, 
+export const ObstaclesLayer = React.memo(({
+  obstacles,
+  showObstacles,
   scaleToFit,
   image,
-  imageX, 
-  imageY, 
-  hoveredObstacleId, 
+  imageX,
+  imageY,
+  hoveredObstacleId,
   setHoveredObstacleId,
   getCursor,
   pxPerMeterX = 1,  // пикселей в метре по X
   pxPerMeterY = 1   // пикселей в метре по Y
 }: any) => {
   if (!showObstacles || !image) return null;
-  
-  // Функция для расширения полигона на N метров
-  const expandPolygon = (poly: Polygon, metersToExpand: number) => {
-    const centerX = poly.points.reduce((sum, p) => sum + p.x, 0) / poly.points.length;
-    const centerY = poly.points.reduce((sum, p) => sum + p.y, 0) / poly.points.length;
-    
-    const expandPixelsX = metersToExpand * pxPerMeterX;
-    const expandPixelsY = metersToExpand * pxPerMeterY;
-    
-    const expandedPoints = poly.points.map(point => {
-      const dx = point.x - centerX;
-      const dy = point.y - centerY;
-      const length = Math.sqrt(dx * dx + dy * dy);
-      
-      if (length === 0) return point;
-      
-      // Рассчитываем новую длину с учетом разных масштабов
-      const angle = Math.atan2(dy, dx);
-      const expandX = Math.abs(Math.cos(angle)) * expandPixelsX;
-      const expandY = Math.abs(Math.sin(angle)) * expandPixelsY;
-      const totalExpand = Math.sqrt(expandX * expandX + expandY * expandY);
-      
-      const newLength = length + totalExpand;
-      const ratio = newLength / length;
-      
+
+  // Строит безопасную зону: делает полигон выпуклым, затем сдвигает
+  // каждое ребро наружу на metersToExpand метров.
+  const buildSafeZone = (poly: Polygon, metersToExpand: number): Point[] => {
+    if (!poly.points || poly.points.length < 3) return poly.points ?? [];
+
+    // Работаем в метрах, чтобы сдвиг был изотропным.
+    const inMeters: Point[] = poly.points.map((p) => ({
+      x: p.x / pxPerMeterX,
+      y: p.y / pxPerMeterY,
+    }));
+
+    const hull = convexHull(inMeters);
+    if (hull.length < 3 || !metersToExpand) {
+      return hull.map((p) => ({
+        x: p.x * pxPerMeterX,
+        y: p.y * pxPerMeterY,
+      }));
+    }
+
+    const centroid: Point = {
+      x: hull.reduce((s, p) => s + p.x, 0) / hull.length,
+      y: hull.reduce((s, p) => s + p.y, 0) / hull.length,
+    };
+
+    const n = hull.length;
+    const expanded: Point[] = hull.map((v, i) => {
+      const prev = hull[(i - 1 + n) % n];
+      const next = hull[(i + 1) % n];
+      const nIn = outwardUnitNormal(prev, v, centroid);
+      const nOut = outwardUnitNormal(v, next, centroid);
+      const denom = 1 + nIn.x * nOut.x + nIn.y * nOut.y;
+      if (Math.abs(denom) < 1e-9) {
+        return {
+          x: v.x + metersToExpand * nIn.x,
+          y: v.y + metersToExpand * nIn.y,
+        };
+      }
+      const factor = metersToExpand / denom;
       return {
-        x: centerX + dx * ratio,
-        y: centerY + dy * ratio
+        x: v.x + factor * (nIn.x + nOut.x),
+        y: v.y + factor * (nIn.y + nOut.y),
       };
     });
-    
-    return {
-      ...poly,
-      points: expandedPoints
-    };
-  }; 
+
+    return expanded.map((p) => ({
+      x: p.x * pxPerMeterX,
+      y: p.y * pxPerMeterY,
+    }));
+  };
 
   return (
     <Layer>
-      {obstacles.map((poly: Polygon) => {
+      {obstacles.map((poly: Polygon, index: number) => {
         const isHovered = hoveredObstacleId === poly.id;
-        const expandedPoly = expandPolygon(poly, poly.safeZone); // Увеличенный на 2 метра
-        
+        const safeZonePoints = buildSafeZone(poly, poly.safeZone);
+
+        const centerX =
+          poly.points.reduce((s, p) => s + p.x, 0) / poly.points.length;
+        const centerY =
+          poly.points.reduce((s, p) => s + p.y, 0) / poly.points.length;
+        const labelX = centerX * scaleToFit + imageX;
+        const labelY = centerY * scaleToFit + imageY;
+        const labelText = String(index + 1);
+
         return (
           <Fragment key={poly.id}>
-                        {/* Увеличенный на 2м полигон с голубой клеткой (без вершин) */}
+            {/* Безопасная зона (выпуклая, сдвинутая наружу на safeZone м) */}
             <Line
-              points={expandedPoly.points.flatMap((p) => [
-                p.x * scaleToFit + imageX, 
-                p.y * scaleToFit + imageY
+              points={safeZonePoints.flatMap((p) => [
+                p.x * scaleToFit + imageX,
+                p.y * scaleToFit + imageY,
               ])}
               closed
-              fill="#E0F4FF" // Светло-голубой фон
-              stroke="#4FC3F7" // Голубая граница
+              fill="#E0F4FF"
+              stroke="#4FC3F7"
               strokeWidth={2}
-              strokeDasharray="8,4"
+              dash={[8, 4]}
               opacity={0.8}
-              listening={false} // Отключаем интерактивность для увеличенной версии
+              onMouseEnter={(e) => {
+                e.target.getStage().container().style.cursor = "pointer";
+              }}
+              onMouseLeave={(e) => {
+                e.target.getStage().container().style.cursor = getCursor();
+              }}
+              // listening={false}
             />
             <Line
               points={poly.points.flatMap((p) => [
-                p.x * scaleToFit + imageX, 
-                p.y * scaleToFit + imageY
+                p.x * scaleToFit + imageX,
+                p.y * scaleToFit + imageY,
               ])}
               closed
               fill={isHovered ? `${poly.color}55` : `${poly.color}20`}
@@ -233,15 +312,37 @@ export const ObstaclesLayer = React.memo(({
               }}
             />
 
-            {poly.points.map((point, index) => (
+            {poly.points.map((point, vIdx) => (
               <Circle
-                key={`${poly.id}-vertex-${index}`}
+                key={`${poly.id}-vertex-${vIdx}`}
                 x={point.x * scaleToFit + imageX}
                 y={point.y * scaleToFit + imageY}
                 radius={3}
                 fill={poly.color}
               />
             ))}
+
+            {/* Номер препятствия в центре полигона */}
+            <Circle
+              x={labelX}
+              y={labelY}
+              radius={12}
+              fill="rgba(0,0,0,0.55)"
+              listening={false}
+            />
+            <Text
+              x={labelX}
+              y={labelY}
+              text={labelText}
+              fontSize={14}
+              fontStyle="bold"
+              fill="#fff"
+              align="center"
+              verticalAlign="middle"
+              offsetX={labelText.length * 4}
+              offsetY={7}
+              listening={false}
+            />
           </Fragment>
         );
       })}
