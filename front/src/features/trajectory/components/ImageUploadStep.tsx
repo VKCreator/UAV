@@ -20,7 +20,6 @@ import {
   Grid,
   CircularProgress,
   useTheme,
-  Divider,
 } from "@mui/material";
 import { useDropzone, FileRejection } from "react-dropzone";
 
@@ -36,7 +35,7 @@ import { useDialogs } from "../../../hooks/useDialogs/useDialogs";
 
 import heic2any from "heic2any";
 
-// ─── Константы ────────────────────────────────────────────────────────────────
+// Константы 
 
 const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 МБ
 
@@ -54,12 +53,12 @@ const EXIF_LABELS: Partial<Record<keyof ExifData, string>> = {
   yResolution: "Разрешение (Y)",
   resolutionUnit: "Ед. измерения",
   software: "Программа",
-  focalLength: "Фокусное расст.",
+  focalLength: "Фокусное расстояние",
   focalLengthIn35mmFormat: "Фокус (35мм)",
   latitude: "Широта",
   longitude: "Долгота",
-  relativeAltitude: "Относ. высота, м",
-  subjectDistance: "Расст. до объекта, м"
+  relativeAltitude: "Относительная высота, м",
+  subjectDistance: "Расстояние до объекта, м"
 };
 
 const EXIF_KEYS_GROUP_1: (keyof ExifData)[] = [
@@ -89,7 +88,7 @@ const EXIF_KEYS_GROUP_3: (keyof ExifData)[] = [
   "subjectDistance"
 ];
 
-// ─── Утилиты ─────────────────────────────────────────────────────────────────
+// Утилиты
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
@@ -141,7 +140,7 @@ const convertHeicIfNeeded = async (file: File): Promise<File> => {
   return new File([blob], newName, { type: "image/jpeg" });
 };
 
-// ─── Вспомогательный компонент: таблица EXIF ─────────────────────────────────
+// Вспомогательный компонент: таблица EXIF
 
 interface ExifTableProps {
   data: ExifData;
@@ -210,7 +209,7 @@ const ExifTable: React.FC<ExifTableProps> = ({ data, keys, title }) => {
   );
 };
 
-// ─── Интерфейс пропсов ────────────────────────────────────────────────────────
+//  Интерфейс пропсов 
 
 interface ImageUploadStepProps {
   onUpload: (files: File[], exifData: ExifData[]) => void;
@@ -220,7 +219,7 @@ interface ImageUploadStepProps {
   initialImageUrl?: string;
 }
 
-// ─── Основной компонент ───────────────────────────────────────────────────────
+// Основной компонент
 
 const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   onUpload,
@@ -245,7 +244,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   const imageUrl = initialImageUrl ?? "";
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // ── Чтение EXIF ────────────────────────────────────────────────────────────
+  // Чтение EXIF
 
   const readExif = React.useCallback(
     async (file: File) => {
@@ -317,7 +316,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     [onUpload],
   );
 
-  // ── Обработка загрузки файла ───────────────────────────────────────────────
+  //  Обработка загрузки файла 
 
   const handleFileDrop = React.useCallback(
     async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
@@ -370,7 +369,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     inputRef.current?.click();
   }, []);
 
-  // ── Удаление ───────────────────────────────────────────────────────────────
+  //  Удаление 
 
   const handleDelete = React.useCallback(async () => {
     const shouldDelete = await confirm(
@@ -390,7 +389,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     onDelete();
   }, [onDelete, confirm]);
 
-  // ── Dropzone ───────────────────────────────────────────────────────────────
+  //  Dropzone 
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: handleFileDrop,
@@ -399,9 +398,9 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     maxSize: MAX_FILE_SIZE,
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // 
   // Render
-  // ─────────────────────────────────────────────────────────────────────────
+  // 
 
   return (
     <Box
@@ -411,7 +410,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         height: "100%",
         width: "100%",
         flexDirection: "column",
-        gap: 2, // Удобнее чем mb: 2 у каждого элемента
+        gap: 2,
       }}
     >
       {/* Скрытый input вынесен в корень */}
@@ -617,7 +616,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           sx: {
             display: "flex",
             flexDirection: "column",
-            overflow: "hidden",   // ← Paper не скроллит сам
+            overflow: "hidden",
             height: "90vh",
           },
         }}
@@ -660,8 +659,8 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         <DialogContent
           sx={{
             flex: 1,
-            minHeight: 0,         // ← ключевое
-            overflow: "hidden",   // DialogContent тоже не скроллит
+            minHeight: 0,
+            overflow: "hidden",
             display: "flex",
             flexDirection: "column",
             p: 2,
