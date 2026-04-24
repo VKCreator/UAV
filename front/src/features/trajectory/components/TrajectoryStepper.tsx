@@ -228,6 +228,7 @@ const TrajectoryStepper = () => {
   const [droneParams, setDroneParams] =
     React.useState<DroneParams>(INITIAL_DRONE_PARAMS);
   const [drones, setDrones] = React.useState<Drone[]>([]);
+  const [uavLineConfigured, setUavLineConfigured] = React.useState(false);
 
   // ── Шаг 3: оптимизация ───────────────────────────────────────────────────
 
@@ -1131,6 +1132,8 @@ const TrajectoryStepper = () => {
             droneParams={droneParams}
             setDroneParams={setDroneParams}
             drones={drones}
+            uavLineConfigured={uavLineConfigured}
+            setUavLineConfigured={setUavLineConfigured}
           />
         );
       case 2:

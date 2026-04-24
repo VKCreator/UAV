@@ -18,13 +18,22 @@ import {
   ListItemSecondaryAction,
 } from "@mui/material";
 
+
+import useImage from "use-image";
+
 import {
   Stage,
+  Layer,
   Image as KonvaImage,
+  Circle,
+  Text,
+  Arrow,
   Line,
-  Rect
+  Rect,
+  Group
 } from "react-konva";
-import useImage from "use-image";
+
+import Konva from "konva";
 
 import PanToolIcon from "@mui/icons-material/PanTool";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
@@ -50,10 +59,11 @@ import { FloatInput } from "../../../components/ui/FloatInput";
 
 import FlightSchemaLegendDialog from "./FlightSchemaLegendDialog";
 import { StaticLayer, UserPointsLayer, ObstaclesLayer, TrajectoryLayer, UILayer } from "./SceneLayers";
+import DownloadIcon from '@mui/icons-material/Download';
 
 const COLORS = [
-  "#65b9f7", "#ff6b6b", "#66a9ff", "#ffdd57", "#9e69c4", 
-  "#64f3f1", "#f59fe1", "#f4e24d", "#e38b5a", "#5e4a3a", 
+  "#65b9f7", "#ff6b6b", "#66a9ff", "#ffdd57", "#9e69c4",
+  "#64f3f1", "#f59fe1", "#f4e24d", "#e38b5a", "#5e4a3a",
   "#7a9f60", "#a2b9d1", "#d1d1d1", "#b8a25b",
 ] as const;
 
@@ -79,6 +89,9 @@ interface SceneEditorProps {
   flightLineY: number;
   setFlightLineY: (y: any) => void;
 
+  uavLineConfigured?: boolean;
+  setUavLineConfigured?: (f: boolean) => void;
+
   weatherConditions?: Weather;
 }
 
@@ -96,9 +109,12 @@ const SceneEditor: FC<SceneEditorProps> = ({
   droneParams,
   flightLineY,
   setFlightLineY,
+  uavLineConfigured = false,
+  setUavLineConfigured,
   weatherConditions = null
 }) => {
   const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [showGrid, setShowGrid] = useLocalStorage<boolean>("isShowGrid", true);
   const [showUserTrajectory, setShowUserTrajectory] = useLocalStorage<boolean>(
@@ -109,6 +125,11 @@ const SceneEditor: FC<SceneEditorProps> = ({
     "isShowObstacles",
     true,
   );
+  const [showUavLine, setShowUavLine] = useLocalStorage<boolean>(
+    "isShowLine",
+    true,
+  );
+
   const [showTaxonTrajectory, setShowTaxonTrajectory] =
     useLocalStorage<boolean>("isShowTaxonTrajectory", true);
 
@@ -125,8 +146,6 @@ const SceneEditor: FC<SceneEditorProps> = ({
   const [hoveredObstacleId, setHoveredObstacleId] = useState<string | null>(
     null,
   );
-  const [showUavLine, setShowUavLine] = useState(true); // галка отображения
-  const [uavLineConfigured, setUavLineConfigured] = useState(false); // статус
 
   const [lineY, setLineY] = useState<number | null>(null);
 
@@ -135,9 +154,6 @@ const SceneEditor: FC<SceneEditorProps> = ({
 
   const colors = COLORS;
 
-  const getNextPolygonColor = () => colors[obstacles.length % colors.length];
-
- 
   //  "pan" | "points" | "polygons";
   const [toolMode, setToolMode] = useState<string>(
     mode === undefined ? "pan" : mode,
@@ -155,6 +171,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
         return "default";
     }
   }, [toolMode]);
+
 
   const GRID_COLS = droneParams.frameWidthBase / droneParams.frameWidthPlanned;
   const GRID_ROWS =
@@ -212,6 +229,8 @@ const SceneEditor: FC<SceneEditorProps> = ({
 
     if (toolMode === "polygons") setShowObstacles(true);
 
+    if (toolMode === "line") setShowUavLine(true);
+
     if (e.evt.button !== 0) return; // Только левая кнопка мыши
 
     const stage = e.target.getStage();
@@ -230,7 +249,6 @@ const SceneEditor: FC<SceneEditorProps> = ({
       yOnImage < 0 ||
       yOnImage > image.height
     ) {
-      console.log("Click outside image");
       return;
     }
 
@@ -264,10 +282,10 @@ const SceneEditor: FC<SceneEditorProps> = ({
   };
 
   const handleSafeZoneChange = (id, value: number) => {
-  setObstacles(prev =>
-    prev.map(ob => ob.id === id ? { ...ob, safeZone: value } : ob)
-  );
-};
+    setObstacles(prev =>
+      prev.map(ob => ob.id === id ? { ...ob, safeZone: value } : ob)
+    );
+  };
 
   const handleDragMove = useCallback((e: any) => {
     const stage = e.target;
@@ -284,36 +302,46 @@ const SceneEditor: FC<SceneEditorProps> = ({
     const imgWidth = image.width * scaleToFit;
     const imgHeight = image.height * scaleToFit;
 
+    const cellWidth = imgWidth / GRID_COLS;
+    const cellHeight = imgHeight / GRID_ROWS;
+    const lineStyle = {
+      width: 2,
+      height: 2,
+      fill: "rgba(255, 255, 255, 0.8)",
+      stroke: "rgb(0, 0, 0, 1)",
+      strokeWidth: 0.1
+    };
+
     // Вертикальные линии
     for (let i = 1; i < GRID_COLS; i++) {
-      const x = imageX + (imgWidth / GRID_COLS) * i;
+      const x = imageX + cellWidth * i;
       lines.push(
         <Rect
           key={`v-${i}`}
           x={x}
           y={imageY}
-          width={2}  // толщина линии
+          width={lineStyle.width}
           height={imgHeight}
-          fill="rgba(255, 255, 255, 0.8)"
-          stroke="rgb(0, 0, 0, 1)"
-          strokeWidth={0.1}
+          fill={lineStyle.fill}
+          stroke={lineStyle.stroke}
+          strokeWidth={lineStyle.strokeWidth}
         />
       );
     }
 
     // Горизонтальные линии
     for (let i = 1; i < GRID_ROWS; i++) {
-      const y = imageY + imgHeight - (imgHeight / GRID_ROWS) * i;
+      const y = imageY + imgHeight - cellHeight * i;
       lines.push(
         <Rect
           key={`h-${i}`}
           x={imageX}
           y={y}
-          width={imgWidth} 
-          height={2}
-          fill="rgba(255, 255, 255, 0.8)"
-          stroke="rgb(0, 0, 0, 1)"
-          strokeWidth={0.1}
+          width={imgWidth}
+          height={lineStyle.height}
+          fill={lineStyle.fill}
+          stroke={lineStyle.stroke}
+          strokeWidth={lineStyle.strokeWidth}
         />
       );
     }
@@ -367,31 +395,208 @@ const SceneEditor: FC<SceneEditorProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    // Устанавливаем нужный флаг в зависимости от режима
+    switch (mode) {
+      case "points":
+        setShowUserTrajectory(true);
+        break;
+      case "polygons":
+        setShowObstacles(true);
+        break;
+      case "line":
+        setShowUavLine(true);
+        break;
+      case "pan":
+        // Для pan отключаем всё
+        break;
+      default:
+        break;
+    }
+  }, [mode]); // Зависимость от mode
+
+
+    const handleDownload = () => {
+      if (!image) return;
+      setLoading(true);
+
+      const container = document.createElement("div");
+      const downloadStage = new Konva.Stage({
+        container,
+        width: image.width,
+        height: image.height,
+      });
+
+      const layer = new Konva.Layer();
+      downloadStage.add(layer);
+
+      // Масштабный коэффициент: элементы интерфейса должны выглядеть
+      // пропорционально на полном разрешении так же, как на превью 500×400
+      const uiScale = Math.min(image.width / STAGE_WIDTH, image.height / STAGE_HEIGHT) * 0.5;
+
+      const POINT_R_USER = 14 * uiScale;   // радиус пользовательской точки
+      const ARROW_PTR_LEN = 14 * uiScale;
+      const ARROW_PTR_WID = 10 * uiScale;
+      const STROKE_W = 3 * uiScale;
+      const FONT_USER = 16 * uiScale;
+
+      // Вспомогательная функция: стрелка начинается от края fromRadius окружности
+      // и заканчивается у края toRadius окружности, не перекрывая кружки
+      const arrowPts = (
+        from: { x: number; y: number },
+        to: { x: number; y: number },
+        fromR: number,
+        toR: number,
+      ) => {
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len === 0) return [from.x, from.y, to.x, to.y];
+        const ux = dx / len, uy = dy / len;
+        return [
+          from.x + ux * fromR, from.y + uy * fromR,
+          to.x - ux * toR, to.y - uy * toR,
+        ];
+      };
+
+      // ── Фоновое изображение ────────────────────────────────────────────
+      layer.add(new Konva.Image({
+        image,
+        x: 0, y: 0,
+        width: image.width, height: image.height,
+      }));
+
+      // ── Сетка ─────────────────────────────────────────────────────────
+      if (showGrid) {
+        const cellW = image.width / GRID_COLS;
+        const cellH = image.height / GRID_ROWS;
+        for (let i = 1; i < GRID_COLS; i++) {
+          layer.add(new Konva.Line({
+            points: [cellW * i, 0, cellW * i, image.height],
+            stroke: "rgba(255,255,255,0.9)", strokeWidth: 1,
+          }));
+        }
+        for (let i = 1; i < GRID_ROWS; i++) {
+          const y = image.height - cellH * i;
+          layer.add(new Konva.Line({
+            points: [0, y, image.width, y],
+            stroke: "rgba(255,255,255,0.9)", strokeWidth: 1,
+          }));
+        }
+      }
+
+      // ── Линия полёта + неинформативная зона ───────────────────────────
+      if (flightLineY !== null) {
+        layer.add(new Konva.Line({
+          points: [0, flightLineY, image.width, flightLineY],
+          stroke: "orange",
+          strokeWidth: STROKE_W,
+        }));
+        layer.add(new Konva.Rect({
+          x: 0, y: flightLineY,
+          width: image.width, height: image.height - flightLineY,
+          fill: "rgba(128,128,128,0.3)",
+          listening: false,
+        }));
+        if (flightLineY < image.height - 0.01) {
+          layer.add(new Konva.Text({
+            x: 0,
+            y: flightLineY + (image.height - flightLineY) / 2 - FONT_USER * 1.5,
+            width: image.width,
+            text: "Неинформативная зона",
+            align: "center",
+            fontSize: FONT_USER * 1.5,
+            fill: "rgba(255,255,255,0.85)",
+            listening: false,
+          }));
+        }
+      }
+
+      // ── Препятствия ───────────────────────────────────────────────────
+      if (showObstacles) {
+        obstacles.forEach((poly) => {
+          layer.add(new Konva.Line({
+            points: poly.points.flatMap((p) => [p.x, p.y]),
+            closed: true,
+            fill: `${poly.color}30`,
+            stroke: poly.color,
+            strokeWidth: STROKE_W,
+          }));
+        });
+      }
+
+      // ── Пользовательская траектория ───────────────────────────────────
+      if (showUserTrajectory) {
+        // Сначала рисуем стрелки (они окажутся под кружками)
+        points.forEach((point, i) => {
+          if (i === 0) return;
+          const prev = points[i - 1];
+          layer.add(new Konva.Arrow({
+            points: arrowPts(prev, point, POINT_R_USER, POINT_R_USER),
+            pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
+            fill: "red", stroke: "red", strokeWidth: STROKE_W,
+          }));
+        });
+        // Затем кружки и номера поверх стрелок
+        points.forEach((point, i) => {
+          layer.add(new Konva.Circle({
+            x: point.x, y: point.y,
+            radius: POINT_R_USER, fill: "blue",
+          }));
+          layer.add(new Konva.Text({
+            x: point.x - POINT_R_USER * 0.45,
+            y: point.y - FONT_USER * 0.55,
+            text: (i + 1).toString(),
+            fontSize: FONT_USER,
+            fontStyle: "bold",
+            fill: "white",
+          }));
+        });
+      }
+
+      layer.batchDraw();
+
+      downloadStage.toCanvas().toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "trajectory_map.png";
+        link.click();
+        URL.revokeObjectURL(url);
+        downloadStage.destroy();
+        setLoading(false);
+      });
+    };
+
   return (
     <Box display="flex" flexDirection="column" height="100%" width="100%">
-      <Box
-        display="flex"
-        alignItems="center"
-        justifyContent="space-between"
-        p={1}
-        borderBottom="1px solid"
-        borderColor="divider"
-        bgcolor="background.paper"
-      >
-        <Box display="flex" alignItems="center" gap={1}>
-          <IconButton
-            size="small"
-            onClick={handleClose}
-            aria-label="назад"
-          >
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h6" fontWeight="medium">
-            {sceneMode ? `${sceneMode}` : ""}
-          </Typography>
-        </Box>
-        <Box />
+    <Box
+      display="flex"
+      alignItems="center"
+      p={1}
+      borderBottom="1px solid"
+      borderColor="divider"
+      bgcolor="background.paper"
+    >
+      <Box display="flex" alignItems="center" gap={1}>
+        <IconButton size="small" onClick={handleClose} aria-label="назад">
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h6" fontWeight="medium">
+          {sceneMode ? `${sceneMode}` : ""}
+        </Typography>
       </Box>
+      
+      {/* Пустой Box с flexGrow 1, который занимает всё свободное пространство */}
+      <Box sx={{ flexGrow: 1 }} />
+      
+      <Tooltip title="Скачать схему" placement="left">
+        <IconButton onClick={handleDownload} aria-label="Скачать" color="primary">
+          <DownloadIcon />
+        </IconButton>
+      </Tooltip>
+    </Box>
       <Box display="flex" flex={1} overflow="auto">
         {/* Левая панель */}
         <Box
@@ -527,16 +732,18 @@ const SceneEditor: FC<SceneEditorProps> = ({
                 </Box>
 
                 <Box mt={1} display="flex" gap={1}>
-                  <IconButton
-                    size="small"
-                    onClick={() => {
-                      setFlightLineY(image!.height);
-                      setUavLineConfigured(false);
-                    }}
-                    aria-label="Сбросить"
-                  >
-                    <RestartAltIcon />
-                  </IconButton>
+                  <Tooltip title="Сбросить" arrow>
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setFlightLineY(image!.height);
+                        setUavLineConfigured(false);
+                      }}
+                      aria-label="Сбросить"
+                    >
+                      <RestartAltIcon />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
               </Stack>
             </Box>
@@ -550,51 +757,53 @@ const SceneEditor: FC<SceneEditorProps> = ({
                 mb={0}
               >
                 <Typography variant="subtitle1">Препятствия</Typography>
-                <Checkbox
-                  checked={showObstacles}
-                  onChange={(e) => setShowObstacles(e.target.checked)}
-                  size="small"
-                  disabled={obstacles.length === 0}
-                />
+                <Tooltip title="Показывать препятствия" arrow>
+                  <Checkbox
+                    checked={showObstacles}
+                    onChange={(e) => setShowObstacles(e.target.checked)}
+                    size="small"
+                    disabled={obstacles.length === 0}
+                  />
+                </Tooltip>
               </Box>
 
               {/* Список препятствий */}
               {obstacles.length > 0 && (
-                  <List dense sx={{ maxHeight: 200, overflowY: "auto", mb: 2 }}>
-                    {obstacles.map((obstacle, index) => (
-                      <ListItem
-                        key={obstacle.id}
-                        sx={{
-                          pl: 1,
-                          borderLeft: `4px solid ${obstacle.color}`,
-                        }}
-                        secondaryAction={
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <FloatInput
-                              label="Зона, м"
-                              sx={{ width: 110 }}
-                              value={obstacle.safeZone ?? "" }
-                              onChange={(e) => {
-                                handleSafeZoneChange(obstacle.id, e)
-                              }
-                              }
-                              max={10}
-                              min={0}
-                            />
-                            <DeleteButton
-                              onClick={() => handleDeleteObstacle(obstacle.id)}
-                              tooltip="Удалить препятствие"
-                            />
-                          </Stack>
-                        }
-                      >
-                        <ListItemText
-                          primary={`Препятствие ${index + 1}`}
-                          secondary={`Точек: ${obstacle.points.length}`}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
+                <List dense sx={{ maxHeight: 200, overflowY: "auto", mb: 2 }}>
+                  {obstacles.map((obstacle, index) => (
+                    <ListItem
+                      key={obstacle.id}
+                      sx={{
+                        pl: 1,
+                        borderLeft: `4px solid ${obstacle.color}`,
+                      }}
+                      secondaryAction={
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <FloatInput
+                            label="Зона, м"
+                            sx={{ width: 110 }}
+                            value={obstacle.safeZone ?? ""}
+                            onChange={(e) => {
+                              handleSafeZoneChange(obstacle.id, e)
+                            }
+                            }
+                            max={10}
+                            min={0}
+                          />
+                          <DeleteButton
+                            onClick={() => handleDeleteObstacle(obstacle.id)}
+                            tooltip="Удалить препятствие"
+                          />
+                        </Stack>
+                      }
+                    >
+                      <ListItemText
+                        primary={`Препятствие ${index + 1}`}
+                        secondary={`Точек: ${obstacle.points.length}`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
               )}
 
               <Typography variant="body2" mb={1} color="text.secondary">
@@ -621,7 +830,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                       {
                         id: uuidv4(),
                         points: currentPolygon,
-                        color: getNextPolygonColor(),
+                        color: "#FF8F00",
                         safeZone: 1
                       },
                     ]);
@@ -797,7 +1006,32 @@ const SceneEditor: FC<SceneEditorProps> = ({
                 STAGE_HEIGHT={STAGE_HEIGHT}
               />
 
-
+              <Layer>
+                {(loading) && (
+                  <>
+                    <Rect
+                      x={0}
+                      y={0}
+                      width={STAGE_WIDTH}
+                      height={STAGE_HEIGHT}
+                      fill="rgba(255,255,255,0.7)"
+                    />
+                    <Text
+                      x={STAGE_WIDTH / 2}
+                      y={STAGE_HEIGHT / 2}
+                      text="Загрузка..."
+                      fontSize={18}
+                      fontStyle="bold"
+                      fill="#004E9E"
+                      align="center"
+                      verticalAlign="middle"
+                      fontFamily="Inter"
+                      offsetX={50}
+                      offsetY={10}
+                    />
+                  </>
+                )}
+              </Layer>
             </Stage>
           </Box>
           {toolMode === "pan" && (

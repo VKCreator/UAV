@@ -30,6 +30,7 @@ import FindReplaceOutlinedIcon from "@mui/icons-material/FindReplaceOutlined";
 
 import useNotifications from "../../../hooks/useNotifications/useNotifications";
 import type { ExifData } from "../../../types/common.types";
+import { useDialogs } from '../../../hooks/useDialogs/useDialogs'; 
 
 import heic2any from "heic2any";
 
@@ -222,6 +223,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   initialImageUrl,
 }) => {
   const notifications = useNotifications();
+  const { confirm } = useDialogs();
 
   const [files, setFiles] = React.useState<File[]>(initialFiles ?? []);
   const [exifData, setExifData] = React.useState<ExifData[]>(
@@ -357,7 +359,19 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
 
   // ── Удаление ───────────────────────────────────────────────────────────────
 
-  const handleDelete = React.useCallback(() => {
+  const handleDelete = React.useCallback(async () => {
+    const shouldDelete = await confirm(
+      "Вы действительно хотите удалить изображение?",
+      {
+        title: "Подтверждение", // Заголовок окна
+        okText: "Да", // Кнопка подтверждения
+        cancelText: "Нет", // Кнопка отмены
+      }
+    );
+
+    if (!shouldDelete)
+      return;
+
     setFiles([]);
     setExifData([]);
     setError(null);
@@ -397,21 +411,23 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           <Paper
             elevation={0}
             sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              p: 2,
-              mb: 2,
-              borderRadius: 1,
-              border: "1px solid #e0e0e0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            p: 2,
+            mb: 2,
+            borderRadius: 1,
+            border: "1px solid #e0e0e0",
+            cursor: "pointer",
             }}
+            onClick={() => setIsPreviewOpen(true)}
           >
             {/* Миниатюра — открывает предпросмотр */}
             <Tooltip title="Просмотр">
               <Box
                 role="button"
                 aria-label="Открыть предпросмотр"
-                onClick={() => setIsPreviewOpen(true)}
+                onClick={(e) => { e.stopPropagation(); setIsPreviewOpen(true) }}
                 sx={{
                   width: 64,
                   height: 64,
@@ -467,7 +483,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             <Box sx={{ flexShrink: 0 }}>
               <Tooltip title="Просмотр">
                 <IconButton
-                  onClick={() => setIsPreviewOpen(true)}
+                  onClick={(e) => { e.stopPropagation(); setIsPreviewOpen(true); }}
                   size="medium"
                   color="primary"
                 >
@@ -476,31 +492,31 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
               </Tooltip>
 
               <Tooltip title="Удалить">
-                <IconButton onClick={handleDelete} size="medium" color="error">
+                <IconButton onClick={(e) => { e.stopPropagation(); handleDelete(); }} size="medium" color="error">
                   <DeleteIcon />
                 </IconButton>
               </Tooltip>
 
               <Tooltip title="Заменить">
                 <IconButton
-                  onClick={handleOpenFileDialog}
+                  onClick={(e) => { e.stopPropagation(); handleOpenFileDialog(); }}
                   size="medium"
                   color="primary"
                 >
                   <FindReplaceOutlinedIcon />
                 </IconButton>
               </Tooltip>
-
-              {/* Скрытый input — только для замены файла через кнопку.
+            </Box>              
+            {/* Скрытый input — только для замены файла через кнопку.
                   Drag-and-drop идёт через useDropzone и не использует этот input. */}
-              <input
-                type="file"
-                ref={inputRef}
-                style={{ display: "none" }}
-                accept="image/png, image/jpeg, image/dng"
-                onChange={handleInputChange}
-              />
-            </Box>
+            <input
+              type="file"
+              ref={inputRef}
+              style={{ display: "none" }}
+              accept="image/png, image/jpeg, image/dng"
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => { handleInputChange(e); }}
+            />
           </Paper>
 
           {/* Метаданные */}
@@ -639,8 +655,9 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
                 />
               }
               label={
-                <Typography variant="caption">Оригинальный размер</Typography>
-              }
+                <Typography variant="caption">
+                  Оригинальный размер ({exifData[0]?.width ?? '—'} × {exifData[0]?.height ?? '—'} px)
+                </Typography>}
             />
             <IconButton
               onClick={() => setIsPreviewOpen(false)}

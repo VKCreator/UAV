@@ -55,6 +55,9 @@ interface BuildTrajectoryStepProps {
 
   flightLineY: number;
   setFlightLineY: (flightLineY: any) => void;
+
+  uavLineConfigured?: boolean;
+  setUavLineConfigured?: (f: boolean) => void;
 }
 
 const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
@@ -70,6 +73,8 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   drones,
   flightLineY,
   setFlightLineY,
+  uavLineConfigured = false,
+  setUavLineConfigured
 }) => {
   const { confirm } = useDialogs();
   const notifications = useNotifications();
@@ -190,7 +195,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                       onClick={downloadScene}
                       color="primary"
                       aria-label="Скачать схему"
-                      disabled={points.length === 0}
+                      // disabled={points.length === 0}
                     >
                       <DownloadIcon fontSize="small"/>
                     </IconButton>
@@ -317,6 +322,8 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
             setTrajectoryData={setTrajectoryData}
             flightLineY={flightLineY}
             setFlightLineY={setFlightLineY}
+            uavLineConfigured={uavLineConfigured}
+            setUavLineConfigured={setUavLineConfigured}
           />
         </DialogContent>
       </Dialog>
