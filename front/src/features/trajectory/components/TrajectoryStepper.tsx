@@ -382,7 +382,6 @@ const TrajectoryStepper = () => {
 
   React.useEffect(() => {
     return () => {
-      console.warn("clear images");
       framesUrlsPointBased.forEach((url) => URL.revokeObjectURL(url));
       framesUrlsRecommended.forEach((url) => URL.revokeObjectURL(url));
       framesUrlsOptimal.forEach((url) => URL.revokeObjectURL(url));
@@ -416,7 +415,6 @@ const TrajectoryStepper = () => {
     setImageUrl(url);
 
     return () => {
-      console.warn("clear images");
       URL.revokeObjectURL(url);
     };
   }, [files]);
@@ -775,7 +773,6 @@ const TrajectoryStepper = () => {
   }, []);
 
   React.useEffect(() => {
-    console.info("framewidthplanned", droneParams.frameWidthPlanned)
     setStoryboardsData((prev) => {
       // if (
       //   prev.recommended?.step_x !== undefined &&

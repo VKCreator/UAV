@@ -60,7 +60,7 @@ import { FloatInput } from "../../../components/ui/FloatInput";
 import FlightSchemaLegendDialog from "./FlightSchemaLegendDialog";
 import { StaticLayer, UserPointsLayer, ObstaclesLayer, TrajectoryLayer, UILayer } from "./SceneLayers";
 import DownloadIcon from '@mui/icons-material/Download';
-
+import UndoIcon from "@mui/icons-material/Undo";
 import { convexHull, outwardUnitNormal } from "../utils/Geometry";
 
 const COLORS = [
@@ -918,7 +918,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
                         <Stack direction="row" spacing={1} alignItems="center">
                           <FloatInput
                             label="Зона, м"
-                            sx={{ width: 110 }}
+                            sx={{ width: 70 }}
                             value={obstacle.safeZone ?? ""}
                             onChange={(e) => {
                               handleSafeZoneChange(obstacle.id, e)
@@ -951,39 +951,53 @@ const SceneEditor: FC<SceneEditorProps> = ({
                 шт.
               </Typography>
 
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                maxHeight="30px"
-                sx={{ mt: 2 }}
-              >
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={currentPolygon.length < 3}
-                  onClick={() => {
-                    setObstacles([
-                      ...obstacles,
-                      {
-                        id: uuidv4(),
-                        points: currentPolygon,
-                        color: "#FF8F00",
-                        safeZone: 1
-                      },
-                    ]);
-                    setCurrentPolygon([]);
-                  }}
-                  startIcon={<CheckIcon />}
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  sx={{ mt: 2 }}
                 >
-                  Замкнуть
-                </Button>
+                  {/* Группа кнопок для текущего полигона */}
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={currentPolygon.length === 0 || toolMode != "polygons"}
+                      onClick={() => setCurrentPolygon(prev => prev.slice(0, -1))}
+                      startIcon={<UndoIcon />}
+                    >
+                      Отмена
+                    </Button>
+                    
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={currentPolygon.length < 3 || toolMode != "polygons"}
+                      onClick={() => {
+                        setObstacles([
+                          ...obstacles,
+                          {
+                            id: uuidv4(),
+                            points: currentPolygon,
+                            color: "#FF8F00",
+                            safeZone: 1
+                          },
+                        ]);
+                        setCurrentPolygon([]);
+                      }}
+                      startIcon={<CheckIcon />}
+                    >
+                      Замкнуть
+                    </Button>
+                  </Stack>
 
-                <DeleteButton
-                  onClick={clearObstacles}
-                  disabled={obstacles.length === 0}
-                  tooltip="Очистить все препятствия"
-                ></DeleteButton>
-              </Stack>
+                  {/* Кнопка полной очистки всех препятствий */}
+                  <DeleteButton
+                    onClick={clearObstacles}
+                    disabled={obstacles.length === 0}
+                    tooltip="Очистить все препятствия"
+                  />
+                </Stack>
             </Box>
 
             <Divider />

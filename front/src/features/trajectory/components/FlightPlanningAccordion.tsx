@@ -347,9 +347,9 @@ export default function FlightPlanningAccordion({
                 component="span"
                 sx={{ color: "text.secondary", fontWeight: 600 }}
               >
-                {flightLineY.toFixed(0)}
+                {((imageData.height - flightLineY) * droneParams.frameHeightBase / imageData.height).toFixed(2)}
               </Box>
-              {" пикс."}
+              {" м"}
             </Typography>
             <Box sx={{ display: "flex", gap: 1 }}>
               <Tooltip title="Редактировать" arrow>

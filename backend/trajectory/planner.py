@@ -590,12 +590,20 @@ def build_taxons_big_density(
     frames_with_points = []
     for frame_idx, frame_data in all_frames.items():
         if frame_data["points"]:
+            pts = frame_data["points"]
+            
+            # Вычисляем центр масс ---
+            cm_x = sum(p[0] for p in pts) / len(pts)
+            cm_y = sum(p[1] for p in pts) / len(pts)
+            center_of_mass = (cm_x, cm_y)
+            # ------------------------------------------------
+
             frames_with_points.append({
                 "frame_id": frame_idx,
                 "bounds": frame_data["bounds"],
-                "center": frame_data["center"],
-                "points": frame_data["points"],
-                "point_count": len(frame_data["points"]),
+                "center": center_of_mass,  # Используем центр масс вместо геометрического центра
+                "points": pts,
+                "point_count": len(pts),
                 "is_full": frame_data["is_full"]
             })
     

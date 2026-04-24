@@ -12,13 +12,20 @@ import {
   Typography,
   Box,
   Divider,
-  IconButton
+  IconButton,
+  InputAdornment
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
 import type { Drone } from "../types/uav.types";
 
 import type { UAVCameraParams } from "../../../types/uav.types";
+
+import { FloatInput } from "../../../components/ui/FloatInput";
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import WidthNormalIcon from '@mui/icons-material/WidthNormal';
+import HeightIcon from '@mui/icons-material/Height';
+
 
 interface UavParamsDialogProps {
   open: boolean;
@@ -93,8 +100,6 @@ export default function UavParamsDialog({
     <Dialog
       open={open}
       onClose={handleClose}
-      maxWidth="sm"
-      fullWidth
     >
       <DialogTitle sx={{ pr: 5 }}>
       Настройки камеры БПЛА
@@ -112,40 +117,59 @@ export default function UavParamsDialog({
         </IconButton>
       </DialogTitle>
       <Divider />
-      <DialogContent>
-        <TextField
+      <DialogContent sx={{width: "500px"}}>
+        <FloatInput
           fullWidth
           label="Вертикальный угол обзора камеры, градусы"
-          variant="outlined"
           value={fov}
-          onChange={(e) => setFov(Number(e.target.value))}
-          slotProps={{
-            htmlInput: { type: "number", min: 1, max: 180, step: 0.1 },
-          }}
+          onChange={(val) => setFov(val)}
+          min={1}
+          max={180}
           sx={{ mb: 2, mt: 1 }}
           disabled={useFromReference}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <CameraAltIcon sx={{ color: 'action.active' }} />
+              </InputAdornment>
+            ),
+          }}
         />
 
-        <TextField
+        <FloatInput
           fullWidth
           label="Разрешение по ширине, px"
-          variant="outlined"
           value={resolutionWidth}
-          onChange={(e) => setResolutionWidth(Number(e.target.value))}
-          slotProps={{ htmlInput: { type: "number", min: 1, step: 1 } }}
+          onChange={(val) => setResolutionWidth(val)}
+          min={1}
+          max={10000}
           sx={{ mb: 2 }}
           disabled={useFromReference}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <WidthNormalIcon sx={{ color: 'action.active' }} />
+              </InputAdornment>
+            ),
+          }}
         />
 
-        <TextField
+        <FloatInput
           fullWidth
           label="Разрешение по высоте, px"
-          variant="outlined"
           value={resolutionHeight}
-          onChange={(e) => setResolutionHeight(Number(e.target.value))}
-          slotProps={{ htmlInput: { type: "number", min: 1, step: 1 } }}
+          onChange={(val) => setResolutionHeight(val)}
+          min={1}
+          max={10000}
           sx={{ mb: 2 }}
           disabled={useFromReference}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <HeightIcon sx={{ color: 'action.active' }} />
+              </InputAdornment>
+            ),
+          }}
         />
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           Базовый слой не должен быть обрезанным изображением или после

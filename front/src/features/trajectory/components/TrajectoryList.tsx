@@ -45,7 +45,7 @@ import { DateToPrettyLocalDateTime } from "../../../utils/dateUtils";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle/useDocumentTitle";
 import { API_BASE_URL } from "../../../api/config";
 import DownloadIcon from "@mui/icons-material/Download";
-
+import html2pdf from "html2pdf.js";
 interface MethodConfig {
   label: string;
   icon: React.ReactNode;
@@ -214,6 +214,32 @@ export default function TrajectoryList() {
       );
     },
     [navigate, paginationModel],
+  );
+
+  const handleDownload = React.useCallback(
+    (id: string, schemaName: string) => {
+      // 1. Создаем временный невидимый div с нужным текстом
+      const element = document.createElement("div");
+      element.style.fontFamily = "Arial, sans-serif";
+      element.style.padding = "40px";
+      element.innerHTML = `
+        <h1 style="margin: 0 0 15px 0; color: #333;">Полётная карта</h1>
+        <h2 style="margin: 0; font-weight: normal; color: #555;">${schemaName}</h2>
+      `;
+
+      // 2. Настраиваем параметры PDF
+      const opt = {
+        margin: 10,
+        filename: `${schemaName || 'Карта'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 }, // Увеличиваем качество
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      // 3. Генерируем и скачаем
+      html2pdf().set(opt).from(element).save();
+    },
+    [],
   );
 
   const handleDelete = () => {
@@ -467,7 +493,8 @@ export default function TrajectoryList() {
                   color="primary"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // handleView(id);
+                    // Передаем id и название карты из params.row
+                    handleDownload(id, params.row.schemaName); 
                   }}
                 >
                   <DownloadIcon fontSize="small" />

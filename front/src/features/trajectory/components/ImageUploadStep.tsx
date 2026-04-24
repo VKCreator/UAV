@@ -19,6 +19,8 @@ import {
   TableRow,
   Grid,
   CircularProgress,
+  useTheme,
+  Divider,
 } from "@mui/material";
 import { useDropzone, FileRejection } from "react-dropzone";
 
@@ -30,7 +32,7 @@ import FindReplaceOutlinedIcon from "@mui/icons-material/FindReplaceOutlined";
 
 import useNotifications from "../../../hooks/useNotifications/useNotifications";
 import type { ExifData } from "../../../types/common.types";
-import { useDialogs } from '../../../hooks/useDialogs/useDialogs'; 
+import { useDialogs } from "../../../hooks/useDialogs/useDialogs";
 
 import heic2any from "heic2any";
 
@@ -38,8 +40,26 @@ import heic2any from "heic2any";
 
 const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 МБ
 
-// Группы полей EXIF для таблиц метаданных — объявлены вне компонента,
-// чтобы не пересоздаваться при каждом рендере.
+// Словарь для перевода ключей EXIF на русский (UX улучшение)
+const EXIF_LABELS: Partial<Record<keyof ExifData, string>> = {
+  fileName: "Имя файла",
+  fileSize: "Размер",
+  width: "Ширина",
+  height: "Высота",
+  dateTime: "Дата и время",
+  make: "Производитель",
+  model: "Модель",
+  orientation: "Ориентация",
+  xResolution: "Разрешение (X)",
+  yResolution: "Разрешение (Y)",
+  resolutionUnit: "Ед. измерения",
+  software: "Программа",
+  focalLength: "Фокусное расст.",
+  focalLengthIn35mmFormat: "Фокус (35мм)",
+  latitude: "Широта",
+  longitude: "Долгота",
+};
+
 const EXIF_KEYS_GROUP_1: (keyof ExifData)[] = [
   "fileName",
   "fileSize",
@@ -67,10 +87,6 @@ const EXIF_KEYS_GROUP_3: (keyof ExifData)[] = [
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
 
-/**
- * Форматирует размер файла в читаемую строку.
- * Чистая функция — вынесена за компонент.
- */
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
@@ -79,10 +95,6 @@ const formatFileSize = (bytes: number): string => {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 };
 
-/**
- * Читает натуральные размеры изображения через HTMLImageElement.
- * Используется как фолбэк, если EXIF не содержит данных о разрешении.
- */
 const readImageDimensions = (
   file: File,
 ): Promise<{ width: number; height: number }> =>
@@ -103,11 +115,6 @@ const readImageDimensions = (
     img.src = url;
   });
 
-/**
- * Конвертирует HEIC-файл в JPEG.
- * Возвращает новый File с типом image/jpeg.
- * Для не-HEIC файлов возвращает исходный файл без изменений.
- */
 const convertHeicIfNeeded = async (file: File): Promise<File> => {
   const isHeic =
     file.type === "image/heic" ||
@@ -123,10 +130,7 @@ const convertHeicIfNeeded = async (file: File): Promise<File> => {
     quality: 0.92,
   });
 
-  // heic2any может вернуть Blob или Blob[] (если HEIC содержит несколько кадров)
   const blob = Array.isArray(converted) ? converted[0] : converted;
-
-  // Создаём новый File с именем .jpg вместо .heic
   const newName = file.name
     .replace(/\.heic$/i, ".jpg")
     .replace(/\.heif$/i, ".jpg");
@@ -141,14 +145,7 @@ interface ExifTableProps {
   title: string;
 }
 
-/**
- * Отображает группу EXIF-полей в виде таблицы.
- * Вынесен в отдельный компонент, чтобы не объявлять функцию renderTable
- * внутри родительского компонента при каждом рендере.
- */
 const ExifTable: React.FC<ExifTableProps> = ({ data, keys, title }) => {
-  // Сохраняем порядок ключей согласно переданному массиву keys,
-  // а не порядку свойств объекта.
   const rows = keys
     .filter((key) => key in data)
     .map((key) => ({ key, value: data[key] }));
@@ -161,24 +158,32 @@ const ExifTable: React.FC<ExifTableProps> = ({ data, keys, title }) => {
     return String(value);
   };
 
-  const formatLabel = (key: string): string =>
-    key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
-
   return (
+    // Убрали component={Paper}, чтобы не было двойной тени/рамки от TableContainer
     <TableContainer
-      component={Paper}
       sx={{
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        border: "1px solid #e0e0e0",
+        border: "1px solid",
+        borderColor: "divider",
         overflowY: "auto",
+        borderRadius: 1,
+        overflow: "hidden",
       }}
     >
-      <Table>
-        <TableHead sx={{ borderBottom: "1px solid" }}>
+      <Table size="small">
+        <TableHead sx={{ backgroundColor: "grey.50" }}>
           <TableRow>
-            <TableCell sx={{ fontWeight: "bold", width: "50%" }}>
+            <TableCell
+              sx={{
+                fontWeight: "bold",
+                width: "50%",
+                minHeight: 65,
+                display: "flex",
+                alignItems: "center"
+              }}
+            >
               {title}
             </TableCell>
             <TableCell sx={{ fontWeight: "bold", width: "50%" }}>
@@ -188,9 +193,9 @@ const ExifTable: React.FC<ExifTableProps> = ({ data, keys, title }) => {
         </TableHead>
         <TableBody>
           {rows.map(({ key, value }) => (
-            <TableRow key={key}>
-              <TableCell component="th" scope="row">
-                {formatLabel(key)}
+            <TableRow key={key} hover>
+              <TableCell component="th" scope="row" variant="head">
+                {EXIF_LABELS[key] || key}
               </TableCell>
               <TableCell sx={{ whiteSpace: "normal", wordBreak: "break-word" }}>
                 {formatValue(key, value)}
@@ -222,6 +227,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   initialExifData,
   initialImageUrl,
 }) => {
+  const theme = useTheme(); // Используем тему для консистентности цветов
   const notifications = useNotifications();
   const { confirm } = useDialogs();
 
@@ -234,10 +240,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
   const [isPreviewOpen, setIsPreviewOpen] = React.useState(false);
   const [showOriginalSize, setShowOriginalSize] = React.useState(false);
 
-  // imageUrl управляется родителем через пропс — компонент не создаёт
-  // и не отзывает URL самостоятельно, чтобы избежать двойного revokeObjectURL.
   const imageUrl = initialImageUrl ?? "";
-
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   // ── Чтение EXIF ────────────────────────────────────────────────────────────
@@ -251,7 +254,6 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         const exifr = await import("exifr");
         const tags = await exifr.parse(file);
 
-        // Предпочитаем размеры из EXIF; если их нет — читаем через Image
         let width: number;
         let height: number;
 
@@ -267,7 +269,6 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           fileSize: formatFileSize(file.size),
           width,
           height,
-          // Предпочитаем дату съёмки, фолбэк — дата модификации файла
           dateTime: tags?.DateTimeOriginal ?? tags?.DateTime,
           make: tags?.Make,
           model: tags?.Model,
@@ -278,7 +279,6 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           software: tags?.Software,
           focalLength: tags?.FocalLength,
           focalLengthIn35mmFormat: tags?.FocalLengthIn35mmFormat,
-          // Координаты: exifr возвращает их в нижнем регистре после парсинга
           latitude:
             tags?.latitude != null && !Number.isNaN(tags.latitude)
               ? String(tags.latitude)
@@ -318,7 +318,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
       );
       if (!raw) return;
 
-      setIsLoadingExif(true); // показываем спиннер сразу, конвертация может занять секунду
+      setIsLoadingExif(true);
 
       try {
         const file = await convertHeicIfNeeded(raw);
@@ -339,15 +339,12 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     [readExif, notifications],
   );
 
-  // Обработчик для скрытого <input type="file"> (кнопка «Заменить»)
   const handleInputChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-        // Переиспользуем ту же логику, что и при drag-and-drop
         handleFileDrop([file], []);
       }
-      // Сбрасываем value, чтобы onChange сработал повторно при выборе того же файла
       e.target.value = "";
     },
     [handleFileDrop],
@@ -363,20 +360,19 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
     const shouldDelete = await confirm(
       "Вы действительно хотите удалить изображение?",
       {
-        title: "Подтверждение", // Заголовок окна
-        okText: "Да", // Кнопка подтверждения
-        cancelText: "Нет", // Кнопка отмены
+        title: "Подтверждение",
+        okText: "Да",
+        cancelText: "Нет",
       }
     );
 
-    if (!shouldDelete)
-      return;
+    if (!shouldDelete) return;
 
     setFiles([]);
     setExifData([]);
     setError(null);
     onDelete();
-  }, [onDelete]);
+  }, [onDelete, confirm]);
 
   // ── Dropzone ───────────────────────────────────────────────────────────────
 
@@ -399,49 +395,54 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         height: "100%",
         width: "100%",
         flexDirection: "column",
+        gap: 2, // Удобнее чем mb: 2 у каждого элемента
       }}
     >
+      {/* Скрытый input вынесен в корень */}
+      <input
+        type="file"
+        ref={inputRef}
+        style={{ display: "none" }}
+        accept="image/png, image/jpeg, image/dng"
+        onChange={handleInputChange}
+      />
+
       {files.length > 0 ? (
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h6" gutterBottom>
-            Информация о загруженном изображении
-          </Typography>
+        <Box sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+          <Typography variant="h6">Информация о загруженном изображении</Typography>
 
           {/* Карточка файла */}
           <Paper
-            elevation={0}
+            variant="outlined" // variant="outlined" выглядит аккуратнее чем elevation=0 + кастомный border
             sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            p: 2,
-            mb: 2,
-            borderRadius: 1,
-            border: "1px solid #e0e0e0",
-            cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              p: 1.5,
+              borderRadius: 1,
+              cursor: "pointer",
+              transition: "background-color 0.2s",
+              "&:hover": { backgroundColor: theme.palette.action.hover },
             }}
             onClick={() => setIsPreviewOpen(true)}
           >
-            {/* Миниатюра — открывает предпросмотр */}
+            {/* Миниатюра */}
             <Tooltip title="Просмотр">
               <Box
                 role="button"
                 aria-label="Открыть предпросмотр"
-                onClick={(e) => { e.stopPropagation(); setIsPreviewOpen(true) }}
+                onClick={(e) => { e.stopPropagation(); setIsPreviewOpen(true); }}
                 sx={{
-                  width: 64,
-                  height: 64,
+                  width: 56,
+                  height: 56,
                   borderRadius: 1,
-                  backgroundColor: "#f5f5f5",
+                  backgroundColor: "grey.100",
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
                   mr: 2,
                   cursor: "pointer",
                   overflow: "hidden",
-                  border: "1px solid #e0e0e0",
                   flexShrink: 0,
-                  "&:hover": { backgroundColor: "#f0f0f0" },
                 }}
               >
                 {imageUrl && (
@@ -452,88 +453,70 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
-                      borderRadius: "4px",
                     }}
                   />
                 )}
               </Box>
             </Tooltip>
 
-            {/* Имя файла */}
-            <Typography
-              variant="body1"
-              noWrap
-              sx={{ flexGrow: 1, fontWeight: 500 }}
-            >
-              {files[0].name}
-            </Typography>
-
-            {/* Размер файла */}
-            {exifData[0]?.fileSize && (
-              <Typography
-                variant="caption"
-                color="textSecondary"
-                sx={{ mr: 2, flexShrink: 0 }}
-              >
-                {exifData[0].fileSize}
+            {/* Инфо о файле */}
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+              <Typography variant="body2" noWrap fontWeight={500}>
+                {files[0].name}
               </Typography>
-            )}
+              {exifData[0]?.fileSize && (
+                <Typography variant="caption" color="text.secondary">
+                  {exifData[0].fileSize}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Разделитель перед кнопками */}
+            {/* <Divider orientation="vertical" flexItem sx={{ mx: 1 }} /> */}
 
             {/* Действия */}
-            <Box sx={{ flexShrink: 0 }}>
+            <Box sx={{ flexShrink: 0, display: "flex", gap: 1 }}>
               <Tooltip title="Просмотр">
                 <IconButton
                   onClick={(e) => { e.stopPropagation(); setIsPreviewOpen(true); }}
-                  size="medium"
+                  size="small"
                   color="primary"
                 >
-                  <VisibilityIcon />
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title="Удалить">
-                <IconButton onClick={(e) => { e.stopPropagation(); handleDelete(); }} size="medium" color="error">
-                  <DeleteIcon />
+                  <VisibilityIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
 
               <Tooltip title="Заменить">
                 <IconButton
                   onClick={(e) => { e.stopPropagation(); handleOpenFileDialog(); }}
-                  size="medium"
+                  size="small"
                   color="primary"
                 >
-                  <FindReplaceOutlinedIcon />
+                  <FindReplaceOutlinedIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-            </Box>              
-            {/* Скрытый input — только для замены файла через кнопку.
-                  Drag-and-drop идёт через useDropzone и не использует этот input. */}
-            <input
-              type="file"
-              ref={inputRef}
-              style={{ display: "none" }}
-              accept="image/png, image/jpeg, image/dng"
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => { handleInputChange(e); }}
-            />
+
+              <Tooltip title="Удалить">
+                <IconButton
+                  onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                  size="small"
+                  color="error"
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Paper>
 
           {/* Метаданные */}
-          <Typography variant="h6" gutterBottom>
-            Метаданные изображения
-          </Typography>
+          <Typography variant="h6">Метаданные изображения</Typography>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
+          {error && <Alert severity="error">{error}</Alert>}
 
           {isLoadingExif ? (
             <Box
               sx={{
-                height: 500,
+                flex: 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -543,36 +526,23 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             </Box>
           ) : (
             exifData.length > 0 && (
-              <Grid container spacing={2} sx={{ height: 500, pb: 2 }}>
-                <Grid
-                  size={{ xs: 12, md: 4 }}
-                  sx={{ height: "100%", display: "flex" }}
-                >
-                  <ExifTable
-                    data={exifData[0]}
-                    keys={EXIF_KEYS_GROUP_1}
-                    title="Основная информация"
-                  />
+              <Grid
+                container
+                spacing={2}
+                sx={{
+                  flex: 1,              // Занимает всё оставшееся место
+                  minHeight: 250,       // Минимальная высота
+                  maxHeight: "calc(100vh - 350px)", // Не растягивать слишком сильно
+                }}
+              >
+                <Grid size={{ xs: 12, md: 4 }} sx={{ height: "100%", display: "flex" }}>
+                  <ExifTable data={exifData[0]} keys={EXIF_KEYS_GROUP_1} title="Основная информация" />
                 </Grid>
-                <Grid
-                  size={{ xs: 12, md: 4 }}
-                  sx={{ height: "100%", display: "flex" }}
-                >
-                  <ExifTable
-                    data={exifData[0]}
-                    keys={EXIF_KEYS_GROUP_2}
-                    title="Параметры изображения"
-                  />
+                <Grid size={{ xs: 12, md: 4 }} sx={{ height: "100%", display: "flex" }}>
+                  <ExifTable data={exifData[0]} keys={EXIF_KEYS_GROUP_2} title="Параметры изображения" />
                 </Grid>
-                <Grid
-                  size={{ xs: 12, md: 4 }}
-                  sx={{ height: "100%", display: "flex" }}
-                >
-                  <ExifTable
-                    data={exifData[0]}
-                    keys={EXIF_KEYS_GROUP_3}
-                    title="Гео- и оптические данные"
-                  />
+                <Grid size={{ xs: 12, md: 4 }} sx={{ height: "100%", display: "flex" }}>
+                  <ExifTable data={exifData[0]} keys={EXIF_KEYS_GROUP_3} title="Геоданные и оптика" />
                 </Grid>
               </Grid>
             )
@@ -580,38 +550,40 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
         </Box>
       ) : (
         <>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
+          {error && <Alert severity="error">{error}</Alert>}
 
           {/* Зона загрузки */}
           <Box
             {...getRootProps()}
             sx={{
-              border: "2px dashed #ccc",
+              border: "2px dashed",
+              borderColor: isDragActive ? theme.palette.primary.dark : "divider",
               borderRadius: 2,
               p: 4,
               textAlign: "center",
               cursor: "pointer",
-              backgroundColor: isDragActive ? "#f0f8ff" : "hsl(220, 35%, 97%)",
+              backgroundColor: isDragActive
+                ? theme.palette.action.hover
+                : theme.palette.background.paper,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
               flex: 1,
-              transition: "background-color 0.2s ease",
+              transition: "all 0.2s ease",
+              "&:hover": {
+                borderColor: theme.palette.primary.dark,
+              },
             }}
           >
             <input {...getInputProps()} />
             <FileUploadOutlinedIcon
-              sx={{ fontSize: 55, color: "#014488", mb: 1 }}
+              sx={{ fontSize: 55, color: "primary.dark", mb: 1 }}
             />
             <Typography variant="body1" sx={{ fontWeight: 500, mb: 0.5 }}>
               Перетащите изображение сюда
             </Typography>
-            <Typography variant="caption" color="textSecondary">
+            <Typography variant="caption" color="text.secondary">
               или нажмите для выбора файла (JPG, PNG, DNG, не более 30 МБ)
             </Typography>
           </Box>
@@ -638,6 +610,7 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            pb: 1,
           }}
         >
           Просмотр загруженного изображения
@@ -647,22 +620,20 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
                 <Checkbox
                   checked={showOriginalSize}
                   onChange={(e) => setShowOriginalSize(e.target.checked)}
-                  size="medium"
-                  sx={{
-                    color: "#014488",
-                    "&.Mui-checked": { color: "#014488" },
-                  }}
+                  size="small"
+                  color="primary" // Используем стандартный цвет темы
                 />
               }
               label={
-                <Typography variant="caption">
-                  Оригинальный размер ({exifData[0]?.width ?? '—'} × {exifData[0]?.height ?? '—'} px)
-                </Typography>}
+                <Typography variant="body2">
+                  Оригинал ({exifData[0]?.width ?? "—"} ×{" "}
+                  {exifData[0]?.height ?? "—"} px)
+                </Typography>
+              }
             />
             <IconButton
               onClick={() => setIsPreviewOpen(false)}
               aria-label="Закрыть"
-              sx={{ color: "gray" }}
             >
               <CloseIcon />
             </IconButton>
@@ -688,25 +659,27 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
               width: "100%",
             }}
           >
-            <img
-              src={imageUrl}
-              alt="Полноэкранный просмотр"
-              style={
-                showOriginalSize
-                  ? {} // натуральный размер, скролл через родителя
-                  : {
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt="Полноэкранный просмотр"
+                style={
+                  showOriginalSize
+                    ? {} // натуральный размер, скролл через родителя
+                    : {
                       maxWidth: "100%",
                       maxHeight: "100%",
                       objectFit: "contain",
                     }
-              }
-            />
+                }
+              />
+            )}
           </Box>
 
           {showOriginalSize && (
             <Typography
               variant="caption"
-              color="textSecondary"
+              color="text.secondary"
               sx={{ mt: 1, textAlign: "center" }}
             >
               Используйте полосы прокрутки для перемещения по изображению
