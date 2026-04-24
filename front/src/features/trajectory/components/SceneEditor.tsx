@@ -61,6 +61,8 @@ import FlightSchemaLegendDialog from "./FlightSchemaLegendDialog";
 import { StaticLayer, UserPointsLayer, ObstaclesLayer, TrajectoryLayer, UILayer } from "./SceneLayers";
 import DownloadIcon from '@mui/icons-material/Download';
 
+import { convexHull, outwardUnitNormal } from "../utils/Geometry";
+
 const COLORS = [
   "#65b9f7", "#ff6b6b", "#66a9ff", "#ffdd57", "#9e69c4",
   "#64f3f1", "#f59fe1", "#f4e24d", "#e38b5a", "#5e4a3a",
@@ -416,187 +418,322 @@ const SceneEditor: FC<SceneEditorProps> = ({
   }, [mode]); // Зависимость от mode
 
 
-    const handleDownload = () => {
-      if (!image) return;
-      setLoading(true);
+  const buildSafeZoneForDownload = (poly: Polygon, metersToExpand: number): Point[] => {
+    if (!poly.points || poly.points.length < 3) return poly.points ?? [];
 
-      const container = document.createElement("div");
-      const downloadStage = new Konva.Stage({
-        container,
-        width: image.width,
-        height: image.height,
-      });
+    if (!image) return [];
 
-      const layer = new Konva.Layer();
-      downloadStage.add(layer);
+    // Используем те же pxPerMeterX и pxPerMeterY, что и в ObstaclesLayer
+    const pxPerMeterX = image.width / width_m
+    const pxPerMeterY = image.height / height_m;
 
-      // Масштабный коэффициент: элементы интерфейса должны выглядеть
-      // пропорционально на полном разрешении так же, как на превью 500×400
-      const uiScale = Math.min(image.width / STAGE_WIDTH, image.height / STAGE_HEIGHT) * 0.5;
+    const inMeters: Point[] = poly.points.map((p) => ({
+      x: p.x / pxPerMeterX,
+      y: p.y / pxPerMeterY,
+    }));
 
-      const POINT_R_USER = 14 * uiScale;   // радиус пользовательской точки
-      const ARROW_PTR_LEN = 14 * uiScale;
-      const ARROW_PTR_WID = 10 * uiScale;
-      const STROKE_W = 3 * uiScale;
-      const FONT_USER = 16 * uiScale;
-
-      // Вспомогательная функция: стрелка начинается от края fromRadius окружности
-      // и заканчивается у края toRadius окружности, не перекрывая кружки
-      const arrowPts = (
-        from: { x: number; y: number },
-        to: { x: number; y: number },
-        fromR: number,
-        toR: number,
-      ) => {
-        const dx = to.x - from.x;
-        const dy = to.y - from.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len === 0) return [from.x, from.y, to.x, to.y];
-        const ux = dx / len, uy = dy / len;
-        return [
-          from.x + ux * fromR, from.y + uy * fromR,
-          to.x - ux * toR, to.y - uy * toR,
-        ];
-      };
-
-      // ── Фоновое изображение ────────────────────────────────────────────
-      layer.add(new Konva.Image({
-        image,
-        x: 0, y: 0,
-        width: image.width, height: image.height,
+    const hull = convexHull(inMeters);
+    if (hull.length < 3 || !metersToExpand) {
+      return hull.map((p) => ({
+        x: p.x * pxPerMeterX,
+        y: p.y * pxPerMeterY,
       }));
+    }
 
-      // ── Сетка ─────────────────────────────────────────────────────────
-      if (showGrid) {
-        const cellW = image.width / GRID_COLS;
-        const cellH = image.height / GRID_ROWS;
-        for (let i = 1; i < GRID_COLS; i++) {
-          layer.add(new Konva.Line({
-            points: [cellW * i, 0, cellW * i, image.height],
-            stroke: "rgba(255,255,255,0.9)", strokeWidth: 1,
-          }));
-        }
-        for (let i = 1; i < GRID_ROWS; i++) {
-          const y = image.height - cellH * i;
-          layer.add(new Konva.Line({
-            points: [0, y, image.width, y],
-            stroke: "rgba(255,255,255,0.9)", strokeWidth: 1,
-          }));
-        }
+    const centroid: Point = {
+      x: hull.reduce((s, p) => s + p.x, 0) / hull.length,
+      y: hull.reduce((s, p) => s + p.y, 0) / hull.length,
+    };
+
+    const n = hull.length;
+    const expanded: Point[] = hull.map((v, i) => {
+      const prev = hull[(i - 1 + n) % n];
+      const next = hull[(i + 1) % n];
+      const nIn = outwardUnitNormal(prev, v, centroid);
+      const nOut = outwardUnitNormal(v, next, centroid);
+      const denom = 1 + nIn.x * nOut.x + nIn.y * nOut.y;
+      if (Math.abs(denom) < 1e-9) {
+        return {
+          x: v.x + metersToExpand * nIn.x,
+          y: v.y + metersToExpand * nIn.y,
+        };
       }
+      const factor = metersToExpand / denom;
+      return {
+        x: v.x + factor * (nIn.x + nOut.x),
+        y: v.y + factor * (nIn.y + nOut.y),
+      };
+    });
 
-      // ── Линия полёта + неинформативная зона ───────────────────────────
-      if (flightLineY !== null) {
-        layer.add(new Konva.Line({
-          points: [0, flightLineY, image.width, flightLineY],
-          stroke: "orange",
-          strokeWidth: STROKE_W,
-        }));
+    return expanded.map((p) => ({
+      x: p.x * pxPerMeterX,
+      y: p.y * pxPerMeterY,
+    }));
+  };
+
+  const handleDownload = () => {
+    if (!image) return;
+    setLoading(true);
+
+    const container = document.createElement("div");
+    const downloadStage = new Konva.Stage({
+      container,
+      width: image.width,
+      height: image.height,
+    });
+
+    const layer = new Konva.Layer();
+    downloadStage.add(layer);
+
+    // Масштабный коэффициент: элементы интерфейса должны выглядеть
+    // пропорционально на полном разрешении так же, как на превью 500×400
+    const uiScale = Math.min(image.width / STAGE_WIDTH, image.height / STAGE_HEIGHT) * 0.5;
+
+    const POINT_R_USER = 14 * uiScale;   // радиус пользовательской точки
+    const ARROW_PTR_LEN = 14 * uiScale;
+    const ARROW_PTR_WID = 10 * uiScale;
+    const STROKE_W = 3 * uiScale;
+    const FONT_USER = 16 * uiScale;
+
+    // Вспомогательная функция: стрелка начинается от края fromRadius окружности
+    // и заканчивается у края toRadius окружности, не перекрывая кружки
+    const arrowPts = (
+      from: { x: number; y: number },
+      to: { x: number; y: number },
+      fromR: number,
+      toR: number,
+    ) => {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len === 0) return [from.x, from.y, to.x, to.y];
+      const ux = dx / len, uy = dy / len;
+      return [
+        from.x + ux * fromR, from.y + uy * fromR,
+        to.x - ux * toR, to.y - uy * toR,
+      ];
+    };
+
+    // ── Фоновое изображение ────────────────────────────────────────────
+    layer.add(new Konva.Image({
+      image,
+      x: 0, y: 0,
+      width: image.width, height: image.height,
+    }));
+
+    // ── Сетка ─────────────────────────────────────────────────────────
+    if (showGrid) {
+      const cellW = image.width / GRID_COLS;
+      const cellH = image.height / GRID_ROWS;
+      const lineWidth = 2 * uiScale;
+      const lineHeight = 2 * uiScale;
+      
+      // Вертикальные линии (прямоугольники)
+      for (let i = 1; i < GRID_COLS; i++) {
         layer.add(new Konva.Rect({
-          x: 0, y: flightLineY,
-          width: image.width, height: image.height - flightLineY,
-          fill: "rgba(128,128,128,0.3)",
+          x: cellW * i - lineWidth / 2,
+          y: 0,
+          width: lineWidth,
+          height: image.height,
+          fill: "rgba(255, 255, 255, 0.8)",
+          stroke: "rgba(0, 0, 0, 1)",
+          strokeWidth: 0.1 * uiScale,
+        }));
+      }
+      
+      // Горизонтальные линии (прямоугольники)
+      for (let i = 1; i < GRID_ROWS; i++) {
+        const y = image.height - cellH * i;
+        layer.add(new Konva.Rect({
+          x: 0,
+          y: y - lineHeight / 2,
+          width: image.width,
+          height: lineHeight,
+          fill: "rgba(255, 255, 255, 0.8)",
+          stroke: "rgba(0, 0, 0, 1)",
+          strokeWidth: 0.1 * uiScale,
+        }));
+      }
+    }
+
+    // ── Линия полёта + неинформативная зона ───────────────────────────
+    if (flightLineY !== null) {
+      layer.add(new Konva.Line({
+        points: [0, flightLineY, image.width, flightLineY],
+        stroke: "orange",
+        strokeWidth: STROKE_W,
+      }));
+      layer.add(new Konva.Rect({
+        x: 0, y: flightLineY,
+        width: image.width, height: image.height - flightLineY,
+        fill: "rgba(128,128,128,0.3)",
+        listening: false,
+      }));
+      if (flightLineY < image.height - 0.01) {
+        layer.add(new Konva.Text({
+          x: 0,
+          y: flightLineY + (image.height - flightLineY) / 2 - FONT_USER * 1.5,
+          width: image.width,
+          text: "Неинформативная зона",
+          align: "center",
+          fontSize: FONT_USER * 1.5,
+          fill: "rgba(255,255,255,0.85)",
           listening: false,
         }));
-        if (flightLineY < image.height - 0.01) {
-          layer.add(new Konva.Text({
-            x: 0,
-            y: flightLineY + (image.height - flightLineY) / 2 - FONT_USER * 1.5,
-            width: image.width,
-            text: "Неинформативная зона",
-            align: "center",
-            fontSize: FONT_USER * 1.5,
-            fill: "rgba(255,255,255,0.85)",
-            listening: false,
+      }
+    }
+
+    // ── Препятствия ───────────────────────────────────────────────────
+    // if (showObstacles) {
+    //   obstacles.forEach((poly) => {
+    //     layer.add(new Konva.Line({
+    //       points: poly.points.flatMap((p) => [p.x, p.y]),
+    //       closed: true,
+    //       fill: `${poly.color}30`,
+    //       stroke: poly.color,
+    //       strokeWidth: STROKE_W,
+    //     }));
+    //   });
+    // }
+
+    // ── Препятствия ───────────────────────────────────────────────────
+    if (showObstacles) {
+      obstacles.forEach((poly) => {
+        // Безопасная зона (если задана)
+        if (poly.safeZone > 0) {
+          const safeZonePoints = buildSafeZoneForDownload(poly, poly.safeZone);
+          layer.add(new Konva.Line({
+            points: safeZonePoints.flatMap((p) => [p.x, p.y]),
+            closed: true,
+            fill: "#E0F4FF",
+            stroke: "#4FC3F7",
+            strokeWidth: STROKE_W,
+            dash: [8 * uiScale, 4 * uiScale],
+            opacity: 0.8,
           }));
         }
-      }
 
-      // ── Препятствия ───────────────────────────────────────────────────
-      if (showObstacles) {
-        obstacles.forEach((poly) => {
-          layer.add(new Konva.Line({
-            points: poly.points.flatMap((p) => [p.x, p.y]),
-            closed: true,
-            fill: `${poly.color}30`,
-            stroke: poly.color,
-            strokeWidth: STROKE_W,
-          }));
-        });
-      }
+        // Основной полигон препятствия
+        layer.add(new Konva.Line({
+          points: poly.points.flatMap((p) => [p.x, p.y]),
+          closed: true,
+          fill: `${poly.color}20`,
+          stroke: poly.color,
+          strokeWidth: STROKE_W,
+        }));
 
-      // ── Пользовательская траектория ───────────────────────────────────
-      if (showUserTrajectory) {
-        // Сначала рисуем стрелки (они окажутся под кружками)
-        points.forEach((point, i) => {
-          if (i === 0) return;
-          const prev = points[i - 1];
-          layer.add(new Konva.Arrow({
-            points: arrowPts(prev, point, POINT_R_USER, POINT_R_USER),
-            pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
-            fill: "red", stroke: "red", strokeWidth: STROKE_W,
-          }));
-        });
-        // Затем кружки и номера поверх стрелок
-        points.forEach((point, i) => {
+        // Вершины препятствия
+        poly.points.forEach((point) => {
           layer.add(new Konva.Circle({
-            x: point.x, y: point.y,
-            radius: POINT_R_USER, fill: "blue",
-          }));
-          layer.add(new Konva.Text({
-            x: point.x - POINT_R_USER * 0.45,
-            y: point.y - FONT_USER * 0.55,
-            text: (i + 1).toString(),
-            fontSize: FONT_USER,
-            fontStyle: "bold",
-            fill: "white",
+            x: point.x,
+            y: point.y,
+            radius: 3 * uiScale,
+            fill: poly.color,
           }));
         });
-      }
 
-      layer.batchDraw();
+        // Номер препятствия в центре
+        const centerX = poly.points.reduce((s, p) => s + p.x, 0) / poly.points.length;
+        const centerY = poly.points.reduce((s, p) => s + p.y, 0) / poly.points.length;
 
-      downloadStage.toCanvas().toBlob((blob) => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "trajectory_map.png";
-        link.click();
-        URL.revokeObjectURL(url);
-        downloadStage.destroy();
-        setLoading(false);
+        const labelText = (obstacles.indexOf(poly) + 1).toString();
+        const labelRadius = 12 * uiScale;
+        const labelFontSize = 14 * uiScale;
+
+        layer.add(new Konva.Circle({
+          x: centerX,
+          y: centerY,
+          radius: labelRadius,
+          fill: "rgba(0,0,0,0.55)",
+          listening: false,
+        }));
+
+        layer.add(new Konva.Text({
+          x: centerX - labelFontSize * 0.3 * labelText.length,
+          y: centerY - labelFontSize * 0.55,
+          text: labelText,
+          fontSize: labelFontSize,
+          fontStyle: "bold",
+          fill: "#fff",
+          listening: false,
+        }));
       });
-    };
+    }
+
+    // ── Пользовательская траектория ───────────────────────────────────
+    if (showUserTrajectory) {
+      // Сначала рисуем стрелки (они окажутся под кружками)
+      points.forEach((point, i) => {
+        if (i === 0) return;
+        const prev = points[i - 1];
+        layer.add(new Konva.Arrow({
+          points: arrowPts(prev, point, POINT_R_USER, POINT_R_USER),
+          pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
+          fill: "red", stroke: "red", strokeWidth: STROKE_W,
+        }));
+      });
+      // Затем кружки и номера поверх стрелок
+      points.forEach((point, i) => {
+        layer.add(new Konva.Circle({
+          x: point.x, y: point.y,
+          radius: POINT_R_USER, fill: "blue",
+        }));
+        layer.add(new Konva.Text({
+          x: point.x - POINT_R_USER * 0.45,
+          y: point.y - FONT_USER * 0.55,
+          text: (i + 1).toString(),
+          fontSize: FONT_USER,
+          fontStyle: "bold",
+          fill: "white",
+        }));
+      });
+    }
+
+    layer.batchDraw();
+
+    downloadStage.toCanvas().toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "trajectory_map.png";
+      link.click();
+      URL.revokeObjectURL(url);
+      downloadStage.destroy();
+      setLoading(false);
+    });
+  };
 
   return (
     <Box display="flex" flexDirection="column" height="100%" width="100%">
-    <Box
-      display="flex"
-      alignItems="center"
-      p={1}
-      borderBottom="1px solid"
-      borderColor="divider"
-      bgcolor="background.paper"
-    >
-      <Box display="flex" alignItems="center" gap={1}>
-        <IconButton size="small" onClick={handleClose} aria-label="назад">
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h6" fontWeight="medium">
-          {sceneMode ? `${sceneMode}` : ""}
-        </Typography>
+      <Box
+        display="flex"
+        alignItems="center"
+        p={1}
+        borderBottom="1px solid"
+        borderColor="divider"
+        bgcolor="background.paper"
+      >
+        <Box display="flex" alignItems="center" gap={1}>
+          <IconButton size="small" onClick={handleClose} aria-label="назад">
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h6" fontWeight="medium">
+            {sceneMode ? `${sceneMode}` : ""}
+          </Typography>
+        </Box>
+
+        {/* Пустой Box с flexGrow 1, который занимает всё свободное пространство */}
+        <Box sx={{ flexGrow: 1 }} />
+        <Button
+          startIcon={<DownloadIcon />}
+          onClick={handleDownload}
+          aria-label="Скачать"
+          color="primary"
+        >
+          Скачать схему
+        </Button>
       </Box>
-      
-      {/* Пустой Box с flexGrow 1, который занимает всё свободное пространство */}
-      <Box sx={{ flexGrow: 1 }} />
-      
-      <Tooltip title="Скачать схему" placement="left">
-        <IconButton onClick={handleDownload} aria-label="Скачать" color="primary">
-          <DownloadIcon />
-        </IconButton>
-      </Tooltip>
-    </Box>
       <Box display="flex" flex={1} overflow="auto">
         {/* Левая панель */}
         <Box
