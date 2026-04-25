@@ -63,7 +63,7 @@ export default function TrajectoryList() {
 
   const [searchText, setSearchText] = React.useState("");
   const page = Number(searchParams.get("page") ?? 0);
-  const pageSize = Number(searchParams.get("pageSize") ?? 25);
+  const pageSize = Number(searchParams.get("pageSize") ?? 10);
   const newSchemaId = Number(searchParams.get("newSchemaId") ?? undefined);
 
   const [paginationModel, setPaginationModel] =
@@ -85,13 +85,13 @@ export default function TrajectoryList() {
       label: "low-d",
       icon: <FiberManualRecordIcon fontSize="small" />,
       color: "success",
-      tooltip: "Маленькая плотность точек",
+      tooltip: "Низкая плотность точек",
     },
     METHOD_2: {
       label: "high-d",
       icon: <ScatterPlotIcon fontSize="small" />,
       color: "secondary",
-      tooltip: "Большая плотность точек",
+      tooltip: "Высокая плотность точек",
     },
     default: {
       label: "user",

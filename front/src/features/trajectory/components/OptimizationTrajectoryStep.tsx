@@ -57,7 +57,8 @@ import useImage from "use-image";
 
 import SceneEditor from "./SceneEditor";
 import StoryboardEditor from "./StoryboardEditor";
-import SceneShower from "./SceneShower";
+import ScenePreview from "./ScenePreview";
+import { exportSceneImage } from "../utils/exportSceneImage";
 
 import { trajectoryApi } from "../../../api/trajectory.api";
 
@@ -180,6 +181,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     React.useState(false);
 
   const [isLegendOpen, setIsLegendOpen] = React.useState(false);
+  const [isLoadingUserScene, setLoadingUserScene] = React.useState(false);
 
   const updateOptimization = (type, updates) => {
     setOptimizationState(prev => ({
@@ -218,7 +220,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     model: droneParams.model,
   });
 
-  const sceneUserTrajectoryShower = useRef<{ handleDownload: () => void }>(
+  const sceneUserTrajectoryShower = useRef<any>(
     null,
   );
 
@@ -238,6 +240,17 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
     return null;
   };
+
+  const setLoading = (loading: boolean) => {
+    if (activeImage == 0)
+      setLoadingUserScene(loading);
+    if (activeImage == 1)
+      updateOptimization("small", { isLoading: loading });
+    if (activeImage == 2)
+      updateOptimization("large", { isLoading: loading });
+    if (activeImage == 3)
+      updateOptimization("combi", { isLoading: loading });
+  }
 
   const handleClearTrajectoryData = () => {
     setTrajectoryData(null);
@@ -441,10 +454,6 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     setActiveImage((prev) => (prev + 1) % trajectoryTitles.length);
   };
 
-  const handleDownloadScene = () => {
-    sceneUserTrajectoryShower.current?.handleDownload();
-  };
-
   const [anchorEl, setAnchorEl] = React.useState(null);
   const openMenu = Boolean(anchorEl);
 
@@ -456,12 +465,37 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     setAnchorEl(null);
   };
 
+
+  const handleDownloadScene = () => {
+  exportSceneImage({
+    image: image!,
+    width_m: droneParams.frameWidthBase,
+    height_m: droneParams.frameHeightBase,
+    GRID_COLS: droneParams.frameWidthBase / droneParams.frameWidthPlanned,
+    GRID_ROWS: droneParams.frameHeightBase / droneParams.frameHeightPlanned,
+    
+    flightLineY: flightLineY,
+    obstacles: obstacles,
+    points: points,
+    trajectoryData: getTrajectoryData(),
+    
+    showGrid: true,
+    showObstacles: true,
+    showUserTrajectory: activeImage == 0,
+    showTaxonTrajectory: true,
+    showNavTriangles: true, // Включаем треугольники
+    
+    PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
+    PREVIEW_HEIGHT: 400, 
+        
+    setLoading: setLoading
+  });
+};
+
   const handleDownload = (type) => {
     // Логика скачивания в зависимости от type
     if (type === 'schema') {
-      sceneUserTrajectoryShower.current?.handleDownload();
-
-      // handleDownloadScene()
+      handleDownloadScene()
     } else if (type === 'heatmap') {
       console.log('Скачиваем тепловую карту');
       // handleDownloadHeatmap()
@@ -480,89 +514,151 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     }
   };
 
+  // const renderImage = (index: number) => {
+  //   switch (index) {
+  //     case 1:
+  //       return (
+  //         <SceneShower
+  //           imageData={imageData}
+  //           droneParams={droneParams}
+  //           points={points}
+  //           obstacles={obstacles}
+  //           trajectoryData={null}
+  //           showView={() => {
+  //             setShowView(true);
+  //           }}
+  //           ref={sceneUserTrajectoryShower}
+  //           showGrid={true}
+  //           showUserTrajectory={true}
+  //           showObstacles={true}
+  //           showTaxonTrajectory={false}
+  //           flightLineY={flightLineY}
+  //           weatherConditions={weatherConditions}
+  //         />
+  //       );
+  //     case 2:
+  //       return (
+  //         <SceneShower
+  //           imageData={imageData}
+  //           droneParams={droneParams}
+  //           points={points}
+  //           obstacles={obstacles}
+  //           trajectoryData={trajectoryData}
+  //           showView={() => {
+  //             setShowView(true);
+  //           }}
+  //           ref={sceneUserTrajectoryShower}
+  //           showGrid={true}
+  //           showUserTrajectory={false}
+  //           showObstacles={true}
+  //           showTaxonTrajectory={true}
+  //           isLoadingOptimization={optimizationState.small.isLoading}
+  //           flightLineY={flightLineY}
+  //           weatherConditions={weatherConditions}
+  //         />
+  //       );
+  //     case 3:
+  //       return (
+  //         <SceneShower
+  //           imageData={imageData}
+  //           droneParams={droneParams}
+  //           points={points}
+  //           obstacles={obstacles}
+  //           trajectoryData={trajectoryData2}
+  //           showView={() => {
+  //             setShowView(true);
+  //           }}
+  //           ref={sceneUserTrajectoryShower}
+  //           showGrid={true}
+  //           showUserTrajectory={false}
+  //           showObstacles={true}
+  //           showTaxonTrajectory={true}
+  //           isLoadingOptimization={optimizationState.large.isLoading}
+  //           flightLineY={flightLineY}
+  //           weatherConditions={weatherConditions}
+  //         />
+  //       );
+  //     case 4:
+  //       return (
+  //         <SceneShower
+  //           imageData={imageData}
+  //           droneParams={droneParams}
+  //           points={points}
+  //           obstacles={obstacles}
+  //           trajectoryData={trajectoryData3}
+  //           showView={() => {
+  //             setShowView(true);
+  //           }}
+  //           ref={sceneUserTrajectoryShower}
+  //           showGrid={true}
+  //           showUserTrajectory={false}
+  //           showObstacles={true}
+  //           showTaxonTrajectory={true}
+  //           isLoadingOptimization={optimizationState.combi.isLoading}
+  //           flightLineY={flightLineY}
+  //           weatherConditions={weatherConditions}
+  //         />
+  //       );
+  //     default:
+  //       return <Typography>Контент для изображения {index}</Typography>;
+  //   }
+  // };
+
+
   const renderImage = (index: number) => {
+    // Общие параметры для всех вариантов
+    const commonProps = {
+      imageData,
+      droneParams,
+      points,
+      obstacles,
+      flightLineY,
+      weatherConditions,
+      onShowView: () => setShowView(true),
+      stageRef: sceneUserTrajectoryShower, // Передаем общий ref (если логика позволяет)
+      // Переменные отрисовки (должны быть определены в родительском компоненте)
+      image,
+    };
+
     switch (index) {
       case 1:
         return (
-          <SceneShower
-            imageData={imageData}
-            droneParams={droneParams}
-            points={points}
-            obstacles={obstacles}
+          <ScenePreview
+            {...commonProps}
             trajectoryData={null}
-            showView={() => {
-              setShowView(true);
-            }}
-            ref={sceneUserTrajectoryShower}
-            showGrid={true}
             showUserTrajectory={true}
-            showObstacles={true}
             showTaxonTrajectory={false}
-            flightLineY={flightLineY}
-            weatherConditions={weatherConditions}
+            isLoading={isLoadingUserScene}
           />
         );
       case 2:
         return (
-          <SceneShower
-            imageData={imageData}
-            droneParams={droneParams}
-            points={points}
-            obstacles={obstacles}
+          <ScenePreview
+            {...commonProps}
             trajectoryData={trajectoryData}
-            showView={() => {
-              setShowView(true);
-            }}
-            ref={sceneUserTrajectoryShower}
-            showGrid={true}
             showUserTrajectory={false}
-            showObstacles={true}
             showTaxonTrajectory={true}
-            isLoadingOptimization={optimizationState.small.isLoading}
-            flightLineY={flightLineY}
-            weatherConditions={weatherConditions}
+            isLoading={optimizationState.small.isLoading}
           />
         );
       case 3:
         return (
-          <SceneShower
-            imageData={imageData}
-            droneParams={droneParams}
-            points={points}
-            obstacles={obstacles}
+          <ScenePreview
+            {...commonProps}
             trajectoryData={trajectoryData2}
-            showView={() => {
-              setShowView(true);
-            }}
-            ref={sceneUserTrajectoryShower}
-            showGrid={true}
             showUserTrajectory={false}
-            showObstacles={true}
             showTaxonTrajectory={true}
-            isLoadingOptimization={optimizationState.large.isLoading}
-            flightLineY={flightLineY}
-            weatherConditions={weatherConditions}
+            isLoading={optimizationState.large.isLoading}
           />
         );
       case 4:
         return (
-          <SceneShower
-            imageData={imageData}
-            droneParams={droneParams}
-            points={points}
-            obstacles={obstacles}
+          <ScenePreview
+            {...commonProps}
             trajectoryData={trajectoryData3}
-            showView={() => {
-              setShowView(true);
-            }}
-            ref={sceneUserTrajectoryShower}
-            showGrid={true}
             showUserTrajectory={false}
-            showObstacles={true}
             showTaxonTrajectory={true}
-            isLoadingOptimization={optimizationState.combi.isLoading}
-            flightLineY={flightLineY}
-            weatherConditions={weatherConditions}
+            isLoading={optimizationState.combi.isLoading}
           />
         );
       default:
@@ -689,9 +785,9 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             {/* Контент */}
             <Box
               sx={{
-                mt: 2,
+                mt: 1,
                 width: "100%",
-                maxHeight: "400px",
+                maxHeight: "450px",
                 // bgcolor: "#f4f6f8",
                 display: "flex",
                 alignItems: "center",
@@ -1049,7 +1145,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             framesUrlsOptimal2={framesUrlsOptimal2}
             setFramesUrlsOptimal2={setFramesUrlsOptimal2}
             framesUrlsOptimal3={framesUrlsOptimal3}
-            setFramesUrlsOptimal3={setFramesUrlsOptimal3}    
+            setFramesUrlsOptimal3={setFramesUrlsOptimal3}
             pointsRecommended={pointsRecommended}
             setPointsRecommended={setPointsRecommended}
             selection={selection}

@@ -27,7 +27,7 @@ import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 
 import { useDialogs } from "../../../hooks/useDialogs/useDialogs";
-import { useNavigate } from "react-router";
+import { useNavigate, useBlocker } from "react-router";
 import useNotifications from "../../../hooks/useNotifications/useNotifications";
 
 import ImageUploadStep from "./ImageUploadStep";
@@ -190,6 +190,7 @@ const TrajectoryStepper = () => {
   useDocumentTitle("Создание карты | SkyPath Service");
 
   // ── UI-состояние ──────────────────────────────────────────────────────────
+const [isDirty, setIsDirty] = React.useState(true);
 
   const [activeStep, setActiveStep] = React.useState(0);
   const [openPreviewPage, setPreviewPage] = React.useState(false);
@@ -1188,6 +1189,40 @@ const TrajectoryStepper = () => {
   const handleScrollToTop = React.useCallback(() => {
     containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
+
+const blocker = useBlocker(true);
+
+React.useEffect(() => {
+  if (blocker.state === "blocked") {
+    confirm(
+      "Вы хотите прервать создание карты полёта?",
+      {
+        title: "Подтверждение",
+        okText: "Да",
+        cancelText: "Нет",
+      }
+    ).then((confirmed) => {
+      if (confirmed) {
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    });
+  }
+}, [blocker, confirm]);
+
+// Перехватываем закрытие вкладки/обновление (Браузер)
+React.useEffect(() => {
+  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    if (isDirty) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  };
+
+  window.addEventListener("beforeunload", handleBeforeUnload);
+  return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+}, [isDirty]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render

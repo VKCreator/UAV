@@ -53,6 +53,7 @@ import { Drone } from "../../uav/types/uav.types";
 import useImage from "use-image";
 import { SceneStage } from "./SceneStage";
 import { convexHull, outwardUnitNormal } from "../utils/Geometry";
+import { exportSceneImage } from "../utils/exportSceneImage";
 
 interface BuildTrajectoryStepProps {
   imageData: ImageData;
@@ -140,14 +141,14 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
 
   // Размеры для превью (как указано в условии)
   const PREVIEW_WIDTH = 480;
-  const PREVIEW_HEIGHT = 280;
+  const PREVIEW_HEIGHT = 340;
 
   // Вычисляем масштаб, чтобы изображение вписалось в 500x400
   const scaleToFit = image
     ? Math.min(
       1,
-      (PREVIEW_WIDTH / image.width) * 0.9,
-      (PREVIEW_HEIGHT / image.height) * 0.9,
+      (PREVIEW_WIDTH / image.width) * 1,
+      (PREVIEW_HEIGHT / image.height) * 1,
     )
     : 1;
 
@@ -276,238 +277,30 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   };
 
   const handleDownload = () => {
-    if (!image) return;
-    setLoading(true);
-
-    const container = document.createElement("div");
-    const downloadStage = new Konva.Stage({
-      container,
-      width: image.width,
-      height: image.height,
-    });
-
-    const layer = new Konva.Layer();
-    downloadStage.add(layer);
-
-    // Масштабный коэффициент: элементы интерфейса должны выглядеть
-    // пропорционально на полном разрешении так же, как на превью 500×400
-    const uiScale = Math.min(image.width / PREVIEW_WIDTH, image.height / PREVIEW_HEIGHT) * 0.5;
-
-    const POINT_R_USER = 14 * uiScale;   // радиус пользовательской точки
-    const ARROW_PTR_LEN = 14 * uiScale;
-    const ARROW_PTR_WID = 10 * uiScale;
-    const STROKE_W = 3 * uiScale;
-    const FONT_USER = 16 * uiScale;
-
-    // Вспомогательная функция: стрелка начинается от края fromRadius окружности
-    // и заканчивается у края toRadius окружности, не перекрывая кружки
-    const arrowPts = (
-      from: { x: number; y: number },
-      to: { x: number; y: number },
-      fromR: number,
-      toR: number,
-    ) => {
-      const dx = to.x - from.x;
-      const dy = to.y - from.y;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      if (len === 0) return [from.x, from.y, to.x, to.y];
-      const ux = dx / len, uy = dy / len;
-      return [
-        from.x + ux * fromR, from.y + uy * fromR,
-        to.x - ux * toR, to.y - uy * toR,
-      ];
-    };
-
-    // ── Фоновое изображение ────────────────────────────────────────────
-    layer.add(new Konva.Image({
-      image,
-      x: 0, y: 0,
-      width: image.width, height: image.height,
-    }));
-
-    // ── Сетка ─────────────────────────────────────────────────────────
-    if (true) {
-      const cellW = image.width / GRID_COLS;
-      const cellH = image.height / GRID_ROWS;
-      const lineWidth = 2 * uiScale;
-      const lineHeight = 2 * uiScale;
-
-      // Вертикальные линии (прямоугольники)
-      for (let i = 1; i < GRID_COLS; i++) {
-        layer.add(new Konva.Rect({
-          x: cellW * i - lineWidth / 2,
-          y: 0,
-          width: lineWidth,
-          height: image.height,
-          fill: "rgba(255, 255, 255, 0.8)",
-          stroke: "rgba(0, 0, 0, 1)",
-          strokeWidth: 0.1 * uiScale,
-        }));
-      }
-
-      // Горизонтальные линии (прямоугольники)
-      for (let i = 1; i < GRID_ROWS; i++) {
-        const y = image.height - cellH * i;
-        layer.add(new Konva.Rect({
-          x: 0,
-          y: y - lineHeight / 2,
-          width: image.width,
-          height: lineHeight,
-          fill: "rgba(255, 255, 255, 0.8)",
-          stroke: "rgba(0, 0, 0, 1)",
-          strokeWidth: 0.1 * uiScale,
-        }));
-      }
-    }
-
-    // ── Линия полёта + неинформативная зона ───────────────────────────
-    if (flightLineY !== null) {
-      layer.add(new Konva.Line({
-        points: [0, flightLineY, image.width, flightLineY],
-        stroke: "orange",
-        strokeWidth: STROKE_W,
-      }));
-      layer.add(new Konva.Rect({
-        x: 0, y: flightLineY,
-        width: image.width, height: image.height - flightLineY,
-        fill: "rgba(128,128,128,0.3)",
-        listening: false,
-      }));
-      if (flightLineY < image.height - 0.01) {
-        layer.add(new Konva.Text({
-          x: 0,
-          y: flightLineY + (image.height - flightLineY) / 2 - FONT_USER * 1.5,
-          width: image.width,
-          text: "Неинформативная зона",
-          align: "center",
-          fontSize: FONT_USER * 1.5,
-          fill: "rgba(255,255,255,0.85)",
-          listening: false,
-        }));
-      }
-    }
-
-    // ── Препятствия ───────────────────────────────────────────────────
-    // if (showObstacles) {
-    //   obstacles.forEach((poly) => {
-    //     layer.add(new Konva.Line({
-    //       points: poly.points.flatMap((p) => [p.x, p.y]),
-    //       closed: true,
-    //       fill: `${poly.color}30`,
-    //       stroke: poly.color,
-    //       strokeWidth: STROKE_W,
-    //     }));
-    //   });
-    // }
-
-    // ── Препятствия ───────────────────────────────────────────────────
-    if (true) {
-      obstacles.forEach((poly) => {
-        // Безопасная зона (если задана)
-        if (poly.safeZone > 0) {
-          const safeZonePoints = buildSafeZoneForDownload(poly, poly.safeZone);
-          layer.add(new Konva.Line({
-            points: safeZonePoints.flatMap((p) => [p.x, p.y]),
-            closed: true,
-            fill: "#E0F4FF",
-            stroke: "#4FC3F7",
-            strokeWidth: STROKE_W,
-            dash: [8 * uiScale, 4 * uiScale],
-            opacity: 0.8,
-          }));
-        }
-
-        // Основной полигон препятствия
-        layer.add(new Konva.Line({
-          points: poly.points.flatMap((p) => [p.x, p.y]),
-          closed: true,
-          fill: `${poly.color}20`,
-          stroke: poly.color,
-          strokeWidth: STROKE_W,
-        }));
-
-        // Вершины препятствия
-        poly.points.forEach((point) => {
-          layer.add(new Konva.Circle({
-            x: point.x,
-            y: point.y,
-            radius: 3 * uiScale,
-            fill: poly.color,
-          }));
-        });
-
-        // Номер препятствия в центре
-        const centerX = poly.points.reduce((s, p) => s + p.x, 0) / poly.points.length;
-        const centerY = poly.points.reduce((s, p) => s + p.y, 0) / poly.points.length;
-
-        const labelText = (obstacles.indexOf(poly) + 1).toString();
-        const labelRadius = 12 * uiScale;
-        const labelFontSize = 14 * uiScale;
-
-        layer.add(new Konva.Circle({
-          x: centerX,
-          y: centerY,
-          radius: labelRadius,
-          fill: "rgba(0,0,0,0.55)",
-          listening: false,
-        }));
-
-        layer.add(new Konva.Text({
-          x: centerX - labelFontSize * 0.3 * labelText.length,
-          y: centerY - labelFontSize * 0.55,
-          text: labelText,
-          fontSize: labelFontSize,
-          fontStyle: "bold",
-          fill: "#fff",
-          listening: false,
-        }));
-      });
-    }
-
-    // ── Пользовательская траектория ───────────────────────────────────
-    if (true) {
-      // Сначала рисуем стрелки (они окажутся под кружками)
-      points.forEach((point, i) => {
-        if (i === 0) return;
-        const prev = points[i - 1];
-        layer.add(new Konva.Arrow({
-          points: arrowPts(prev, point, POINT_R_USER, POINT_R_USER),
-          pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
-          fill: "red", stroke: "red", strokeWidth: STROKE_W,
-        }));
-      });
-      // Затем кружки и номера поверх стрелок
-      points.forEach((point, i) => {
-        layer.add(new Konva.Circle({
-          x: point.x, y: point.y,
-          radius: POINT_R_USER, fill: "blue",
-        }));
-        layer.add(new Konva.Text({
-          x: point.x - POINT_R_USER * 0.45,
-          y: point.y - FONT_USER * 0.55,
-          text: (i + 1).toString(),
-          fontSize: FONT_USER,
-          fontStyle: "bold",
-          fill: "white",
-        }));
-      });
-    }
-
-    layer.batchDraw();
-
-    downloadStage.toCanvas().toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "trajectory_map.png";
-      link.click();
-      URL.revokeObjectURL(url);
-      downloadStage.destroy();
-      setLoading(false);
-    });
-  };
-
+  exportSceneImage({
+    image: image!,
+    width_m: droneParams.frameWidthBase,
+    height_m: droneParams.frameHeightBase,
+    GRID_COLS: droneParams.frameWidthBase / droneParams.frameWidthPlanned,
+    GRID_ROWS: droneParams.frameHeightBase / droneParams.frameHeightPlanned,
+    
+    flightLineY: flightLineY,
+    obstacles: obstacles,
+    points: points,
+    trajectoryData: null,
+    
+    showGrid: true,
+    showObstacles: true,
+    showUserTrajectory: true,
+    showTaxonTrajectory: false,
+    showNavTriangles: false,
+    
+    PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
+    PREVIEW_HEIGHT: 400, 
+        
+    setLoading: setLoading
+  });
+};
 
   return (
     <Box sx={{ p: 2 }}>
@@ -619,7 +412,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                     cursor: "pointer",
                     width: 'fit-content',
                     mb: 1,
-                    mt: 1
+                    mt: 1,
                   }}
                   // Сохраняем функцию показа полного просмотра при клике на превью
                   onClick={() => setViewerOpen(true)}
