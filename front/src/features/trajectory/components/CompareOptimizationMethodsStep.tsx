@@ -63,6 +63,7 @@ interface TrajectoryData {
 interface CompareOptimizationMethodsStepProps {
   trajectoryData: TrajectoryData | null;
   trajectoryData2: TrajectoryData | null;
+  trajectoryData3: TrajectoryData | null;
 }
 
 // ─── Константы ────────────────────────────────────────────────────────────────
@@ -270,13 +271,13 @@ const MethodTab: React.FC<{ data: TrajectoryData | null; methodLabel: string }> 
   );
 };
 
-const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryData | null }> = ({ data1, data2 }) => {
+const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryData | null; data2: TrajectoryData | null }> = ({ data1, data2, data3 }) => {
   const [selectedMethod, setSelectedMethod] = useState("method1");
 
   const methods = [
     { id: "method1", name: "Метод 1 (МКТ)", data: data1 },
     { id: "method2", name: "Метод 2 (БКТ)", data: data2 },
-    { id: "method3", name: "Метод 3 (Комби)", data: null },
+    { id: "method3", name: "Метод 3 (Комби)", data: data3 },
   ];
 
   const metrics = [
@@ -314,7 +315,7 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
     });
     
     return scored[0];
-  }, [data1, data2]);
+  }, [data1, data2, data3]);
 
   React.useEffect(() => {
     if (recommendedMethod) {
@@ -390,7 +391,8 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
 
 const CompareOptimizationMethodsStep: React.FC<CompareOptimizationMethodsStepProps> = ({ 
   trajectoryData, 
-  trajectoryData2 
+  trajectoryData2,
+  trajectoryData3
 }) => {
   const [selectedTab, setSelectedTab] = useState(0);
 
@@ -401,9 +403,9 @@ const CompareOptimizationMethodsStep: React.FC<CompareOptimizationMethodsStepPro
       case 1:
         return <MethodTab data={trajectoryData2} methodLabel="2 методу (Высокая плотность точек)" />;
       case 2:
-        return <MethodTab data={null} methodLabel="3 методу (Комбинированный)" />;
+        return <MethodTab data={trajectoryData3} methodLabel="3 методу (Комбинированный)" />;
       case 3:
-        return <ComparisonTab data1={trajectoryData} data2={trajectoryData2} />;
+        return <ComparisonTab data1={trajectoryData} data2={trajectoryData2} data3={trajectoryData3} />;
       default:
         return null;
     }

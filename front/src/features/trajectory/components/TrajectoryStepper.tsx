@@ -181,6 +181,7 @@ const computeFrameDimensions = (
   return { height, width };
 };
 
+
 // ─── Компонент ───────────────────────────────────────────────────────────────
 
 const TrajectoryStepper = () => {
@@ -190,8 +191,6 @@ const TrajectoryStepper = () => {
   useDocumentTitle("Создание карты | SkyPath Service");
 
   // ── UI-состояние ──────────────────────────────────────────────────────────
-const [isDirty, setIsDirty] = React.useState(true);
-
   const [activeStep, setActiveStep] = React.useState(0);
   const [openPreviewPage, setPreviewPage] = React.useState(false);
   const [isCreating, setIsCreating] = React.useState(false);
@@ -824,14 +823,8 @@ const [isDirty, setIsDirty] = React.useState(true);
       return;
     }
 
-    const shouldLeave = await confirm(
-      "Вы хотите прервать создание карты полёта?",
-      { title: "Подтверждение", okText: "Да", cancelText: "Нет" },
-    );
-
-    if (shouldLeave) {
-      navigate("/trajectories");
-    }
+    navigate("/trajectories");
+    
   }, [activeStep, confirm, navigate]);
 
   // ── Создание схемы ────────────────────────────────────────────────────────
@@ -1175,7 +1168,7 @@ const [isDirty, setIsDirty] = React.useState(true);
         );
       case 3:
         return (
-          <CompareOptimizationMethodsStep trajectoryData={opt1TrajectoryData} trajectoryData2={opt2TrajectoryData} />
+          <CompareOptimizationMethodsStep trajectoryData={opt1TrajectoryData} trajectoryData2={opt2TrajectoryData} trajectoryData3={opt3TrajectoryData}/>
         );
       default:
         return null;
@@ -1190,12 +1183,13 @@ const [isDirty, setIsDirty] = React.useState(true);
     containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-const blocker = useBlocker(true);
+
+  const blocker = useBlocker(true);
 
 React.useEffect(() => {
   if (blocker.state === "blocked") {
     confirm(
-      "Вы хотите прервать создание карты полёта?",
+      "Вы действительно хотите выйти из режима создания карты полёта?",
       {
         title: "Подтверждение",
         okText: "Да",
@@ -1214,15 +1208,13 @@ React.useEffect(() => {
 // Перехватываем закрытие вкладки/обновление (Браузер)
 React.useEffect(() => {
   const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-    if (isDirty) {
       e.preventDefault();
       e.returnValue = "";
-    }
   };
 
   window.addEventListener("beforeunload", handleBeforeUnload);
   return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-}, [isDirty]);
+}, []);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
@@ -1239,18 +1231,19 @@ React.useEffect(() => {
         position: "relative",
       }}
     >
+
       {/* Оверлей загрузки при создании схемы */}
       {isCreating && (
         <Box
           sx={{
-            position: "absolute",
-            inset: 0,
+            position: "fixed", 
+            inset: 0,         
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
             alignItems: "center",
-            backgroundColor: "rgba(255, 255, 255, 0.7)",
-            zIndex: 9999,
+            backgroundColor: "rgba(255, 255, 255, 0.85)", // Чуть увеличил прозрачность для надежности
+            zIndex: 9999,        // Гарантирует, что поверх хедеров и меню
             opacity: isFadingOut ? 0 : 1,
             transition: "opacity 1s ease",
           }}

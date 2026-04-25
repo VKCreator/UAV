@@ -36,6 +36,9 @@ import StoryboardTimeline from "../features/storyboard/components/StoryboardTime
 
 import { DateToPrettyLocalDateTime } from "../utils/dateUtils";
 
+import ScenePreview from "../features/trajectory/components/ScenePreview";
+import useImage from "use-image";
+
 import {
   LineChart,
   Line,
@@ -312,6 +315,25 @@ const FlightSchemaPage: React.FC<Props> = ({
       </Grid>
     </Grid>
   );
+
+      // 1. Создаем ref, если он нужен для работы с сценей (например, для экспорта)
+    const sceneUserTrajectoryShower = React.useRef<any>(null);
+
+    // 2. Загружаем изображение (если еще не загружено на этом уровне)
+    const [image] = useImage(imageData?.imageUrl);
+
+    // 3. Определяем общие пропсы
+    const commonProps = {
+      imageData,
+      droneParams,
+      points,
+      obstacles,
+      flightLineY,
+      weatherConditions,
+      onShowView: () => {}, // Функция открытия полного просмотра
+      stageRef: sceneUserTrajectoryShower, // Ref на сцену
+      image: image, // Сам объект HTMLImageElement
+    };
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -681,25 +703,19 @@ const FlightSchemaPage: React.FC<Props> = ({
           <Stack direction="row" spacing={2}>
             {/* Сцена */}
             <Box
+            display="flex"
               flex={1}
               minHeight={340}
-              sx={{ borderRadius: 2, overflow: "hidden" }}
+              sx={{ borderRadius: 2, overflow: "hidden", backgroundColor: "#F2F2F2", justifyContent: "center", alignItems: "center" }}
             >
               {imageData ? (
-                <SceneShower
-                  imageData={imageData}
-                  droneParams={droneParams}
-                  points={points}
-                  obstacles={obstacles}
+                <ScenePreview
+                  {...commonProps}
+                  // Специфичные пропсы для этого превью
                   trajectoryData={null}
-                  showView={() => {}}
-                  ref={null}
-                  showGrid={true}
                   showUserTrajectory={true}
-                  showObstacles={true}
                   showTaxonTrajectory={false}
-                  flightLineY={flightLineY ?? 0}
-                  weatherConditions={weatherConditions}
+                  isLoading={false} // Передаем состояние загрузки, если есть
                 />
               ) : (
                 <Placeholder label="Нет данных" />

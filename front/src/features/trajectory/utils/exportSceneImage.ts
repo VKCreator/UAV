@@ -91,8 +91,8 @@ export const exportSceneImage = ({
   const layer = new Konva.Layer();
   downloadStage.add(layer);
 
-  PREVIEW_WIDTH = 1100;
-  PREVIEW_HEIGHT = 700;
+  // PREVIEW_WIDTH = 1100;
+  // PREVIEW_HEIGHT = 700;
 
   // Масштабный коэффициент UI (чтобы стрелки и текст выглядели так же, как на 500x400)
   const uiScale = Math.min(image.width / PREVIEW_WIDTH, image.height / PREVIEW_HEIGHT) * 0.5;
