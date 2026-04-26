@@ -36,11 +36,11 @@ export default function UavSelector({
 
   return (
     <FormControl fullWidth size="small">
-      <InputLabel id="uav-type-label">Тип БПЛА</InputLabel>
+      <InputLabel id="uav-type-label">Модель БПЛА</InputLabel>
       <Select
         labelId="uav-type-label"
         value={value}
-        label="Тип БПЛА"
+        label="Модель БПЛА"
         onChange={handleChange}
       >
         {drones.length === 0 ? (

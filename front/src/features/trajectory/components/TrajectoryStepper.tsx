@@ -299,8 +299,17 @@ const TrajectoryStepper = () => {
   const [framesUrlsOptimal3, setFramesUrlsOptimal3] = React.useState<string[]>(
     [],
   );
-  
+
   const [pointsRecommended, setPointsRecommended] = React.useState<Point[]>([]);
+
+  // Шаг 4: сравнение оптимизаций и выбор приоритетной траектори
+  const [priorityMethod, setPriorityMethod] = React.useState<string>("");
+
+  const methodNames2PrettyName: Record<string, string> = {
+  "METHOD_1": "low-d",
+  "METHOD_2": "high-d",
+  "METHOD_3": "combi",
+  };
 
   // ── Очистка раскадровок ───────────────────────────────────────────────────
   //
@@ -820,7 +829,7 @@ const TrajectoryStepper = () => {
     }
 
     navigate("/trajectories");
-    
+
   }, [activeStep, confirm, navigate]);
 
   // ── Создание схемы ────────────────────────────────────────────────────────
@@ -890,60 +899,52 @@ const TrajectoryStepper = () => {
     formData.append("weather_lon", String(weatherConditions.position.lon));
 
     // ── 6. Optimization Results (opt1, opt2, opt3) ─────────────────
-    
+
     // Маппинг ID методов к их pretty_name (эти имена должны быть в БД в таблице opt_methods)
     const methodNamesMap: Record<number, string> = {
-        1: "METHOD_1",
-        2: "METHOD_2",
-        3: "METHOD_3",
+      1: "METHOD_1",
+      2: "METHOD_2",
+      3: "METHOD_3",
     };
 
     const opt_variants = [
-        { prefix: "opt1", method_id: 1 },
-        { prefix: "opt2", method_id: 2 },
-        { prefix: "opt3", method_id: 3 },
+      { prefix: "opt1", method_id: 1 },
+      { prefix: "opt2", method_id: 2 },
+      { prefix: "opt3", method_id: 3 },
     ];
 
-    let priorityMethodName = null;
-
     opt_variants.forEach((v) => {
-        // Получаем данные траектории для текущего варианта
-        const trajectoryData = 
-            v.prefix === "opt1" ? opt1TrajectoryData :
-            v.prefix === "opt2" ? opt2TrajectoryData : 
-                                  opt3TrajectoryData;
+      // Получаем данные траектории для текущего варианта
+      const trajectoryData =
+        v.prefix === "opt1" ? opt1TrajectoryData :
+          v.prefix === "opt2" ? opt2TrajectoryData :
+            opt3TrajectoryData;
 
-        if (trajectoryData) {
-            // Вычисляем полное время полета
-            const totalTime = trajectoryData.B.reduce(
-            (sum, taxon) => sum + (taxon.time_sec ?? 0),
-            0,
-            );
+      console.log(trajectoryData)
+      if (trajectoryData) {
+        // Вычисляем полное время полета
+        const totalTime = trajectoryData.B.reduce(
+          (sum, taxon) => sum + (taxon.time_sec ?? 0),
+          0,
+        );
 
-            // Добавляем данные для текущего варианта
-            formData.append(`${v.prefix}_taxons`, JSON.stringify(trajectoryData));
-            formData.append(`${v.prefix}_total_flight_time`, String(totalTime));
-            
-            // Передаем ID метода (если бэкенд ожидает ID)
-            formData.append(`${v.prefix}_method_id`, String(v.method_id));
-            
-            // Передаем имя метода (если бэкенд ищет по имени, как в прошлом примере)
-            formData.append(`${v.prefix}_method_name`, methodNamesMap[v.method_id]);
+        // Добавляем данные для текущего варианта
+        formData.append(`${v.prefix}_taxons`, JSON.stringify(trajectoryData));
+        formData.append(`${v.prefix}_total_flight_time`, String(totalTime));
 
-            // Запоминаем первый найденный метод как приоритетный
-            if (!priorityMethodName) {
-                priorityMethodName = methodNamesMap[v.method_id];
-            }
-        }
+        // Передаем ID метода (если бэкенд ожидает ID)
+        formData.append(`${v.prefix}_method_id`, String(v.method_id));
+
+        // Передаем имя метода (если бэкенд ищет по имени, как в прошлом примере)
+        formData.append(`${v.prefix}_method_name`, methodNamesMap[v.method_id]);
+      }
     });
 
-    if (priorityMethodName) {
-        priorityMethodName = "METHOD_1"; // Заглушка
-        formData.append("priority_opt_method", String(priorityMethodName));
-    }
+      let priorityMethodName = priorityMethod;
+      formData.append("priority_opt_method", String(priorityMethodName));
 
     // ── 7. Storyboards — если применены ────────────────────────────
-    
+
     // Point Based
     if (storyboardsData.point.applied) {
       formData.append(
@@ -955,8 +956,8 @@ const TrajectoryStepper = () => {
     // Recommended
     if (storyboardsData.recommended.applied) {
       const recommendedPayload = {
-          ...storyboardsData.recommended,
-          points: pointsRecommended // В recommended точки приходят отдельным массивом
+        ...storyboardsData.recommended,
+        points: pointsRecommended // В recommended точки приходят отдельным массивом
       };
       formData.append(
         "storyboard_recommended",
@@ -1080,7 +1081,7 @@ const TrajectoryStepper = () => {
         nextTooltip:
           "Для шага 4 требуется оптимизация пользовательской траектории",
       };
-    } 
+    }
 
     if (activeStep === 2 && isAnyRunning) {
       return {
@@ -1088,7 +1089,7 @@ const TrajectoryStepper = () => {
         nextTooltip:
           "Для шага 4 дождитесь завершения оптимизаций",
       };
-    } 
+    }
 
     return { isNextDisabled: false, nextTooltip: "" };
   }, [activeStep, imageUrl, points.length, drones.length, opt1TrajectoryData, opt2TrajectoryData, isAnyRunning]);
@@ -1167,7 +1168,7 @@ const TrajectoryStepper = () => {
         );
       case 3:
         return (
-          <CompareOptimizationMethodsStep trajectoryData={opt1TrajectoryData} trajectoryData2={opt2TrajectoryData} trajectoryData3={opt3TrajectoryData}/>
+          <CompareOptimizationMethodsStep trajectoryData={opt1TrajectoryData} trajectoryData2={opt2TrajectoryData} trajectoryData3={opt3TrajectoryData} priorityMethod={priorityMethod} setPriorityMethod={setPriorityMethod} />
         );
       default:
         return null;
@@ -1185,37 +1186,37 @@ const TrajectoryStepper = () => {
 
   const blocker = useBlocker(isDirty);
 
-React.useEffect(() => {
-  if (blocker.state === "blocked") {
-    confirm(
-      "Вы действительно хотите выйти из режима создания карты полёта?",
-      {
-        title: "Подтверждение",
-        okText: "Да",
-        cancelText: "Нет",
-      }
-    ).then((confirmed) => {
-      if (confirmed) {
-        blocker.proceed();
-      } else {
-        blocker.reset();
-      }
-    });
-  }
-}, [blocker, confirm]);
-
-// Перехватываем закрытие вкладки/обновление (Браузер)
-React.useEffect(() => {
-  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-    if (isDirty) {
-      e.preventDefault();
-      e.returnValue = "";
+  React.useEffect(() => {
+    if (blocker.state === "blocked") {
+      confirm(
+        "Вы действительно хотите выйти из режима создания карты полёта?",
+        {
+          title: "Подтверждение",
+          okText: "Да",
+          cancelText: "Нет",
+        }
+      ).then((confirmed) => {
+        if (confirmed) {
+          blocker.proceed();
+        } else {
+          blocker.reset();
+        }
+      });
     }
-  };
+  }, [blocker, confirm]);
 
-  window.addEventListener("beforeunload", handleBeforeUnload);
-  return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-}, []);
+  // Перехватываем закрытие вкладки/обновление (Браузер)
+  React.useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
@@ -1237,8 +1238,8 @@ React.useEffect(() => {
       {isCreating && (
         <Box
           sx={{
-            position: "fixed", 
-            inset: 0,         
+            position: "fixed",
+            inset: 0,
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -1412,7 +1413,7 @@ React.useEffect(() => {
             onChange={(e) => {
               const value = e.target.value;
               setNameDialogValue(value);
-              
+
               // Валидация формата Объект.Элемент.Компонент
               // Функция для экранирования спецсимволов
               function escapeRegex(string: string) {
@@ -1443,7 +1444,7 @@ React.useEffect(() => {
               Количество символов: {nameDialogValue.length}/{SCHEMA_NAME_MAX_LENGTH}
             </Typography>
           )}
-            {/* <Typography variant="caption" color="textSecondary" sx={{ pl: "14px", display: "block", mt: 1, mb: 0, pb: 0 }}>
+          {/* <Typography variant="caption" color="textSecondary" sx={{ pl: "14px", display: "block", mt: 1, mb: 0, pb: 0 }}>
               Пример: ММК. ПТЛ. Крыша 
             </Typography> */}
         </DialogContent>
@@ -1481,6 +1482,9 @@ React.useEffect(() => {
             points={points}
             obstacles={obstacles}
             trajectoryData={opt1TrajectoryData}
+            trajectoryData2={opt2TrajectoryData}
+            trajectoryData3={opt2TrajectoryData}
+            priorityMethod={methodNames2PrettyName[priorityMethod]}
             pointsRecommended={pointsRecommended}
             frameWidthPx={
               imageData.width /
@@ -1494,6 +1498,8 @@ React.useEffect(() => {
             framesUrlsPointBased={framesUrlsPointBased}
             framesUrlsRecommended={framesUrlsRecommended}
             framesUrlsOptimal={framesUrlsOptimal}
+            framesUrlsOptimal2={framesUrlsOptimal2}
+            framesUrlsOptimal3={framesUrlsOptimal3}
             flightLineY={flightLineY}
             schemaName={schemaName}
             author={getUserFromStorage()}

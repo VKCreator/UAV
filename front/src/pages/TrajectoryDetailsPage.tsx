@@ -62,6 +62,18 @@ const FALLBACK_STORYBOARDS: Storyboards = {
     total_flight_time: null,
     applied: false,
   },
+  optimal_big_density: {
+    count_frames: null,
+    disk_space: null,
+    total_flight_time: null,
+    applied: false,
+  },
+  optimal_combi: {
+    count_frames: null,
+    disk_space: null,
+    total_flight_time: null,
+    applied: false,
+  }
 };
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
@@ -127,7 +139,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-// ─── Компонент ───────────────────────────────────────────────────────────────
+// Компонент
 
 export default function TrajectoryDetails() {
   const navigate = useNavigate();
@@ -149,6 +161,9 @@ export default function TrajectoryDetails() {
     [],
   );
   const [framesUrlsOptimal, setFramesUrlsOptimal] = useState<string[]>([]);
+  const [framesUrlsOptimal2, setFramesUrlsOptimal2] = useState<string[]>([]);
+  const [framesUrlsOptimal3, setFramesUrlsOptimal3] = useState<string[]>([]);
+
   const [framesLoading, setFramesLoading] = useState(false);
 
   // ── загрузка схемы ──────────────────────────────────────────────────────────
@@ -171,9 +186,9 @@ export default function TrajectoryDetails() {
     const {
       base_image,
       traj_shapes,
-      opt_results, // Используем новый объект opt_results
+      opt_results,
       drone_params,
-      storyboard_results, // Используем новый объект storyboard_results
+      storyboard_results, 
       priority_opt_method,
     } = schemaData;
 
@@ -217,11 +232,16 @@ export default function TrajectoryDetails() {
     const storyboard_point = storyboard_results?.storyboards?.find((sb: any) => sb.storyboard_name_id === 1);
     const storyboard_recommended = storyboard_results?.storyboards?.find((sb: any) => sb.storyboard_name_id === 2);
     const storyboard_optimal = storyboard_results?.storyboards?.find((sb: any) => sb.storyboard_name_id === 3);
+    const storyboard_optimal_big_density = storyboard_results?.storyboards?.find((sb: any) => sb.storyboard_name_id === 4);
+    const storyboard_optimal_combi = storyboard_results?.storyboards?.find((sb: any) => sb.storyboard_name_id === 5);
 
     // Находим результат оптимизации по приоритетному методу (или методу ID 1)
-    const optItem = opt_results?.items?.find((item: any) => item.method_id === priority_opt_method?.method_id);
+    const optItemPriority = opt_results?.items?.find((item: any) => item.method_id === priority_opt_method?.method_id);
+    const optItem = opt_results?.items?.find((item: any) => item.method_id === 1);
+    const optItem2 = opt_results?.items?.find((item: any) => item.method_id === 2);
+    const optItem3 = opt_results?.items?.find((item: any) => item.method_id === 3);
 
-    if (!storyboard_point && !storyboard_optimal) return;
+    // if (!storyboard_point && !storyboard_optimal) return;
 
     let cancelled = false;
 
@@ -257,7 +277,6 @@ export default function TrajectoryDetails() {
         }
 
         // ── оптимальная ───────────────────────────────────────────────────────
-        // Используем optItem вместо opt1_result
         if (storyboard_optimal && optItem?.taxons?.B.length > 0) {
           const mToPxW = frameWidthBase > 0 ? imgWidth / frameWidthBase : 1;
           const mToPxH = frameHeightBase > 0 ? imgHeight / frameHeightBase : 1;
@@ -280,6 +299,50 @@ export default function TrajectoryDetails() {
               setFramesUrlsOptimal(blobs.map((b) => URL.createObjectURL(b)));
           }
         }
+        if (storyboard_optimal_big_density && optItem2?.taxons?.B.length > 0) {
+          const mToPxW = frameWidthBase > 0 ? imgWidth / frameWidthBase : 1;
+          const mToPxH = frameHeightBase > 0 ? imgHeight / frameHeightBase : 1;
+
+          const pointsFromB: Point[] = optItem2.taxons.B.flatMap(
+            (taxon: any) =>
+              (taxon.points ?? taxon.route ?? []).map((pt: number[]) => ({
+                x: pt[0] * mToPxW,
+                y: imgHeight - pt[1] * mToPxH,
+              })),
+          );
+
+          if (pointsFromB.length > 0) {
+            const blobs = await Promise.all(
+              pointsFromB.map((p) =>
+                cropFrameKonva(img, p.x, p.y, frameWidthPx, frameHeightPx),
+              ),
+            );
+            if (!cancelled)
+              setFramesUrlsOptimal2(blobs.map((b) => URL.createObjectURL(b)));
+          }
+        }
+        if (storyboard_optimal_combi && optItem3?.taxons?.B.length > 0) {
+          const mToPxW = frameWidthBase > 0 ? imgWidth / frameWidthBase : 1;
+          const mToPxH = frameHeightBase > 0 ? imgHeight / frameHeightBase : 1;
+
+          const pointsFromB: Point[] = optItem3.taxons.B.flatMap(
+            (taxon: any) =>
+              (taxon.points ?? taxon.route ?? []).map((pt: number[]) => ({
+                x: pt[0] * mToPxW,
+                y: imgHeight - pt[1] * mToPxH,
+              })),
+          );
+
+          if (pointsFromB.length > 0) {
+            const blobs = await Promise.all(
+              pointsFromB.map((p) =>
+                cropFrameKonva(img, p.x, p.y, frameWidthPx, frameHeightPx),
+              ),
+            );
+            if (!cancelled)
+              setFramesUrlsOptimal3(blobs.map((b) => URL.createObjectURL(b)));
+          }
+        }
       } catch (e) {
         console.error("Ошибка при генерации кадров:", e);
       } finally {
@@ -300,6 +363,14 @@ export default function TrajectoryDetails() {
         return [];
       });
       setFramesUrlsOptimal((prev) => {
+        prev.forEach(URL.revokeObjectURL);
+        return [];
+      });
+      setFramesUrlsOptimal2((prev) => {
+        prev.forEach(URL.revokeObjectURL);
+        return [];
+      });
+      setFramesUrlsOptimal3((prev) => {
         prev.forEach(URL.revokeObjectURL);
         return [];
       });
@@ -427,7 +498,7 @@ export default function TrajectoryDetails() {
     windSpeed: getNum(weather.wind_speed),
     windDirection: getNum(weather.wind_direction),
     useWeatherApi: weather.is_use_api,
-    isUse: false, // В новом ответе нет явного is_use, но можно использовать priority_opt_method если нужно
+    isUse: schemaData.is_use_weather,
     position: { lat: weather.latitude ?? 53, lon: weather.longitude ?? 59 },
   };
 
@@ -437,24 +508,32 @@ export default function TrajectoryDetails() {
     traj_shapes?.line != null ? traj_shapes.line : undefined;
 
   // Находим приоритетный результат оптимизации
-  const priorityOptItem = opt_results?.items?.find((item: any) => item.method_id === priority_opt_method?.method_id);
-  const trajectoryData = priorityOptItem?.taxons;
+  // const priorityOptItem = opt_results?.items?.find((item: any) => item.method_id === priority_opt_method?.method_id);
+  // const trajectoryData = priorityOptItem?.taxons;
+  const trajectoryData = opt_results?.items?.find((item: any) => item.method_id === 1)?.taxons;
+  const trajectoryData2 = opt_results?.items?.find((item: any) => item.method_id === 2)?.taxons;
+  const trajectoryData3 = opt_results?.items?.find((item: any) => item.method_id === 3)?.taxons;
 
   // Собираем раскадровки из массива storyboard_results.storyboards
   const storyboardsData: Storyboards = {
     point: FALLBACK_STORYBOARDS.point,
     recommended: FALLBACK_STORYBOARDS.recommended,
     optimal: FALLBACK_STORYBOARDS.optimal,
+    optimal_big_density: FALLBACK_STORYBOARDS.optimal_big_density,
+    optimal_combi: FALLBACK_STORYBOARDS.optimal_combi
   };
 
   storyboard_results?.storyboards?.forEach((sb: any) => {
     if (sb.storyboard_name_id === 1) {
       storyboardsData.point = { ...sb, applied: true };
     } else if (sb.storyboard_name_id === 2) {
-      // Если рекомендованная раскадровка уже найдена, можно пропустить или заменить
       storyboardsData.recommended = { ...sb, applied: true };
     } else if (sb.storyboard_name_id === 3) {
       storyboardsData.optimal = { ...sb, applied: true };
+    } else if (sb.storyboard_name_id === 4) {
+      storyboardsData.optimal_big_density = { ...sb, applied: true };
+    } else if (sb.storyboard_name_id === 5) {
+      storyboardsData.optimal_combi = { ...sb, applied: true };
     }
   });
 
@@ -508,6 +587,8 @@ export default function TrajectoryDetails() {
         points={points}
         obstacles={obstacles}
         trajectoryData={trajectoryData}
+        trajectoryData2={trajectoryData2}
+        trajectoryData3={trajectoryData3}
         frameWidthPx={frameWidthPx}
         frameHeightPx={frameHeightPx}
         storyboardsData={storyboardsData}
@@ -516,6 +597,9 @@ export default function TrajectoryDetails() {
         framesUrlsPointBased={framesUrlsPointBased}
         framesUrlsRecommended={framesUrlsRecommended}
         framesUrlsOptimal={framesUrlsOptimal}
+        framesUrlsOptimal2={framesUrlsOptimal2}
+        framesUrlsOptimal3={framesUrlsOptimal3}
+        priorityMethod={priority_opt_method.pretty_name}
         schemaName={schemaData.map_name}
         createdAt={schemaData.created_at}
         author={schemaData.user}

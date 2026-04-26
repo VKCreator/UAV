@@ -185,19 +185,28 @@ interface Props {
 
   points: Point[];
   obstacles: Polygon[];
+
+  // Данные оптимизации
   trajectoryData: Opt1TrajectoryData | null;
+  trajectoryData2: Opt1TrajectoryData | null;
+  trajectoryData3: Opt1TrajectoryData | null;
 
   pointsRecommended?: Point[];
   pointsOptimal?: Point[];
+  pointsOptimal2?: Point[];
+  pointsOptimal3?: Point[];
 
   frameWidthPx: number;
   frameHeightPx: number;
 
-  storyboardsData: Storyboards;
+  storyboardsData: Storyboards; // Предполагаем, что включает optimal_big_density и optimal_combi
+  priorityMethod: string | null; // Добавлено для чипа
 
   framesUrlsPointBased?: string[];
   framesUrlsRecommended?: string[];
   framesUrlsOptimal?: string[];
+  framesUrlsOptimal2?: string[];
+  framesUrlsOptimal3?: string[];
 
   flightLineY?: number;
   schemaName: string;
@@ -216,14 +225,21 @@ const FlightSchemaPage: React.FC<Props> = ({
   points,
   obstacles,
   trajectoryData,
+  trajectoryData2,
+  trajectoryData3,
   pointsRecommended,
   pointsOptimal,
+  pointsOptimal2,
+  pointsOptimal3,
   frameWidthPx,
   frameHeightPx,
   storyboardsData,
+  priorityMethod,
   framesUrlsPointBased,
   framesUrlsRecommended,
   framesUrlsOptimal,
+  framesUrlsOptimal2,
+  framesUrlsOptimal3,
   flightLineY,
   schemaName,
   createdAt,
@@ -233,17 +249,29 @@ const FlightSchemaPage: React.FC<Props> = ({
   const [optimizationTab, setOptimizationTab] = React.useState(0);
   const [storyboardTab, setStoryboardTab] = React.useState(0);
   const [droneTab, setDroneTab] = React.useState(0);
+  const [comparisonTab, setComparisonTab] = React.useState(0);
 
   const hasExifData = exifData && exifData.length > 0;
+
+  // ── Хелпер для выбора данных оптимизации ────────────────────────────────
+  const getOptimizationData = (tab: number): Opt1TrajectoryData | null => {
+    if (tab === 0) return trajectoryData;
+    if (tab === 1) return trajectoryData2;
+    if (tab === 2) return trajectoryData3;
+    return null;
+  };
+
+  const currentOptimizationData = getOptimizationData(optimizationTab);
+  const comparisonData = getOptimizationData(comparisonTab);
 
   // ── Данные для графиков сравнения ────────────────────────────────────────
 
   /** Для каждого таксона строим точки по времени */
   const taxonChartData = React.useMemo(() => {
-    if (!trajectoryData?.B) return [];
-    return trajectoryData.B.map((taxon: any, idx: number) => ({
+    if (!comparisonData?.B) return [];
+    return comparisonData.B.map((taxon: any, idx: number) => ({
       label: `Таксон ${idx + 1}`,
-      color: TAXON_COLORS[idx % TAXON_COLORS.length],
+      color: taxon.color,
       // route: [[x, y, t], ...]
       data: (taxon.route ?? taxon.points ?? []).map(
         (pt: number[], ptIdx: number) => ({
@@ -252,17 +280,17 @@ const FlightSchemaPage: React.FC<Props> = ({
         }),
       ),
     }));
-  }, [trajectoryData]);
+  }, [comparisonData]);
 
   /** Сводная таблица по таксонам */
   const taxonSummary = React.useMemo(() => {
-    if (!trajectoryData?.B) return [];
-    return trajectoryData.B.map((taxon: any, idx: number) => {
+    if (!comparisonData?.B) return [];
+    return comparisonData.B.map((taxon: any, idx: number) => {
       const pts = taxon.route ?? taxon.points ?? [];
       const lastPt = pts[pts.length - 1];
       return {
         idx: idx + 1,
-        color: TAXON_COLORS[idx % TAXON_COLORS.length],
+        color: taxon.color,
         base: taxon.base
           ? `(${taxon.base[0]?.toFixed(1)}, ${taxon.base[1]?.toFixed(1)})`
           : "—",
@@ -270,7 +298,7 @@ const FlightSchemaPage: React.FC<Props> = ({
         timeSec: lastPt?.[2] ?? taxon.time_sec ?? null,
       };
     });
-  }, [trajectoryData]);
+  }, [comparisonData]);
 
   /** Данные для барчарта сравнения времени таксонов */
   const taxonBarData = React.useMemo(
@@ -316,24 +344,24 @@ const FlightSchemaPage: React.FC<Props> = ({
     </Grid>
   );
 
-      // 1. Создаем ref, если он нужен для работы с сценей (например, для экспорта)
-    const sceneUserTrajectoryShower = React.useRef<any>(null);
+  // 1. Создаем ref
+  const sceneUserTrajectoryShower = React.useRef<any>(null);
 
-    // 2. Загружаем изображение (если еще не загружено на этом уровне)
-    const [image] = useImage(imageData?.imageUrl);
+  // 2. Загружаем изображение
+  const [image] = useImage(imageData?.imageUrl);
 
-    // 3. Определяем общие пропсы
-    const commonProps = {
-      imageData,
-      droneParams,
-      points,
-      obstacles,
-      flightLineY,
-      weatherConditions,
-      onShowView: () => {}, // Функция открытия полного просмотра
-      stageRef: sceneUserTrajectoryShower, // Ref на сцену
-      image: image, // Сам объект HTMLImageElement
-    };
+  // 3. Определяем общие пропсы
+  const commonProps = {
+    imageData,
+    droneParams,
+    points,
+    obstacles,
+    flightLineY,
+    weatherConditions,
+    onShowView: () => { },
+    stageRef: sceneUserTrajectoryShower,
+    image: image,
+  };
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -388,6 +416,9 @@ const FlightSchemaPage: React.FC<Props> = ({
       </Box>
 
       <Stack spacing={4}>
+        {/* ═══════════════════════════════════════════════════════════════════
+            1. Информация о базовом слое
+        ═══════════════════════════════════════════════════════════════════ */}
         <SectionBox title="Информация о базовом слое">
           <Stack direction="row" spacing={2}>
             <Box
@@ -460,8 +491,8 @@ const FlightSchemaPage: React.FC<Props> = ({
                             {renderValue(
                               exifData[0]?.dateTime
                                 ? new Date(
-                                    exifData[0].dateTime,
-                                  ).toLocaleString()
+                                  exifData[0].dateTime,
+                                ).toLocaleString()
                                 : null,
                             )}
                           </Typography>
@@ -703,7 +734,7 @@ const FlightSchemaPage: React.FC<Props> = ({
           <Stack direction="row" spacing={2}>
             {/* Сцена */}
             <Box
-            display="flex"
+              display="flex"
               flex={1}
               minHeight={340}
               sx={{ borderRadius: 2, overflow: "hidden", backgroundColor: "#F2F2F2", justifyContent: "center", alignItems: "center" }}
@@ -711,11 +742,10 @@ const FlightSchemaPage: React.FC<Props> = ({
               {imageData ? (
                 <ScenePreview
                   {...commonProps}
-                  // Специфичные пропсы для этого превью
                   trajectoryData={null}
                   showUserTrajectory={true}
                   showTaxonTrajectory={false}
-                  isLoading={false} // Передаем состояние загрузки, если есть
+                  isLoading={false}
                 />
               ) : (
                 <Placeholder label="Нет данных" />
@@ -883,9 +913,9 @@ const FlightSchemaPage: React.FC<Props> = ({
                 center={
                   weatherConditions?.position?.lat
                     ? [
-                        weatherConditions.position.lat,
-                        weatherConditions.position.lon,
-                      ]
+                      weatherConditions.position.lat,
+                      weatherConditions.position.lon,
+                    ]
                     : [53, 59]
                 }
                 zoom={14}
@@ -900,9 +930,9 @@ const FlightSchemaPage: React.FC<Props> = ({
                   position={
                     weatherConditions?.position?.lat
                       ? [
-                          weatherConditions.position.lat,
-                          weatherConditions.position.lon,
-                        ]
+                        weatherConditions.position.lat,
+                        weatherConditions.position.lon,
+                      ]
                       : [53, 59]
                   }
                 >
@@ -933,11 +963,10 @@ const FlightSchemaPage: React.FC<Props> = ({
                   label="Направление ветра"
                   value={
                     weatherConditions?.windDirection != null
-                      ? `${
-                          weatherConditions.windDirection
-                        }° (${getWindDirectionLabel(
-                          weatherConditions.windDirection,
-                        )})`
+                      ? `${weatherConditions.windDirection
+                      }° (${getWindDirectionLabel(
+                        weatherConditions.windDirection,
+                      )})`
                       : "—"
                   }
                 />
@@ -1000,77 +1029,90 @@ const FlightSchemaPage: React.FC<Props> = ({
         {/* ═══════════════════════════════════════════════════════════════════
             5. Оптимизация траектории
         ═══════════════════════════════════════════════════════════════════ */}
-        <SectionBox title="Оптимизация траектории">
+        <SectionBox
+          title={
+            <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
+              Оптимизация траектории
+              <Chip
+                label={`Приоритетная траектория: ${priorityMethod || 'Не выбран'}`}
+                color="primary"
+                variant="outlined"
+                size="small"
+              />
+            </Box>
+          }
+        >
           <Tabs
             value={optimizationTab}
             onChange={(_, v) => setOptimizationTab(v)}
             sx={{ borderBottom: 1, borderColor: "divider" }}
           >
-            <Tab label="Метод 1 (МКТ)" />
-            <Tab label="Метод 2 (БКТ)" disabled={!trajectoryData} />
+            <Tab label="Метод 1 (НПТ, low-d)" />
+            <Tab label="Метод 2 (ВПТ, high-d)" />
+            <Tab label="Метод 3 (Комби, combi)" />
           </Tabs>
 
-          {/* ── Метод 1 ── */}
-          {optimizationTab === 0 && (
-            <Stack direction="row" spacing={2} mt={2}>
-              {/* Сцена с оптимизированной траекторией */}
-              <Box
-                flex={1}
-                height={400}
-                sx={{ borderRadius: 2, overflow: "hidden" }}
-              >
-                {imageData && trajectoryData ? (
-                  <SceneShower
-                    imageData={imageData}
-                    droneParams={droneParams}
-                    points={points}
-                    obstacles={obstacles}
-                    trajectoryData={trajectoryData}
-                    showView={() => {}}
-                    ref={null}
-                    showGrid={true}
-                    showUserTrajectory={false}
-                    showObstacles={true}
-                    showTaxonTrajectory={true}
-                    flightLineY={flightLineY ?? 0}
-                    weatherConditions={weatherConditions}
-                  />
-                ) : (
-                  <Placeholder label="Запустите оптимизацию для отображения траектории" />
-                )}
-              </Box>
+          <Box mt={2}>
+            {/* Отрисовка активной вкладки оптимизации */}
+            {currentOptimizationData ? (
+              <Stack direction="row" spacing={2}>
+                {/* Сцена */}
+                <Box
+                  flex={1}
+                  height={400}
+                  sx={{ borderRadius: 2, overflow: "hidden" }}
+                >
+                  {imageData ? (
+                    <SceneShower
+                      imageData={imageData}
+                      droneParams={droneParams}
+                      points={points}
+                      obstacles={obstacles}
+                      trajectoryData={currentOptimizationData}
+                      showView={() => { }}
+                      ref={null}
+                      showGrid={true}
+                      showUserTrajectory={false}
+                      showObstacles={true}
+                      showTaxonTrajectory={true}
+                      flightLineY={flightLineY ?? 0}
+                      weatherConditions={weatherConditions}
+                    />
+                  ) : (
+                    <Placeholder label="Нет изображения" />
+                  )}
+                </Box>
 
-              {/* Метрики */}
-              <Box
-                flex={1}
-                component={Paper}
-                elevation={1}
-                variant="outlined"
-                sx={{ p: 2, background: "transparent" }}
-              >
-                {trajectoryData ? (
+                {/* Метрики (логика та же, но берем из currentOptimizationData) */}
+                <Box
+                  flex={1}
+                  component={Paper}
+                  elevation={1}
+                  variant="outlined"
+                  sx={{ p: 2, background: "transparent" }}
+                >
                   <Stack spacing={2}>
                     <Typography variant="subtitle1">
-                      Результаты оптимизации (МКТ)
+                      Результаты оптимизации (Метод {optimizationTab + 1})
                     </Typography>
 
                     <Grid container spacing={2}>
                       <Grid size={{ xs: 6 }}>
                         <MetricCard
                           label="Таксонов"
-                          value={trajectoryData.B?.length ?? "—"}
+                          value={currentOptimizationData.B?.length ?? "—"}
                         />
                       </Grid>
                       <Grid size={{ xs: 6 }}>
                         <MetricCard
                           label="Охвачено точек"
                           value={
-                            trajectoryData.B
-                              ? trajectoryData.B.reduce(
-                                  (s: number, t: any) =>
-                                    s + (t.route ?? t.points ?? []).length - 2,
-                                  0,
-                                )
+                            currentOptimizationData.B
+                              ? currentOptimizationData.B.reduce(
+                                (s: number, t: any) =>
+                                  s + (t.route ?? t.points ?? []).length - 2,
+                                0,
+                              )
                               : "—"
                           }
                         />
@@ -1078,7 +1120,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                       <Grid size={{ xs: 6 }}>
                         <MetricCard
                           label="Недостижимых точек"
-                          value={trajectoryData.C?.length ?? 0}
+                          value={currentOptimizationData.C?.length ?? 0}
                           tooltip="Точки, которые не удалось включить ни в один таксон."
                         />
                       </Grid>
@@ -1086,7 +1128,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                         <MetricCard
                           label="Суммарное время"
                           value={formatTime(
-                            trajectoryData.B?.reduce((s: number, t: any) => {
+                            currentOptimizationData.B?.reduce((s: number, t: any) => {
                               const pts = t.route ?? t.points ?? [];
                               return (
                                 s +
@@ -1098,7 +1140,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                       </Grid>
                     </Grid>
 
-                    {/* Таблица по таксонам */}
+                    {/* Таблица по таксонам (пересчитываем для текущих данных) */}
                     <TableContainer
                       component={Paper}
                       variant="outlined"
@@ -1114,40 +1156,46 @@ const FlightSchemaPage: React.FC<Props> = ({
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {taxonSummary.map((t) => (
-                            <TableRow key={t.idx} hover>
-                              <TableCell>
-                                <Stack
-                                  direction="row"
-                                  spacing={1}
-                                  alignItems="center"
-                                >
-                                  <Box
-                                    sx={{
-                                      width: 10,
-                                      height: 10,
-                                      borderRadius: "50%",
-                                      bgcolor: t.color,
-                                    }}
-                                  />
-                                  <span>{t.idx}</span>
-                                </Stack>
-                              </TableCell>
-                              <TableCell>{t.base}</TableCell>
-                              <TableCell align="center">
-                                {t.pointsCount - 2}
-                              </TableCell>
-                              <TableCell align="right">
-                                {formatTime(t.timeSec)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {currentOptimizationData.B.map((taxon: any, idx: number) => {
+                            const pts = taxon.route ?? taxon.points ?? [];
+                            const lastPt = pts[pts.length - 1];
+                            return (
+                              <TableRow key={idx} hover>
+                                <TableCell>
+                                  <Stack
+                                    direction="row"
+                                    spacing={1}
+                                    alignItems="center"
+                                  >
+                                    <Box
+                                      sx={{
+                                        width: 10,
+                                        height: 10,
+                                        borderRadius: "50%",
+                                        bgcolor: taxon.color,
+                                      }}
+                                    />
+                                    <span>{idx + 1}</span>
+                                  </Stack>
+                                </TableCell>
+                                <TableCell>
+                                  {taxon.base ? `(${taxon.base[0]?.toFixed(1)}, ${taxon.base[1]?.toFixed(1)})` : "—"}
+                                </TableCell>
+                                <TableCell align="center">
+                                  {pts.length > 0 ? pts.length - 2 : 0}
+                                </TableCell>
+                                <TableCell align="right">
+                                  {formatTime(lastPt?.[2] ?? taxon.time_sec)}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </TableContainer>
 
                     {/* Недостижимые точки */}
-                    {trajectoryData.C?.length > 0 && (
+                    {currentOptimizationData.C?.length > 0 && (
                       <Box>
                         <Typography
                           variant="body2"
@@ -1155,12 +1203,12 @@ const FlightSchemaPage: React.FC<Props> = ({
                           fontWeight={600}
                           mb={0.5}
                         >
-                          Недостижимые точки ({trajectoryData.C.length}):
+                          Недостижимые точки ({currentOptimizationData.C.length}):
                         </Typography>
                         <Box
                           sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
                         >
-                          {trajectoryData.C.map((pt: number[], i: number) => (
+                          {currentOptimizationData.C.map((pt: number[], i: number) => (
                             <Chip
                               key={i}
                               size="small"
@@ -1175,19 +1223,12 @@ const FlightSchemaPage: React.FC<Props> = ({
                       </Box>
                     )}
                   </Stack>
-                ) : (
-                  <Placeholder label="Нет данных оптимизации" />
-                )}
-              </Box>
-            </Stack>
-          )}
-
-          {/* ── Метод 2 — заглушка ── */}
-          {optimizationTab === 1 && (
-            <Box mt={2} height={340}>
-              <Placeholder label="Данные метода 2 (БКТ)" />
-            </Box>
-          )}
+                </Box>
+              </Stack>
+            ) : (
+              <Placeholder label="Нет данных" />
+            )}
+          </Box>
         </SectionBox>
 
         <Divider />
@@ -1201,207 +1242,181 @@ const FlightSchemaPage: React.FC<Props> = ({
             onChange={(_, v) => setStoryboardTab(v)}
             sx={{ borderBottom: 1, borderColor: "divider" }}
           >
-            <Tab label="Точечная" disabled={!storyboardsData?.point?.applied} />
-            <Tab
-              label="Рекомендуемая"
-              disabled={!storyboardsData?.recommended?.applied}
-            />
-            <Tab
-              label="Оптимальная"
-              disabled={!storyboardsData?.optimal?.applied}
-            />
+            <Tab label="Точечная"/>
+            <Tab label="Рекомендуемая" />
+            <Tab label="Оптимальная (НПТ)" />
+            <Tab label="Оптимальная (ВПТ)" />
+            <Tab label="Оптимальная (Комби)" />
+            {/* <Tab label="Точечная" disabled={!storyboardsData?.point?.applied} />
+            <Tab label="Рекомендуемая" disabled={!storyboardsData?.recommended?.applied} />
+            <Tab label="Оптимальная (НПТ)" disabled={!storyboardsData?.optimal?.applied} />
+            <Tab label="Оптимальная (ВПТ)" disabled={!storyboardsData?.optimal_big_density?.applied} />
+            <Tab label="Оптимальная (Комби)" disabled={!storyboardsData?.optimal_combi?.applied} /> */}
           </Tabs>
 
           <Box mt={2} height={400}>
+
             {/* ── Точечная ── */}
-            {storyboardTab === 0 &&
-              (storyboardsData?.point?.applied ? (
-                <Box display="flex" flexDirection="row" gap={2} height="100%">
-                  <Box
-                    flex={0.5}
-                    minHeight={400}
-                    maxHeight={400}
-                    minWidth={550}
-                    justifyContent="center"
-                    alignItems="center"
-                    display="flex"
-                    sx={{
-                      background: "#D3D3D399",
-                      borderRadius: 1,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <SceneViewer
-                      imageData={imageData}
-                      points={points}
-                      obstacles={obstacles}
-                      trajectoryData={trajectoryData}
-                      showPoints={true}
-                      showObstacles={false}
-                      showTaxons={false}
-                      frameWidthPx={frameWidthPx}
-                      frameHeightPx={frameHeightPx}
-                      applyPointBasedStoryboard={true}
-                      applyRecommendedStoryboard={false}
-                      applyOptimalStoryboard={false}
-                      width_m={droneParams?.frameWidthBase || 0}
-                      height_m={droneParams?.frameHeightBase || 0}
-                    />
-                  </Box>
-                  <Box
-                    flex={1}
-                    p={2}
-                    borderRadius={1}
-                    component={Paper}
-                    variant="outlined"
-                    display="flex"
-                    flexDirection="column"
-                    justifyContent="space-between"
-                    overflow="auto"
-                    sx={{ background: "transparent" }}
-                  >
-                    <Stack spacing={2}>
-                      <Typography variant="subtitle1">
-                        Свойства раскадровки
-                      </Typography>
-                      <StoryboardMetrics data={storyboardsData.point} />
-                    </Stack>
-                    <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                      <StoryboardTimeline frames={framesUrlsPointBased ?? []} />
-                    </Box>
+            {storyboardTab === 0 && storyboardsData?.point?.applied && (
+              <Box display="flex" flexDirection="row" gap={2} height="100%">
+                <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} justifyContent="center" alignItems="center" display="flex" sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }}>
+                  <SceneViewer
+                    imageData={imageData}
+                    points={points}
+                    obstacles={obstacles}
+                    trajectoryData={trajectoryData}
+                    showPoints={true} showObstacles={false} showTaxons={false}
+                    frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
+                    applyPointBasedStoryboard={true}
+                    applyRecommendedStoryboard={false}
+                    applyOptimalStoryboard={false}
+                    width_m={droneParams?.frameWidthBase || 0}
+                    height_m={droneParams?.frameHeightBase || 0}
+                  />
+                </Box>
+                <Box flex={1} p={2} borderRadius={1} component={Paper} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
+                  <Stack spacing={2}>
+                    <Typography variant="subtitle1">Свойства раскадровки</Typography>
+                    <StoryboardMetrics data={storyboardsData.point} />
+                  </Stack>
+                  <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
+                    <StoryboardTimeline frames={framesUrlsPointBased ?? []} />
                   </Box>
                 </Box>
-              ) : (
-                <Placeholder label="Данные точечной раскадровки отсутствуют." />
-              ))}
+              </Box>
+            )}
 
             {/* ── Рекомендуемая ── */}
-            {storyboardTab === 1 &&
-              (storyboardsData?.recommended?.applied ? (
-                <Box display="flex" flexDirection="row" gap={2} height="100%">
-                  <Box
-                    flex={0.5}
-                    minHeight={400}
-                    maxHeight={400}
-                    sx={{
-                      background: "#D3D3D399",
-                      borderRadius: 1,
-                      overflow: "hidden",
-                    }}
-                    minWidth={550}
-                    justifyContent="center"
-                    alignItems="center"
-                    display="flex"
-                  >
-                    <SceneViewer
-                      imageData={imageData}
-                      pointsRecommended={pointsRecommended}
-                      obstacles={obstacles}
-                      trajectoryData={trajectoryData}
-                      showPoints={true}
-                      showObstacles={false}
-                      showTaxons={false}
-                      frameWidthPx={frameWidthPx}
-                      frameHeightPx={frameHeightPx}
-                      applyPointBasedStoryboard={false}
-                      applyRecommendedStoryboard={true}
-                      applyOptimalStoryboard={false}
-                      width_m={droneParams?.frameWidthBase || 0}
-                      height_m={droneParams?.frameHeightBase || 0}
-                    />
-                  </Box>
-                  <Box
-                    flex={1}
-                    p={2}
-                    borderRadius={1}
-                    component={Paper}
-                    elevation={1}
-                    variant="outlined"
-                    display="flex"
-                    flexDirection="column"
-                    justifyContent="space-between"
-                    overflow="auto"
-                    sx={{ background: "transparent" }}
-                  >
-                    <Stack spacing={2}>
-                      <Typography variant="subtitle1">
-                        Свойства раскадровки
-                      </Typography>
-                      <StoryboardMetrics data={storyboardsData.recommended} />
-                    </Stack>
-                    <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                      <StoryboardTimeline
-                        frames={framesUrlsRecommended ?? []}
-                      />
-                    </Box>
+            {storyboardTab === 1 && storyboardsData?.recommended?.applied && (
+              <Box display="flex" flexDirection="row" gap={2} height="100%">
+                <Box flex={0.5} minHeight={400} maxHeight={400} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} minWidth={550} justifyContent="center" alignItems="center" display="flex">
+                  <SceneViewer
+                    imageData={imageData}
+                    pointsRecommended={pointsRecommended}
+                    obstacles={obstacles}
+                    trajectoryData={trajectoryData}
+                    showPoints={true} showObstacles={false} showTaxons={false}
+                    frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
+                    applyPointBasedStoryboard={false}
+                    applyRecommendedStoryboard={true}
+                    applyOptimalStoryboard={false}
+                    width_m={droneParams?.frameWidthBase || 0}
+                    height_m={droneParams?.frameHeightBase || 0}
+                  />
+                </Box>
+                <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
+                  <Stack spacing={2}>
+                    <Typography variant="subtitle1">Свойства раскадровки</Typography>
+                    <StoryboardMetrics data={storyboardsData.recommended} />
+                  </Stack>
+                  <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
+                    <StoryboardTimeline frames={framesUrlsRecommended ?? []} />
                   </Box>
                 </Box>
-              ) : (
-                <Placeholder label="Данные рекомендуемой раскадровки отсутствуют." />
-              ))}
+              </Box>
+            )}
 
             {/* ── Оптимальная ── */}
-            {storyboardTab === 2 &&
-              (storyboardsData?.optimal?.applied ? (
-                <Box display="flex" flexDirection="row" gap={2} height="100%">
-                  <Box
-                    flex={0.5}
-                    minHeight={400}
-                    maxHeight={400}
-                    minWidth={550}
-                    sx={{
-                      background: "#D3D3D399",
-                      borderRadius: 1,
-                      overflow: "hidden",
-                    }}
-                    justifyContent="center"
-                    alignItems="center"
-                    display="flex"
-                  >
-                    <SceneViewer
-                      imageData={imageData}
-                      pointsOptimal={pointsOptimal ?? []}
-                      obstacles={obstacles}
-                      trajectoryData={trajectoryData}
-                      showPoints={true}
-                      showObstacles={false}
-                      showTaxons={true}
-                      frameWidthPx={frameWidthPx}
-                      frameHeightPx={frameHeightPx}
-                      applyPointBasedStoryboard={false}
-                      applyRecommendedStoryboard={false}
-                      applyOptimalStoryboard={true}
-                      width_m={droneParams?.frameWidthBase || 0}
-                      height_m={droneParams?.frameHeightBase || 0}
-                    />
-                  </Box>
-                  <Box
-                    flex={1}
-                    p={2}
-                    borderRadius={1}
-                    component={Paper}
-                    elevation={1}
-                    variant="outlined"
-                    display="flex"
-                    flexDirection="column"
-                    justifyContent="space-between"
-                    overflow="auto"
-                    sx={{ background: "transparent" }}
-                  >
-                    <Stack spacing={2}>
-                      <Typography variant="subtitle1">
-                        Свойства раскадровки
-                      </Typography>
-                      <StoryboardMetrics data={storyboardsData.optimal} />
-                    </Stack>
-                    <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                      <StoryboardTimeline frames={framesUrlsOptimal ?? []} />
-                    </Box>
+            {storyboardTab === 2 && storyboardsData?.optimal?.applied && (
+              <Box display="flex" flexDirection="row" gap={2} height="100%">
+                <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
+                  <SceneViewer
+                    imageData={imageData}
+                    pointsOptimal={pointsOptimal ?? []}
+                    obstacles={obstacles}
+                    trajectoryData={trajectoryData}
+                    showPoints={true} showObstacles={false} showTaxons={true}
+                    frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
+                    applyPointBasedStoryboard={false}
+                    applyRecommendedStoryboard={false}
+                    applyOptimalStoryboard={true}
+                    width_m={droneParams?.frameWidthBase || 0}
+                    height_m={droneParams?.frameHeightBase || 0}
+                  />
+                </Box>
+                <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
+                  <Stack spacing={2}>
+                    <Typography variant="subtitle1">Свойства раскадровки</Typography>
+                    <StoryboardMetrics data={storyboardsData.optimal} />
+                  </Stack>
+                  <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
+                    <StoryboardTimeline frames={framesUrlsOptimal ?? []} />
                   </Box>
                 </Box>
-              ) : (
-                <Placeholder label="Данные оптимальной раскадровки отсутствуют." />
-              ))}
+              </Box>
+            )}
+
+            {/* ── Оптимальная (Плотная) ── */}
+            {storyboardTab === 3 && storyboardsData?.optimal_big_density?.applied && (
+              <Box display="flex" flexDirection="row" gap={2} height="100%">
+                <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
+                  <SceneViewer
+                    imageData={imageData}
+                    pointsOptimal={pointsOptimal2 ?? []}
+                    obstacles={obstacles}
+                    trajectoryData={trajectoryData2} // Используем приоритетный или соответствующий
+                    showPoints={true} showObstacles={false} showTaxons={true}
+                    frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
+                    applyPointBasedStoryboard={false}
+                    applyRecommendedStoryboard={false}
+                    applyOptimalStoryboard={true} // Флаг визуализации прямоугольников
+                    width_m={droneParams?.frameWidthBase || 0}
+                    height_m={droneParams?.frameHeightBase || 0}
+                  />
+                </Box>
+                <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
+                  <Stack spacing={2}>
+                    <Typography variant="subtitle1">Свойства раскадровки (Плотная)</Typography>
+                    <StoryboardMetrics data={storyboardsData.optimal_big_density} />
+                  </Stack>
+                  <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
+                    <StoryboardTimeline frames={framesUrlsOptimal2 ?? []} />
+                  </Box>
+                </Box>
+              </Box>
+            )}
+
+            {/* ── Оптимальная (Комби) ── */}
+            {storyboardTab === 4 && storyboardsData?.optimal_combi?.applied && (
+              <Box display="flex" flexDirection="row" gap={2} height="100%">
+                <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
+                  <SceneViewer
+                    imageData={imageData}
+                    pointsOptimal={pointsOptimal3 ?? []}
+                    obstacles={obstacles}
+                    trajectoryData={trajectoryData3}
+                    showPoints={true} showObstacles={false} showTaxons={true}
+                    frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
+                    applyPointBasedStoryboard={false}
+                    applyRecommendedStoryboard={false}
+                    applyOptimalStoryboard={true}
+                    width_m={droneParams?.frameWidthBase || 0}
+                    height_m={droneParams?.frameHeightBase || 0}
+                  />
+                </Box>
+                <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display=" flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
+                  <Stack spacing={2}>
+                    <Typography variant="subtitle1">Свойства раскадровки (Комби)</Typography>
+                    <StoryboardMetrics data={storyboardsData.optimal_combi} />
+                  </Stack>
+                  <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
+                    <StoryboardTimeline frames={framesUrlsOptimal3 ?? []} />
+                  </Box>
+                </Box>
+
+              </Box>
+            )}
+
+            {/* Placeholder if tab not active or no data */}
+            {!(
+              (storyboardTab === 0 && storyboardsData?.point?.applied) ||
+              (storyboardTab === 1 && storyboardsData?.recommended?.applied) ||
+              (storyboardTab === 2 && storyboardsData?.optimal?.applied) ||
+              (storyboardTab === 3 && storyboardsData?.optimal_big_density?.applied) ||
+              (storyboardTab === 4 && storyboardsData?.optimal_combi?.applied)
+            ) && (
+                <Placeholder label="Нет данных" />
+              )}
           </Box>
         </SectionBox>
 
@@ -1411,12 +1426,22 @@ const FlightSchemaPage: React.FC<Props> = ({
             7. Сравнение оптимизаций
         ═══════════════════════════════════════════════════════════════════ */}
         <SectionBox title="Сравнение оптимизаций">
-          {trajectoryData?.B ? (
+          <Tabs
+            value={comparisonTab}
+            onChange={(_, v) => setComparisonTab(v)}
+            sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
+          >
+            <Tab label="Метод 1" />
+            <Tab label="Метод 2"  />
+            <Tab label="Метод 3" />
+          </Tabs>
+
+          {comparisonData ? (
             <Stack spacing={3}>
-              {/* График 1: время по точкам каждого таксона */}
+              {/* График: Время маршрута по таксонам */}
               <Box>
                 <Typography variant="subtitle2" mb={1} color="text.secondary">
-                  Накопленное время полёта по точкам таксонов
+                  Время маршрута по таксонам (Метод {comparisonTab + 1})
                 </Typography>
                 <ResponsiveContainer width="100%" height={280}>
                   <LineChart margin={{ top: 4, right: 24, left: 0, bottom: 4 }}>
@@ -1458,35 +1483,15 @@ const FlightSchemaPage: React.FC<Props> = ({
                   </LineChart>
                 </ResponsiveContainer>
               </Box>
-
-              {/* График 2: время на таксон */}
-              {/* <Box>
-                <Typography variant="subtitle2" mb={1} color="text.secondary">
-                  Общее время сессии по таксонам
-                </Typography>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={taxonBarData} margin={{ top: 4, right: 24, left: 0, bottom: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis label={{ value: "Время, с", angle: -90, position: "insideLeft", offset: 10 }} />
-                    <RechartsTooltip formatter={(v: number) => [`${v} с`, "Время"]} />
-                    <Bar dataKey="time" name="Время сессии">
-                      {taxonBarData.map((_, idx) => (
-                        <rect key={idx} fill={TAXON_COLORS[idx % TAXON_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box> */}
             </Stack>
           ) : (
-            <Placeholder label="Запустите оптимизацию для отображения графиков" />
+            <Placeholder label="Нет данных" />
           )}
         </SectionBox>
 
         <Box height="15px" />
       </Stack>
-    </PageContainer>
+    </PageContainer >
   );
 };
 
@@ -1496,7 +1501,7 @@ function SectionBox({
   title,
   children,
 }: {
-  title: string;
+  title: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -1510,7 +1515,11 @@ function SectionBox({
         p: 2,
       }}
     >
-      <Typography variant="h6">{title}</Typography>
+      {typeof title === 'string' ? (
+        <Typography variant="h6">{title}</Typography>
+      ) : (
+        title
+      )}
       {children}
     </Stack>
   );

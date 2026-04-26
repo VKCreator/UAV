@@ -299,7 +299,7 @@ const DashboardsPage = () => {
       }
     }
 
-    return getMethodLabel(mostPopular);
+    return mostPopular;
   }, [schemas]);
 
   return (

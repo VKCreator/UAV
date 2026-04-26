@@ -64,6 +64,8 @@ interface CompareOptimizationMethodsStepProps {
   trajectoryData: TrajectoryData | null;
   trajectoryData2: TrajectoryData | null;
   trajectoryData3: TrajectoryData | null;
+  priorityMethod: string,
+  setPriorityMethod: (newMethod: string) => void;
 }
 
 // ─── Константы ────────────────────────────────────────────────────────────────
@@ -88,7 +90,7 @@ const formatCoord = (v: number): string => v.toFixed(2);
 
 const EmptyState: React.FC = () => (
   <Paper variant="outlined" sx={{ m: 2, p: 4, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 1, color: "text.secondary" }}>
-    <Typography variant="body1">Результаты оптимизации отсутствуют</Typography>
+    <Typography variant="body1">Результаты оптимизации отсутствуют.</Typography>
   </Paper>
 );
 
@@ -271,13 +273,13 @@ const MethodTab: React.FC<{ data: TrajectoryData | null; methodLabel: string }> 
   );
 };
 
-const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryData | null; data2: TrajectoryData | null }> = ({ data1, data2, data3 }) => {
-  const [selectedMethod, setSelectedMethod] = useState("method1");
+const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryData | null; data2: TrajectoryData | null;  priorityMethod: string; setPriorityMethod: (m: string) => void; }> = ({ data1, data2, data3, priorityMethod, setPriorityMethod }) => {
+  // const [selectedMethod, setSelectedMethod] = useState("method1");
 
   const methods = [
-    { id: "method1", name: "Метод 1 (МКТ)", data: data1 },
-    { id: "method2", name: "Метод 2 (БКТ)", data: data2 },
-    { id: "method3", name: "Метод 3 (Комби)", data: data3 },
+    { id: "METHOD_1", name: "Метод 1 (НПТ)", data: data1 },
+    { id: "METHOD_2", name: "Метод 2 (ВПТ)", data: data2 },
+    { id: "METHOD_3", name: "Метод 3 (Комби)", data: data3 },
   ];
 
   const metrics = [
@@ -319,7 +321,8 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
 
   React.useEffect(() => {
     if (recommendedMethod) {
-      setSelectedMethod(recommendedMethod.id);
+      // setSelectedMethod(recommendedMethod.id);
+      setPriorityMethod(recommendedMethod.id);
     }
   }, [recommendedMethod]);
 
@@ -370,9 +373,9 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
         <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
           <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>Приоритетный метод оптимизации:</Typography>
           <FormControl component="fieldset">
-            <RadioGroup name="priorityMethod" value={selectedMethod} onChange={(e) => setSelectedMethod(e.target.value)}>
+            <RadioGroup name="priorityMethod" value={priorityMethod} onChange={(e) => setPriorityMethod(e.target.value)}>
               {methods.map(method => (
-                <FormControlLabel key={method.id} value={method.id} control={<Radio size="small" />} label={method.name} />
+                <FormControlLabel key={method.id} value={method.id} control={<Radio size="small" />} label={method.name} disabled={!method.data} />
               ))}
             </RadioGroup>
           </FormControl>
@@ -387,12 +390,13 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
   );
 };
 
-// ─── Основной компонент ───────────────────────────────────────────────────────
-
+// Основной компонент 
 const CompareOptimizationMethodsStep: React.FC<CompareOptimizationMethodsStepProps> = ({ 
   trajectoryData, 
   trajectoryData2,
-  trajectoryData3
+  trajectoryData3,
+  priorityMethod,
+  setPriorityMethod,
 }) => {
   const [selectedTab, setSelectedTab] = useState(0);
 
@@ -405,7 +409,7 @@ const CompareOptimizationMethodsStep: React.FC<CompareOptimizationMethodsStepPro
       case 2:
         return <MethodTab data={trajectoryData3} methodLabel="3 методу (Комбинированный)" />;
       case 3:
-        return <ComparisonTab data1={trajectoryData} data2={trajectoryData2} data3={trajectoryData3} />;
+        return <ComparisonTab data1={trajectoryData} data2={trajectoryData2} data3={trajectoryData3} priorityMethod={priorityMethod} setPriorityMethod={setPriorityMethod} />;
       default:
         return null;
     }

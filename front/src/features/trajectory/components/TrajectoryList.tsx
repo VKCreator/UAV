@@ -130,7 +130,7 @@ export default function TrajectoryList() {
     const lowerSearch = searchText.toLowerCase();
 
     return rowsState.rows.filter((row) => {
-      const methodLabel = getMethodLabel(row.methodType).toLowerCase();
+      const methodLabel = row.methodType.toLowerCase();
       return (
         row.schemaName.toLowerCase().includes(lowerSearch) ||
         String(row.pointCount).toLowerCase().includes(lowerSearch) ||
@@ -262,7 +262,6 @@ export default function TrajectoryList() {
         width: 180,
         minWidth: 180,
         renderCell: (params) => {
-          console.log(params.row.id)
           const isNew = !isNaN(newSchemaId) && newSchemaId === params.row.id;
 
           return (
