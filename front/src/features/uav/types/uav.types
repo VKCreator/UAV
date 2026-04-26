@@ -1,12 +1,12 @@
 export interface Drone {
-  id: number;
+  drone_id: number;
   model: string;
-  fov_vertical: number; // угол обзора (градусы)
-  resolution_width: number;
-  resolution_height: number;
+  default_vertical_fov: number; // угол обзора (градусы)
+  default_resolution_width: number;
+  default_resolution_height: number;
   max_wind_resistance: number; // м/с
   max_speed: number; // м/с
   min_speed: number; // м/с
-  battery_life: number; // минуты
-  image_name: string | null;
+  max_battery_life: number; // минуты
+  model_image_path: string | null;
 }

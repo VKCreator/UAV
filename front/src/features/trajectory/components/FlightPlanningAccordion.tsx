@@ -108,15 +108,15 @@ export default function FlightPlanningAccordion({
   const handleDroneChange = (drone: Drone) => {
     setDroneParams((prev) => ({
       ...prev,
-      selectedDroneId: String(drone.id),
+      selectedDroneId: String(drone.drone_id),
       uavCameraParams: {
-        fov: drone.fov_vertical,
-        resolutionWidth: drone.resolution_width,
-        resolutionHeight: drone.resolution_height,
+        fov: drone.default_vertical_fov,
+        resolutionWidth: drone.default_resolution_width,
+        resolutionHeight: drone.default_resolution_height,
         useFromReference: true,
       },
       speed: drone.min_speed + 5,
-      batteryTime: drone.battery_life,
+      batteryTime: drone.max_battery_life,
       windResistance: drone.max_wind_resistance,
       model: drone.model,
     }));

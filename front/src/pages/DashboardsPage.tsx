@@ -243,7 +243,7 @@ const DashboardsPage = () => {
   const avgBatteryTime = useMemo(() => {
     if (drones.length === 0) return 0;
     return Math.round(
-      drones.reduce((sum, drone) => sum + (drone.battery_life ?? 0), 0) /
+      drones.reduce((sum, drone) => sum + (drone.max_battery_life ?? 0), 0) /
         drones.length,
     );
   }, [drones]);
@@ -419,15 +419,15 @@ const DashboardsPage = () => {
                 drones.slice(0, 6).map((drone, index) => (
                   <Grid
                     size={{ xs: 12, sm: 6, md: 4, lg: 4 }}
-                    key={drone.id ?? index}
+                    key={drone.drone_id ?? index}
                   >
                     <CardWithDetails
                       title={drone.model}
                       link={`/drones`}
                       created_date={null}
                       image_url={
-                        drone.image_name
-                          ? `${API_BASE_URL}/uploads/thumbs/${drone.image_name}`
+                        drone.model_image_path
+                          ? `${API_BASE_URL}/uploads/thumbs/${drone.model_image_path}`
                           : undefined
                       }
                     />
@@ -486,7 +486,7 @@ const DashboardsPage = () => {
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
                 <MetricCard
                   title="Популярный метод оптимизации"
-                  value={popularMethod || "-"}
+                  value={popularMethod || "—"}
                   icon={<TuneIcon fontSize="large" />}
                 />
               </Grid>

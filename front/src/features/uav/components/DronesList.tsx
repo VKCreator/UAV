@@ -59,9 +59,25 @@ export default function DronesList() {
 
     // Читаем из кэша
     const cached = localStorage.getItem("drones-cache-v1");
+
     if (cached) {
-      const parsed = JSON.parse(cached);
-      setRowsState({ rows: parsed, rowCount: parsed.length });
+      try {
+        const parsed = JSON.parse(cached);
+
+        const isValid = Array.isArray(parsed) && 
+                        parsed.length > 0 && 
+                        parsed[0].hasOwnProperty("drone_id");
+
+        if (isValid) {
+          setRowsState({ rows: parsed, rowCount: parsed.length });
+        } else {
+          localStorage.removeItem("drones-cache-v1");
+          setIsLoading(true);
+        }
+      } catch (e) {
+        localStorage.removeItem("drones-cache-v1");
+        setIsLoading(true);
+      }
     } else {
       setIsLoading(true);
     }
@@ -142,7 +158,7 @@ export default function DronesList() {
         ),
       },
       {
-        field: "fov_vertical",
+        field: "default_vertical_fov",
         headerName: "Угол обзора (верт.), °",
         type: "number",
         minWidth: 120,
@@ -158,8 +174,8 @@ export default function DronesList() {
         flex: 0.3,
         sortable: false,
         valueGetter: (_, row: Drone) =>
-          row.resolution_width && row.resolution_height
-            ? `${row.resolution_width} × ${row.resolution_height}`
+          row.default_resolution_width && row.default_resolution_height
+            ? `${row.default_resolution_width} × ${row.default_resolution_height}`
             : "—",
       },
       {
@@ -187,7 +203,7 @@ export default function DronesList() {
         },
       },
       {
-        field: "battery_life",
+        field: "max_battery_life",
         headerName: "Время полёта, мин",
         type: "number",
         minWidth: 100,
@@ -293,10 +309,11 @@ export default function DronesList() {
           <DataGrid
             rows={filteredRows}
             columns={columns}
+            getRowId={(row) => row.drone_id}
             pagination
             paginationModel={paginationModel}
             onPaginationModelChange={setPaginationModel}
-            disableRowSelectionOnClick
+            disableRowSelectionOnClick 
             disableColumnFilter
             loading={isLoading}
             pageSizeOptions={[5, 10, 25]}

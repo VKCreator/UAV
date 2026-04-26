@@ -67,11 +67,11 @@ export default function UavParamsDialog({
 
   const handleUseFromReferenceChange = (checked: boolean) => {
     if (checked) {
-      const drone = drones.find((d) => String(d.id) === selectedDroneId);
+      const drone = drones.find((d) => String(d.drone_id) === selectedDroneId);
       if (drone != undefined) {
-        setFov(drone.fov_vertical);
-        setResolutionWidth(drone.resolution_width);
-        setResolutionHeight(drone.resolution_height);
+        setFov(drone.default_vertical_fov);
+        setResolutionWidth(drone.default_resolution_width);
+        setResolutionHeight(drone.default_resolution_height);
         setUseFromReference(true);
       }
     }

@@ -71,6 +71,15 @@ function calcFrameSize(distance: number, fovDeg: number): number {
   return 2 * distance * Math.tan(fovRad / 2);
 }
 
+/** Вспомогательная функция для извлечения чисел из новых полей бэкенда */
+const getNum = (val: any, fallback: number = 0): number => {
+  if (val && typeof val === "object" && "parsedValue" in val) {
+    return val.parsedValue;
+  }
+  if (typeof val === "number") return val;
+  return fallback;
+};
+
 /** Точная копия cropFrameKonva из StoryboardEditor */
 function cropFrameKonva(
   image: HTMLImageElement,
@@ -162,28 +171,29 @@ export default function TrajectoryDetails() {
     const {
       base_image,
       traj_shapes,
-      opt1_result,
+      opt_results, // Используем новый объект opt_results
       drone_params,
-      storyboard_point,
-      storyboard_optimal,
+      storyboard_results, // Используем новый объект storyboard_results
+      priority_opt_method,
     } = schemaData;
 
     if (!base_image) return;
-    if (!storyboard_point && !storyboard_optimal) return;
+    if (!storyboard_results) return;
 
     const imageUrl = `${API_BASE_URL}/${base_image.image_path.replace(
       /\\/g,
       "/",
     )}`;
 
+    // Парсинг параметров с учетом новой структуры {source, parsedValue}
     const drn = drone_params?.drone ?? {};
     const cam = drone_params?.camera_params ?? {};
 
-    const fov = cam.vertical_fov ?? drn.fov_vertical ?? 77;
-    const resW = cam.resolution_width ?? drn.resolution_width ?? 5472;
-    const resH = cam.resolution_height ?? drn.resolution_height ?? 3648;
-    const baseDist = drone_params?.base_distance ?? 75;
-    const plannedDist = drone_params?.planned_distance ?? 15;
+    const fov = getNum(cam.vertical_fov) ?? getNum(drn.default_vertical_fov) ?? 77;
+    const resW = getNum(cam.resolution_width) ?? getNum(drn.default_resolution_width) ?? 5472;
+    const resH = getNum(cam.resolution_height) ?? getNum(drn.default_resolution_height) ?? 3648;
+    const baseDist = getNum(drone_params.base_distance) ?? 75;
+    const plannedDist = getNum(drone_params.planned_distance) ?? 15;
 
     const frameHeightBase = calcFrameSize(baseDist, fov);
     const frameWidthBase = frameHeightBase * (resW / resH);
@@ -201,6 +211,17 @@ export default function TrajectoryDetails() {
         : 0;
 
     if (!frameWidthPx || !frameHeightPx) return;
+
+    // Находим нужные раскадровки по storyboard_name_id
+    // 1 - Point, 2 - Recommended, 3 - Optimal
+    const storyboard_point = storyboard_results?.storyboards?.find((sb: any) => sb.storyboard_name_id === 1);
+    const storyboard_recommended = storyboard_results?.storyboards?.find((sb: any) => sb.storyboard_name_id === 2);
+    const storyboard_optimal = storyboard_results?.storyboards?.find((sb: any) => sb.storyboard_name_id === 3);
+
+    // Находим результат оптимизации по приоритетному методу (или методу ID 1)
+    const optItem = opt_results?.items?.find((item: any) => item.method_id === priority_opt_method?.method_id);
+
+    if (!storyboard_point && !storyboard_optimal) return;
 
     let cancelled = false;
 
@@ -236,12 +257,12 @@ export default function TrajectoryDetails() {
         }
 
         // ── оптимальная ───────────────────────────────────────────────────────
-        if (storyboard_optimal && opt1_result?.taxons?.B.length > 0) {
+        // Используем optItem вместо opt1_result
+        if (storyboard_optimal && optItem?.taxons?.B.length > 0) {
           const mToPxW = frameWidthBase > 0 ? imgWidth / frameWidthBase : 1;
           const mToPxH = frameHeightBase > 0 ? imgHeight / frameHeightBase : 1;
 
-          // Та же логика что в extractOptimalFrames в StoryboardEditor
-          const pointsFromB: Point[] = opt1_result.taxons.B.flatMap(
+          const pointsFromB: Point[] = optItem.taxons.B.flatMap(
             (taxon: any) =>
               (taxon.points ?? taxon.route ?? []).map((pt: number[]) => ({
                 x: pt[0] * mToPxW,
@@ -343,10 +364,9 @@ export default function TrajectoryDetails() {
     drone_params,
     traj_shapes,
     weather,
-    opt1_result,
-    storyboard_point,
-    storyboard_recommended,
-    storyboard_optimal,
+    priority_opt_method,
+    opt_results,
+    storyboard_results,
   } = schemaData;
 
   const imageData = base_image
@@ -369,11 +389,11 @@ export default function TrajectoryDetails() {
     const drn = drone_params.drone ?? {};
     const cam = drone_params.camera_params ?? {};
 
-    const fov = cam.vertical_fov ?? drn.fov_vertical ?? 77;
-    const resW = cam.resolution_width ?? drn.resolution_width ?? 5472;
-    const resH = cam.resolution_height ?? drn.resolution_height ?? 3648;
-    const baseDist = drone_params.base_distance ?? 75;
-    const plannedDist = drone_params.planned_distance ?? 15;
+    const fov = getNum(cam.vertical_fov) ?? getNum(drn.default_vertical_fov) ?? 77;
+    const resW = getNum(cam.resolution_width) ?? getNum(drn.default_resolution_width) ?? 5472;
+    const resH = getNum(cam.resolution_height) ?? getNum(drn.default_resolution_height) ?? 3648;
+    const baseDist = getNum(drone_params.base_distance) ?? 75;
+    const plannedDist = getNum(drone_params.planned_distance) ?? 15;
 
     const frameHeightBase = calcFrameSize(baseDist, fov);
     const frameWidthBase = frameHeightBase * (resW / resH);
@@ -381,7 +401,7 @@ export default function TrajectoryDetails() {
     const frameWidthPlanned = frameHeightPlanned * (resW / resH);
 
     droneParams = {
-      selectedDroneId: String(drn.id ?? ""),
+      selectedDroneId: String(drn.drone_id ?? ""),
       frameHeightBase,
       frameWidthBase,
       frameHeightPlanned,
@@ -393,21 +413,21 @@ export default function TrajectoryDetails() {
         fov,
         resolutionWidth: resW,
         resolutionHeight: resH,
-        useFromReference: cam.is_dictionary ?? true,
+        useFromReference: cam.is_from_dictionary ?? true,
       },
-      speed: drone_params.speed ?? 5,
-      batteryTime: drone_params.battery_time ?? 30,
-      hoverTime: drone_params.hover_time ?? 5,
-      windResistance: drone_params.wind_resistance ?? 15,
+      speed: getNum(drone_params.speed) ?? 5,
+      batteryTime: getNum(drone_params.battery_time) ?? 30,
+      hoverTime: getNum(drone_params.hover_time) ?? 5,
+      windResistance: getNum(drone_params.wind_resistance) ?? 15,
       model: drn.model ?? "unknown",
     };
   }
 
   const weatherConditions: Weather = {
-    windSpeed: weather.wind_speed,
-    windDirection: weather.wind_direction,
+    windSpeed: getNum(weather.wind_speed),
+    windDirection: getNum(weather.wind_direction),
     useWeatherApi: weather.is_use_api,
-    isUse: weather.is_use_weather,
+    isUse: false, // В новом ответе нет явного is_use, но можно использовать priority_opt_method если нужно
     position: { lat: weather.latitude ?? 53, lon: weather.longitude ?? 59 },
   };
 
@@ -416,19 +436,27 @@ export default function TrajectoryDetails() {
   const flightLineY: number | undefined =
     traj_shapes?.line != null ? traj_shapes.line : undefined;
 
-  const trajectoryData = opt1_result?.taxons;
+  // Находим приоритетный результат оптимизации
+  const priorityOptItem = opt_results?.items?.find((item: any) => item.method_id === priority_opt_method?.method_id);
+  const trajectoryData = priorityOptItem?.taxons;
 
+  // Собираем раскадровки из массива storyboard_results.storyboards
   const storyboardsData: Storyboards = {
-    point: storyboard_point
-      ? { ...storyboard_point, applied: true }
-      : FALLBACK_STORYBOARDS.point,
-    recommended: storyboard_recommended
-      ? { ...storyboard_recommended, applied: true }
-      : FALLBACK_STORYBOARDS.recommended,
-    optimal: storyboard_optimal
-      ? { ...storyboard_optimal, applied: true }
-      : FALLBACK_STORYBOARDS.optimal,
+    point: FALLBACK_STORYBOARDS.point,
+    recommended: FALLBACK_STORYBOARDS.recommended,
+    optimal: FALLBACK_STORYBOARDS.optimal,
   };
+
+  storyboard_results?.storyboards?.forEach((sb: any) => {
+    if (sb.storyboard_name_id === 1) {
+      storyboardsData.point = { ...sb, applied: true };
+    } else if (sb.storyboard_name_id === 2) {
+      // Если рекомендованная раскадровка уже найдена, можно пропустить или заменить
+      storyboardsData.recommended = { ...sb, applied: true };
+    } else if (sb.storyboard_name_id === 3) {
+      storyboardsData.optimal = { ...sb, applied: true };
+    }
+  });
 
   const frameWidthPx =
     imageData && droneParams.frameWidthBase > 0
@@ -488,7 +516,7 @@ export default function TrajectoryDetails() {
         framesUrlsPointBased={framesUrlsPointBased}
         framesUrlsRecommended={framesUrlsRecommended}
         framesUrlsOptimal={framesUrlsOptimal}
-        schemaName={schemaData.schema_name}
+        schemaName={schemaData.map_name}
         createdAt={schemaData.created_at}
         author={schemaData.user}
       />

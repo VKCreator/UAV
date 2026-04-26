@@ -49,7 +49,7 @@ import html2pdf from "html2pdf.js";
 interface MethodConfig {
   label: string;
   icon: React.ReactNode;
-  color: "success" | "secondary" | "default";
+  color: "success" | "secondary" | "warning" | "default";
   tooltip: string;
 }
 
@@ -81,19 +81,25 @@ export default function TrajectoryList() {
   const [error, setError] = React.useState<Error | null>(null);
 
   const METHOD_CONFIG: Record<string, MethodConfig> = {
-    METHOD_1: {
+    "low-d": {
       label: "low-d",
       icon: <FiberManualRecordIcon fontSize="small" />,
       color: "success",
       tooltip: "Низкая плотность точек",
     },
-    METHOD_2: {
+    "high-d": {
       label: "high-d",
       icon: <ScatterPlotIcon fontSize="small" />,
       color: "secondary",
       tooltip: "Высокая плотность точек",
     },
-    default: {
+    "combi": {
+      label: "combi",
+      icon: <ScatterPlotIcon fontSize="small" />,
+      color: "warning",
+      tooltip: "Комбинированный",
+    },
+    "user": {
       label: "user",
       icon: <PersonIcon fontSize="small" />,
       color: "default",
@@ -256,6 +262,7 @@ export default function TrajectoryList() {
         width: 180,
         minWidth: 180,
         renderCell: (params) => {
+          console.log(params.row.id)
           const isNew = !isNaN(newSchemaId) && newSchemaId === params.row.id;
 
           return (
@@ -446,8 +453,8 @@ export default function TrajectoryList() {
         align: "center",
         headerAlign: "center",
         renderCell: (params) => {
+          // const config = getMethodConfig(params.row.methodType);
           const config = getMethodConfig(params.row.methodType);
-
           return (
             <Tooltip title={`${config.tooltip}`} arrow>
               <Chip

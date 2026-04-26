@@ -59,11 +59,6 @@ const pulse = keyframes`
   100% { transform: scale(1); opacity: 0; }
 `;
 
-const pulseButton = keyframes`
-  0% { transform: scale(1); opacity: 1; }
-  70% { transform: scale(2.2); opacity: 0; }
-  100% { transform: scale(1); opacity: 0; }
-`;
 const glowPulse = keyframes`
   0%   { box-shadow: 0 0 0 0 rgba(3, 53, 103, 0.7); }
   70%  { box-shadow: 0 0 0 8px rgba(102, 187, 106, 0); }
@@ -195,6 +190,7 @@ const TrajectoryStepper = () => {
   const [openPreviewPage, setPreviewPage] = React.useState(false);
   const [isCreating, setIsCreating] = React.useState(false);
   const [isFadingOut, setIsFadingOut] = React.useState(false);
+  const [isDirty, setIsDirty] = React.useState(true);
 
   // ── Название схемы ────────────────────────────────────────────────────────
 
@@ -654,15 +650,15 @@ const TrajectoryStepper = () => {
 
         const requestedId = Number(droneParams?.selectedDroneId);
         const selectedDrone = Number.isFinite(requestedId)
-          ? dronesData.find((d) => d.id === requestedId) ?? dronesData[0]
+          ? dronesData.find((d) => d.drone_id === requestedId) ?? dronesData[0]
           : dronesData[0];
 
         if (!selectedDrone) return;
 
         const newCameraParams = {
-          fov: selectedDrone.fov_vertical,
-          resolutionWidth: selectedDrone.resolution_width,
-          resolutionHeight: selectedDrone.resolution_height,
+          fov: selectedDrone.default_vertical_fov,
+          resolutionWidth: selectedDrone.default_resolution_width,
+          resolutionHeight: selectedDrone.default_resolution_height,
           useFromReference: true,
         };
 
@@ -682,10 +678,10 @@ const TrajectoryStepper = () => {
 
         setDroneParams((prev) => ({
           ...prev,
-          selectedDroneId: String(selectedDrone.id),
+          selectedDroneId: String(selectedDrone.drone_id),
           uavCameraParams: newCameraParams,
           speed: selectedDrone.min_speed + 5,
-          batteryTime: selectedDrone.battery_life ?? 0,
+          batteryTime: selectedDrone.max_battery_life ?? 0,
           windResistance: selectedDrone.max_wind_resistance ?? 0,
           model: selectedDrone.model,
           frameHeightBase: baseFrame.height,
@@ -828,72 +824,6 @@ const TrajectoryStepper = () => {
   }, [activeStep, confirm, navigate]);
 
   // ── Создание схемы ────────────────────────────────────────────────────────
-
-  // болванка
-  // const handleCreateSchema = React.useCallback(async () => {
-  //   if (!files[0]) {
-  //     notifications.show("Не выбрано изображение", { severity: "error" });
-  //     return;
-  //   }
-
-  //   if (isDefaultName) {
-  //     const confirmed = await confirm(
-  //       "Название полётной карты задано по умолчанию. Вы действительно желаете создать схему?",
-  //       { title: "Предупреждение", okText: "Да", cancelText: "Нет" },
-  //     );
-  //     if (!confirmed) return;
-  //   }
-
-  //   const formData = new FormData();
-  //   formData.append("schemaName", schemaName);
-  //   formData.append("image", files[0]);
-  //   formData.append("pointsCount", String(points.length));
-  //   formData.append("distance", String(droneParams.distance));
-
-  //   const totalTime = opt1TrajectoryData!.B.reduce(
-  //     (sum, taxon) => sum + (taxon.time_sec ?? 0),
-  //     0,
-  //   );
-  //   formData.append("flightTime", String(totalTime));
-  //   formData.append("method", "METHOD_1");
-  //   formData.append("isWeatherConditions", String(true));
-
-  //   setIsCreating(true);
-
-  //   try {
-  //     await schemasApi.create(formData);
-
-  //     setIsFadingOut(true);
-
-  //     // Ждём завершения анимации исчезновения, затем переходим на следующую страницу
-  //     setTimeout(() => {
-  //       notifications.show("Схема полётов создана", {
-  //         severity: "success",
-  //         autoHideDuration: 3000,
-  //       });
-  //       setIsCreating(false);
-  //       navigate("/trajectories");
-  //     }, 1000);
-  //   } catch (err) {
-  //     setIsCreating(false);
-  //     setIsFadingOut(false);
-  //     notifications.show(
-  //       `Не удалось создать схему. Причина: ${(err as Error).message}`,
-  //       { severity: "error", autoHideDuration: 5000 },
-  //     );
-  //   }
-  // }, [
-  //   opt1TrajectoryData,
-  //   files,
-  //   isDefaultName,
-  //   schemaName,
-  //   points.length,
-  //   droneParams.distance,
-  //   confirm,
-  //   notifications,
-  //   navigate,
-  // ]);
-
   const handleCreateSchema = React.useCallback(async () => {
     if (!files[0]) {
       notifications.show("Не выбрано изображение", { severity: "error" });
@@ -911,7 +841,7 @@ const TrajectoryStepper = () => {
     const formData = new FormData();
 
     // ── 1. FlightSchema (основное) ──────────────────────────────────
-    formData.append("schema_name", schemaName);
+    formData.append("map_name", schemaName);
 
     // ── 2. BaseImage ────────────────────────────────────────────────
     formData.append("image", files[0]);
@@ -959,31 +889,82 @@ const TrajectoryStepper = () => {
     formData.append("weather_lat", String(weatherConditions.position.lat));
     formData.append("weather_lon", String(weatherConditions.position.lon));
 
-    // ── 6. Opt1Result (МКТ) — если есть ────────────────────────────
-    if (opt1TrajectoryData) {
-      const totalTime = opt1TrajectoryData.B.reduce(
-        (sum, taxon) => sum + (taxon.time_sec ?? 0),
-        0,
-      );
-      formData.append("opt1_taxons", JSON.stringify(opt1TrajectoryData));
-      formData.append("opt1_total_flight_time", String(totalTime));
-      formData.append("priority_opt_method", "METHOD_1");
+    // ── 6. Optimization Results (opt1, opt2, opt3) ─────────────────
+    
+    // Маппинг ID методов к их pretty_name (эти имена должны быть в БД в таблице opt_methods)
+    const methodNamesMap: Record<number, string> = {
+        1: "METHOD_1",
+        2: "METHOD_2",
+        3: "METHOD_3",
+    };
+
+    const opt_variants = [
+        { prefix: "opt1", method_id: 1 },
+        { prefix: "opt2", method_id: 2 },
+        { prefix: "opt3", method_id: 3 },
+    ];
+
+    let priorityMethodName = null;
+
+    opt_variants.forEach((v) => {
+        // Получаем данные траектории для текущего варианта
+        const trajectoryData = 
+            v.prefix === "opt1" ? opt1TrajectoryData :
+            v.prefix === "opt2" ? opt2TrajectoryData : 
+                                  opt3TrajectoryData;
+
+        if (trajectoryData) {
+            // Вычисляем полное время полета
+            const totalTime = trajectoryData.B.reduce(
+            (sum, taxon) => sum + (taxon.time_sec ?? 0),
+            0,
+            );
+
+            // Добавляем данные для текущего варианта
+            formData.append(`${v.prefix}_taxons`, JSON.stringify(trajectoryData));
+            formData.append(`${v.prefix}_total_flight_time`, String(totalTime));
+            
+            // Передаем ID метода (если бэкенд ожидает ID)
+            formData.append(`${v.prefix}_method_id`, String(v.method_id));
+            
+            // Передаем имя метода (если бэкенд ищет по имени, как в прошлом примере)
+            formData.append(`${v.prefix}_method_name`, methodNamesMap[v.method_id]);
+
+            // Запоминаем первый найденный метод как приоритетный
+            if (!priorityMethodName) {
+                priorityMethodName = methodNamesMap[v.method_id];
+            }
+        }
+    });
+
+    if (priorityMethodName) {
+        priorityMethodName = "METHOD_1"; // Заглушка
+        formData.append("priority_opt_method", String(priorityMethodName));
     }
 
     // ── 7. Storyboards — если применены ────────────────────────────
+    
+    // Point Based
     if (storyboardsData.point.applied) {
       formData.append(
         "storyboard_point",
         JSON.stringify(storyboardsData.point),
       );
     }
+
+    // Recommended
     if (storyboardsData.recommended.applied) {
-      storyboardsData.recommended.points = pointsRecommended;
+      const recommendedPayload = {
+          ...storyboardsData.recommended,
+          points: pointsRecommended // В recommended точки приходят отдельным массивом
+      };
       formData.append(
         "storyboard_recommended",
-        JSON.stringify(storyboardsData.recommended),
+        JSON.stringify(recommendedPayload),
       );
     }
+
+    // Optimal
     if (storyboardsData.optimal.applied) {
       formData.append(
         "storyboard_optimal",
@@ -991,10 +972,27 @@ const TrajectoryStepper = () => {
       );
     }
 
+    // Optimal Big Density
+    if (storyboardsData.optimal_big_density.applied) {
+      formData.append(
+        "storyboard_optimal_big_density",
+        JSON.stringify(storyboardsData.optimal_big_density),
+      );
+    }
+
+    // Optimal Combi
+    if (storyboardsData.optimal_combi.applied) {
+      formData.append(
+        "storyboard_optimal_combi",
+        JSON.stringify(storyboardsData.optimal_combi),
+      );
+    }
+
     setIsCreating(true);
 
     try {
       const data = await schemasApi.createFull(formData); // POST /api/schemas
+      setIsDirty(false);
 
       setIsFadingOut(true);
       setTimeout(() => {
@@ -1003,9 +1001,10 @@ const TrajectoryStepper = () => {
           autoHideDuration: 3000,
         });
         setIsCreating(false);
-        navigate(`/trajectories?newSchemaId=${data.schema_id}`);
+        navigate(`/trajectories?newSchemaId=${data.map_id}`);
       }, 1000);
     } catch (err) {
+      setIsDirty(true);
       setIsCreating(false);
       setIsFadingOut(false);
       notifications.show(
@@ -1184,7 +1183,7 @@ const TrajectoryStepper = () => {
   }, []);
 
 
-  const blocker = useBlocker(true);
+  const blocker = useBlocker(isDirty);
 
 React.useEffect(() => {
   if (blocker.state === "blocked") {
@@ -1208,8 +1207,10 @@ React.useEffect(() => {
 // Перехватываем закрытие вкладки/обновление (Браузер)
 React.useEffect(() => {
   const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    if (isDirty) {
       e.preventDefault();
       e.returnValue = "";
+    }
   };
 
   window.addEventListener("beforeunload", handleBeforeUnload);

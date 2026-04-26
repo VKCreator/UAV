@@ -24,7 +24,7 @@ export default function UavSelector({
 }: UavSelectorProps) {
   const handleChange = (event: SelectChangeEvent<string>) => {
     const selectedId = event.target.value as string;
-    const drone = drones.find((d) => String(d.id) === selectedId);
+    const drone = drones.find((d) => String(d.drone_id) === selectedId);
     if (drone) {
       onChange(drone); // передаём весь объект
     }
@@ -49,7 +49,7 @@ export default function UavSelector({
           </MenuItem>
         ) : (
           drones.map((drone) => (
-            <MenuItem key={drone.id} value={String(drone.id)}>
+            <MenuItem key={drone.drone_id} value={String(drone.drone_id)}>
               {drone.model}
             </MenuItem>
           ))
