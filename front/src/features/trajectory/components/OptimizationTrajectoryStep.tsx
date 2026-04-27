@@ -61,6 +61,7 @@ import ScenePreview from "./ScenePreview";
 import { exportSceneImage } from "../utils/exportSceneImage";
 
 import { trajectoryApi } from "../../../api/trajectory.api";
+import { useDialogs } from '../../../hooks/useDialogs/useDialogs'; 
 
 interface OptimizationTrajectoryStepProps {
   imageData: ImageData;
@@ -172,6 +173,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   optimizationState,
   setOptimizationState
 }) => {
+    const { confirm } = useDialogs();
+  
   const [activeImage, setActiveImage] = React.useState(0);
   const [image] = useImage(imageData.imageUrl);
   const [showView, setShowView] = React.useState(false);
@@ -190,6 +193,10 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     }));
   };
 
+  const isAllNotCompleted = React.useMemo(() => {
+    return Object.entries(optimizationState).every(([key, item]) => item.status === 'idle' || item.status === "running");
+  }, [optimizationState]);
+
   const isAllCompleted = React.useMemo(() => {
     return Object.entries(optimizationState).every(([key, item]) => item.status === 'completed');
   }, [optimizationState]);
@@ -203,6 +210,43 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   }, [optimizationState]);
 
   const isAnyOptimizationSelected = Object.values(optimizationState).some(item => item.flag);
+
+const { isAllStoryboardCompleted, isAllStoryboardNotCompleted } = React.useMemo(() => {
+  // Определяем маппинг ключей
+  const mappings = [
+    { optKey: 'small', sbKey: 'optimal' },             // Метод 1 (НПТ)
+    { optKey: 'large', sbKey: 'optimal_big_density' }, // Метод 2 (ВПТ)
+    { optKey: 'combi', sbKey: 'optimal_combi' },        // Метод 3 (СПТ)
+  ];
+
+  // 1. Проверка: Все ВЫПОЛНЕННЫЕ оптимизации имеют раскадровки
+  const allCompleted = mappings.every(({ optKey, sbKey }) => {
+    const optStatus = optimizationState[optKey].status;
+    
+    // Если оптимизация еще не выполнена, она не учитывается в "All"
+    if (optStatus !== 'completed') return true;
+    
+    // Если оптимизация выполнена, проверяем наличие раскадровки
+    return storyboardsData[sbKey].applied === true;
+  });
+
+  // 2. Проверка: Все ВЫПОЛНЕННЫЕ оптимизации НЕ имеют раскадровок
+  const allNotCompleted = mappings.every(({ optKey, sbKey }) => {
+    const optStatus = optimizationState[optKey].status;
+
+    // Если оптимизация еще не выполнена, она не учитывается
+    if (optStatus !== 'completed') return true;
+
+    // Если оптимизация выполнена, проверяем ОТСУТСТВИЕ раскадровки
+    return storyboardsData[sbKey].applied === false;
+  });
+
+  return {
+    isAllStoryboardCompleted: allCompleted,
+    isAllStoryboardNotCompleted: allNotCompleted,
+  };
+}, [optimizationState, storyboardsData]);
+
 
   const [isConsiderWeather, setConsiderWeather] = React.useState(weatherConditions.isUse);
 
@@ -252,7 +296,16 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       updateOptimization("combi", { isLoading: loading });
   }
 
-  const handleClearTrajectoryData = () => {
+  const handleClearTrajectoryData = async () => {
+
+    const confirmed = await confirm("Вы действительно хотите очистить результаты оптимизаций?", {
+      title: "Подтверждение",
+      okText: "Да",
+      cancelText: "Нет",
+    });
+
+    if (!confirmed) return;
+
     setTrajectoryData(null);
     setTrajectoryData2(null);
     setTrajectoryData3(null);
@@ -467,30 +520,30 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
 
   const handleDownloadScene = () => {
-  exportSceneImage({
-    image: image!,
-    width_m: droneParams.frameWidthBase,
-    height_m: droneParams.frameHeightBase,
-    GRID_COLS: droneParams.frameWidthBase / droneParams.frameWidthPlanned,
-    GRID_ROWS: droneParams.frameHeightBase / droneParams.frameHeightPlanned,
-    
-    flightLineY: flightLineY,
-    obstacles: obstacles,
-    points: points,
-    trajectoryData: getTrajectoryData(),
-    
-    showGrid: true,
-    showObstacles: true,
-    showUserTrajectory: activeImage == 0,
-    showTaxonTrajectory: true,
-    showNavTriangles: true, // Включаем треугольники
-    
-    PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
-    PREVIEW_HEIGHT: 400, 
-        
-    setLoading: setLoading
-  });
-};
+    exportSceneImage({
+      image: image!,
+      width_m: droneParams.frameWidthBase,
+      height_m: droneParams.frameHeightBase,
+      GRID_COLS: droneParams.frameWidthBase / droneParams.frameWidthPlanned,
+      GRID_ROWS: droneParams.frameHeightBase / droneParams.frameHeightPlanned,
+
+      flightLineY: flightLineY,
+      obstacles: obstacles,
+      points: points,
+      trajectoryData: getTrajectoryData(),
+
+      showGrid: true,
+      showObstacles: true,
+      showUserTrajectory: activeImage == 0,
+      showTaxonTrajectory: true,
+      showNavTriangles: true, // Включаем треугольники
+
+      PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
+      PREVIEW_HEIGHT: 400,
+
+      setLoading: setLoading
+    });
+  };
 
   const handleDownload = (type) => {
     // Логика скачивания в зависимости от type
@@ -791,6 +844,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                         />
                       }
                       label="Низкой плотности точек"
+                      disabled={isAnyRunning}
                     />
                     <Tooltip title="Показать схему" arrow placement="left">
 
@@ -817,6 +871,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                         />
                       }
                       label="Высокой плотности точек"
+                      disabled={isAnyRunning}
+
                     />
                     <Tooltip title="Показать схему" arrow placement="left">
 
@@ -843,6 +899,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                         />
                       }
                       label="Смешанной плотности точек"
+                      disabled={isAnyRunning}
+
                     />
                     <Tooltip title="Показать схему" arrow placement="left">
                       <Chip
@@ -875,6 +933,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                 }
                 label="Учитывать погодные условия при построении маршрута"
                 sx={{ mt: 1 }}
+                disabled={isAnyRunning}
               />
 
               {weatherConditions.isUse && (
@@ -919,7 +978,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                       minWidth: 120,
                       textTransform: "none",
                     }}
-                    disabled={!isAnyOptimizationSelected}
+                    disabled={!isAnyOptimizationSelected || isAnyRunning}
                   >
                     Запустить
                   </Button>
@@ -974,11 +1033,20 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                   <Typography fontWeight={600}>2. Раскадровка</Typography>
                 </Box>
 
-                {/* Правая часть: статус */}
+                  
+                {/* Правая часть: статус ЗДЕСЬ СДЕЛАТЬ ПРОВЕРКУ ВЫПОЛНЕНО НЕ ВЫПОЛНЕНО ЧАСТИЧНО и в кнопку далее тоже добавить запрет если нет раскадровки выполненной*/}
                 <Chip
-                  label={"Опционально"}
+                  label={
+                    isAllStoryboardCompleted && !isAllNotCompleted && !isAnyRunning ? "Выполнено"
+                      : isAllStoryboardNotCompleted ? "Не выполнено"
+                        : "Частично"
+                  }
                   size="small"
-                  // color={trajectoryData != null ? "success" : "error"}
+                  color={
+                    isAllStoryboardCompleted && !isAllNotCompleted && !isAnyRunning ? "success"
+                      : isAllStoryboardNotCompleted ? "error"
+                        : "warning"
+                  }
                   variant="outlined"
                 />
               </Box>

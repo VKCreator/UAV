@@ -631,7 +631,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     ];
 
     const matched = conditions.find(condition => condition.check);
-    
+
     return matched?.frames ?? [];
   }, [
     activeStoryboardData?.applied,
@@ -829,6 +829,8 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     if (isRecommended) return !selection;
     if (isOptimal1Method) return !trajectoryData;
     if (isOptimal2Method) return !trajectoryData2;
+    if (isOptimal3Method) return !trajectoryData3;
+
   };
 
 
@@ -1452,6 +1454,21 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                   траектории.
                 </Alert>
               )}
+
+              {isOptimal3Method && !trajectoryData3 && (
+                <Alert
+                  severity="warning"
+                  sx={{
+                    fontSize: "0.7rem", // мелкий текст
+                    borderRadius: 1,
+                    p: 1.5, // паддинг
+                    alignItems: "center",
+                  }}
+                >
+                  Для раскадровки необходимо сначала выполнить оптимизацию
+                  траектории.
+                </Alert>
+              )}
             </Box>
             {/* ---------------- Кнопки ---------------- */}
             <Stack
@@ -1479,7 +1496,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                     (!selection && isRecommended) ||
                     (isPointBased && framesUrlsPointBased.length === 0) ||
                     (isOptimal1Method && framesUrlsOptimal.length === 0) ||
-                    (isOptimal2Method && framesUrlsOptimal2.length === 0) || 
+                    (isOptimal2Method && framesUrlsOptimal2.length === 0) ||
                     (isOptimal3Method && framesUrlsOptimal3.length === 0)
                   }
                   component="span"

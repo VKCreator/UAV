@@ -306,9 +306,9 @@ const TrajectoryStepper = () => {
   const [priorityMethod, setPriorityMethod] = React.useState<string>("");
 
   const methodNames2PrettyName: Record<string, string> = {
-  "METHOD_1": "low-d",
-  "METHOD_2": "high-d",
-  "METHOD_3": "mixed-d",
+    "METHOD_1": "low-d",
+    "METHOD_2": "high-d",
+    "METHOD_3": "mixed-d",
   };
 
   // ── Очистка раскадровок ───────────────────────────────────────────────────
@@ -346,7 +346,7 @@ const TrajectoryStepper = () => {
     setSelection(null);
   }, []);
 
-  const clearOptimalStoryboards = React.useCallback(() => {
+  const clearOptimalStoryboard = React.useCallback(() => {
     setStoryboardsData((prev) => ({
       ...prev,
       optimal: { ...EMPTY_STORYBOARD_ENTRY },
@@ -355,7 +355,9 @@ const TrajectoryStepper = () => {
       prev.forEach((url) => URL.revokeObjectURL(url));
       return [];
     });
+  }, []);
 
+  const clearOptimalStoryboard2 = React.useCallback(() => {
     setStoryboardsData((prev) => ({
       ...prev,
       optimal_big_density: { ...EMPTY_STORYBOARD_ENTRY },
@@ -364,7 +366,9 @@ const TrajectoryStepper = () => {
       prev.forEach((url) => URL.revokeObjectURL(url));
       return [];
     });
+  }, []);
 
+  const clearOptimalStoryboard3 = React.useCallback(() => {
     setStoryboardsData((prev) => ({
       ...prev,
       optimal_combi: { ...EMPTY_STORYBOARD_ENTRY },
@@ -374,6 +378,12 @@ const TrajectoryStepper = () => {
       return [];
     });
   }, []);
+
+  const clearOptimalStoryboards = React.useCallback(() => {
+    clearOptimalStoryboard();
+    clearOptimalStoryboard2();
+    clearOptimalStoryboard3();
+  }, [clearOptimalStoryboard, clearOptimalStoryboard2, clearOptimalStoryboard3]);
 
   const clearAllStoryboards = React.useCallback(() => {
     clearPointBasedStoryboards();
@@ -427,6 +437,73 @@ const TrajectoryStepper = () => {
   React.useEffect(() => {
     setFlightLineY(imageData.height);
   }, [imageData]);
+
+  React.useEffect(() => {
+    if (opt1TrajectoryData !== null || opt2TrajectoryData !== null || opt3TrajectoryData !== null) {
+      setOpt1TrajectoryData(null);
+      setOpt2TrajectoryData(null);
+      setOpt3TrajectoryData(null);
+
+      updateOptimization("small", { status: "idle" });
+      updateOptimization("large", { status: "idle" });
+      updateOptimization("combi", { status: "idle" });
+
+      notifications.show(
+        "Изменена линия взлёта/посадки БПЛА. Результаты оптимизации очищены.",
+        { severity: "info", autoHideDuration: 5000 },
+      );
+    }
+
+    const hasAppliedStoryboards =
+      storyboardsData.point.applied ||
+      storyboardsData.optimal.applied || 
+      storyboardsData.optimal_big_density.applied ||
+      storyboardsData.optimal_combi.applied ||
+      storyboardsData.recommended.applied;
+
+    if (hasAppliedStoryboards) {
+      clearAllStoryboards();
+      notifications.show(
+        "Изменена линия взлёта/посадки БПЛА. Результаты раскадровок очищены.",
+        { severity: "info", autoHideDuration: 5000 },
+      );
+    }
+
+  }, [flightLineY]);
+
+
+    React.useEffect(() => {
+    if (opt1TrajectoryData !== null || opt2TrajectoryData !== null || opt3TrajectoryData !== null) {
+      setOpt1TrajectoryData(null);
+      setOpt2TrajectoryData(null);
+      setOpt3TrajectoryData(null);
+
+      updateOptimization("small", { status: "idle" });
+      updateOptimization("large", { status: "idle" });
+      updateOptimization("combi", { status: "idle" });
+
+      notifications.show(
+        "Изменены препятствия. Результаты оптимизации очищены.",
+        { severity: "info", autoHideDuration: 5000 },
+      );
+    }
+
+    const hasAppliedStoryboards =
+      storyboardsData.point.applied ||
+      storyboardsData.optimal.applied || 
+      storyboardsData.optimal_big_density.applied ||
+      storyboardsData.optimal_combi.applied ||
+      storyboardsData.recommended.applied;
+
+    if (hasAppliedStoryboards) {
+      clearAllStoryboards();
+      notifications.show(
+        "Изменены препятствия. Результаты раскадровок очищены.",
+        { severity: "info", autoHideDuration: 5000 },
+      );
+    }
+
+  }, [obstacles]);
 
   // ── Обработчики изображения ───────────────────────────────────────────────
 
@@ -547,7 +624,7 @@ const TrajectoryStepper = () => {
     if (hasAppliedStoryboards) {
       clearAllStoryboards();
       notifications.show(
-        "Изменены параметры БПЛА. Результаты раскадровок очищены.",
+        "Изменены параметры съёмки. Результаты раскадровок очищены.",
         { severity: "info", autoHideDuration: 5000 },
       );
     }
@@ -586,7 +663,9 @@ const TrajectoryStepper = () => {
 
     const hasAppliedStoryboards =
       storyboardsData.point.applied ||
-      storyboardsData.optimal.applied ||
+      storyboardsData.optimal.applied || 
+      storyboardsData.optimal_big_density.applied ||
+      storyboardsData.optimal_combi.applied ||
       storyboardsData.recommended.applied;
 
     if (hasAppliedStoryboards) {
@@ -615,7 +694,7 @@ const TrajectoryStepper = () => {
     clearPointBasedStoryboards();
     clearOptimalStoryboards();
 
-    if (opt1TrajectoryData !== null || opt2TrajectoryData !== null) {
+    if (opt1TrajectoryData !== null || opt2TrajectoryData !== null || opt3TrajectoryData !== null) {
       setOpt1TrajectoryData(null);
       setOpt2TrajectoryData(null);
       setOpt3TrajectoryData(null);
@@ -633,8 +712,39 @@ const TrajectoryStepper = () => {
   }, [points, clearPointBasedStoryboards, clearOptimalStoryboards]);
 
   React.useEffect(() => {
-    clearOptimalStoryboards();
-  }, [opt1TrajectoryData, clearOptimalStoryboards]);
+    clearOptimalStoryboard();
+  }, [opt1TrajectoryData, clearOptimalStoryboard]);
+
+  React.useEffect(() => {
+    clearOptimalStoryboard2();
+  }, [opt2TrajectoryData, clearOptimalStoryboard2]);
+
+  React.useEffect(() => {
+    clearOptimalStoryboard3();
+  }, [opt3TrajectoryData, clearOptimalStoryboard2]);
+
+
+  const isAllStoryboardCompleted = React.useMemo(() => {
+    // Определяем маппинг ключей
+    const mappings = [
+      { optKey: 'small', sbKey: 'optimal' },             // Метод 1 (НПТ)
+      { optKey: 'large', sbKey: 'optimal_big_density' }, // Метод 2 (ВПТ)
+      { optKey: 'combi', sbKey: 'optimal_combi' },        // Метод 3 (СПТ)
+    ];
+  
+    // 1. Проверка: Все ВЫПОЛНЕННЫЕ оптимизации имеют раскадровки
+    const allCompleted = mappings.every(({ optKey, sbKey }) => {
+      const optStatus = optimizationState[optKey].status;
+      
+      // Если оптимизация еще не выполнена, она не учитывается в "All"
+      if (optStatus !== 'completed') return true;
+      
+      // Если оптимизация выполнена, проверяем наличие раскадровки
+      return storyboardsData[sbKey].applied === true;
+    });
+  
+    return  allCompleted
+  }, [optimizationState, storyboardsData]);
 
   // Загрузка дронов
 
@@ -920,7 +1030,6 @@ const TrajectoryStepper = () => {
           v.prefix === "opt2" ? opt2TrajectoryData :
             opt3TrajectoryData;
 
-      console.log(trajectoryData)
       if (trajectoryData) {
         // Вычисляем полное время полета
         const totalTime = trajectoryData.B.reduce(
@@ -940,8 +1049,8 @@ const TrajectoryStepper = () => {
       }
     });
 
-      let priorityMethodName = priorityMethod;
-      formData.append("priority_opt_method", String(priorityMethodName));
+    let priorityMethodName = priorityMethod;
+    formData.append("priority_opt_method", String(priorityMethodName));
 
     // ── 7. Storyboards — если применены ────────────────────────────
 
@@ -1075,7 +1184,7 @@ const TrajectoryStepper = () => {
           "Для шага 3 требуется построение пользовательской траектории",
       };
     }
-    if (activeStep === 2 && opt1TrajectoryData === null && opt2TrajectoryData === null) {
+    if (activeStep === 2 && opt1TrajectoryData === null && opt2TrajectoryData === null && opt3TrajectoryData === null) {
       return {
         isNextDisabled: true,
         nextTooltip:
@@ -1091,8 +1200,16 @@ const TrajectoryStepper = () => {
       };
     }
 
+    if (activeStep == 2 && !isAllStoryboardCompleted) {
+        return {
+        isNextDisabled: true,
+        nextTooltip:
+          "Для шага 4 необходимо выполнить раскадровку по выполненным методам оптимизации",
+      };
+    }
+
     return { isNextDisabled: false, nextTooltip: "" };
-  }, [activeStep, imageUrl, points.length, drones.length, opt1TrajectoryData, opt2TrajectoryData, isAnyRunning]);
+  }, [activeStep, imageUrl, points.length, drones.length, opt1TrajectoryData, opt2TrajectoryData, opt3TrajectoryData, isAnyRunning, isAllStoryboardCompleted]);
 
   // ── Содержимое шага ───────────────────────────────────────────────────────
 
@@ -1341,6 +1458,7 @@ const TrajectoryStepper = () => {
           onClick={handleBack}
           variant="outlined"
           startIcon={<KeyboardArrowLeftIcon />}
+          disabled={isAnyRunning}
         >
           Назад
         </Button>
