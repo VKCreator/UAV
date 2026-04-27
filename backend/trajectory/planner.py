@@ -1,5 +1,13 @@
 import math
 
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+from typing import List, Tuple
+
+# Настройка для максимального качества рендеринга текстов и линий
+matplotlib.rcParams['font.family'] = 'sans-serif'
+matplotlib.rcParams['text.antialiased'] = True
 
 # Ветер
 # https://www.betaenergy.ru/upload/medialibrary/6df/6dfd8840bcc2bd800edf271c98669f05.jpg
@@ -592,11 +600,10 @@ def build_taxons_big_density(
         if frame_data["points"]:
             pts = frame_data["points"]
             
-            # Вычисляем центр масс ---
+            # Вычисляем центр масс
             cm_x = sum(p[0] for p in pts) / len(pts)
             cm_y = sum(p[1] for p in pts) / len(pts)
             center_of_mass = (cm_x, cm_y)
-            # ------------------------------------------------
 
             frames_with_points.append({
                 "frame_id": frame_idx,
@@ -1114,3 +1121,116 @@ def build_taxons_hybrid(
         "statistics": stats,
         "errors": None
     }
+
+
+# def calculate_and_plot_density_heatmap(
+#     points: List[Tuple[float, float]], 
+#     L: float,          # Ширина области (м)
+#     H: float,          # Высота области (м)
+#     n_cols: int,       # Количество столбцов (m)
+#     n_rows: int,       # Количество строк (n)
+#     output_path: str = "density_heatmap.png",
+#     dpi: int = 300     # DPI для высокого разрешения (300 - стандарт полиграфии, 600 - ультра)
+# ):
+#     """
+#     Считает плотность точек по ячейкам и сохраняет Heatmap в PNG.
+#     """
+#     if not points:
+#         print("Ошибка: Список точек пуст.")
+#         return
+
+#     S_kadr = L * H
+    
+#     if S_kadr <= 0:
+#         print("Ошибка: Площадь области должна быть больше 0.")
+#         return
+
+#     # Извлекаем X и Y координаты
+#     x_coords = np.array([p[0] for p in points])
+#     y_coords = np.array([p[1] for p in points])
+
+#     # 1. Подсчет N_(i,j) - количества точек в каждой ячейке
+#     # np.histogram2d автоматически разбивает область на корзины (bins)
+#     # Обратите внимание: результат имеет форму (n_cols, n_rows), 
+#     # поэтому мы транспонируем (.T), чтобы получить матрицу (n_rows, n_cols),
+#     # где строки - это Y, а столбцы - это X (стандарт для матриц и изображений)
+#     N_matrix, x_edges, y_edges = np.histogram2d(
+#         x_coords, 
+#         y_coords, 
+#         bins=[n_cols, n_rows], 
+#         range=[[0, L], [0, H]]
+#     )
+#     N_matrix = N_matrix.T 
+
+#     # 2. Вычисление плотности rho_(i,j) по формуле
+#     # rho = (N * n_cols * n_rows) / S_kadr
+#     density_matrix = (N_matrix * n_cols * n_rows) / S_kadr
+
+#     # 3. Визуализация
+#     # Задаем большой размер фигуры в дюймах (при dpi=300 это даст изображение 4800x3600 пикселей)
+#     fig_width = 16
+#     fig_height = fig_width * (H / L) if L > 0 else 12 # Сохраняем пропорции области
+#     fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=dpi)
+
+#     # Рисуем heatmap
+#     # origin='lower' важен, чтобы ось Y (0) была внизу, а не вверху
+#     im = ax.imshow(
+#         density_matrix, 
+#         origin='lower', 
+#         extent=[0, L, 0, H], 
+#         cmap='viridis', # Можно заменить на 'jet', 'plasma' или 'inferno'
+#         aspect='auto',
+#         interpolation='nearest' # Четкие границы ячеек без размытия
+#     )
+
+#     # Добавляем сетку по границам ячеек
+#     ax.set_xticks(x_edges, minor=True)
+#     ax.set_yticks(y_edges, minor=True)
+#     ax.grid(which='minor', color='white', linestyle='-', linewidth=1.5)
+#     # Убираем основные тики, оставляя только сетку
+#     ax.tick_params(which='minor', size=0)
+    
+#     # Настройка осей и заголовка
+#     ax.set_xlabel('X (м)', fontsize=14, fontweight='bold')
+#     ax.set_ylabel('Y (м)', fontsize=14, fontweight='bold')
+#     ax.set_title('Плотность точек фиксации информации $\\rho_{i,j}$', fontsize=18, fontweight='bold', pad=15)
+
+#     # Цветовая панель (Colorbar)
+#     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+#     cbar.set_label('Плотность (точек / м²)', fontsize=14, fontweight='bold')
+#     cbar.ax.tick_params(labelsize=12)
+
+#     # Убираем лишние отступы и сохраняем
+#     plt.tight_layout()
+#     plt.savefig(output_path, dpi=dpi, bbox_inches='tight', pad_inches=0.2)
+#     plt.close(fig)
+    
+#     print(f"Heatmap успешно сохранен: {output_path}")
+#     print(f"Разрешение: {fig_width * dpi}x{int(fig_height * dpi)} пикселей")
+#     print(f"Мин. плотность: {density_matrix.min():.4f}, Макс. плотность: {density_matrix.max():.4f} точек/м²")
+
+
+
+# # Генерируем случайные точки для теста (создаем "пятно" высокой плотности)
+# np.random.seed(42)
+
+# # 1000 точек разбросаны равномерно
+# pts_x = np.random.uniform(0, 100, 1000)
+# pts_y = np.random.uniform(0, 80, 1000)
+
+# # Добавляем 2000 точек в зону высокой плотности (например, в центре)
+# pts_x = np.concatenate([pts_x, np.random.normal(50, 5, 2000)])
+# pts_y = np.concatenate([pts_y, np.random.normal(40, 5, 2000)])
+
+# test_points = list(zip(pts_x, pts_y))
+
+# # Вызываем функцию 
+# calculate_and_plot_density_heatmap(
+#     points=test_points,
+#     L=100.0,     # 100 метров ширина
+#     H=80.0,      # 80 метров высота
+#     n_cols=10,    # 10 столбцов
+#     n_rows=8,     # 8 строк
+#     output_path="my_density_map.png",
+#     dpi=300       # Установите 600 для максимального качества (но файл будет тяжелым)
+# )

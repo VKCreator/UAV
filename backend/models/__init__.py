@@ -8,9 +8,10 @@ from .models import (
     TrajectoriesShapes,
     LocalWeather,
     OptMethod,
-    Opt1Result,
-    Opt2Result,
+    OptResults,      
+    OptResult,      
     StoryboardName,
+    StoryboardResults, 
     Storyboard,
-    FlightSchema,
+    FlightMap,
 )
