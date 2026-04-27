@@ -270,6 +270,28 @@ const FlightSchemaPage: React.FC<Props> = ({
   const currentOptimizationData = getOptimizationData(optimizationTab);
   const comparisonData = getOptimizationData(comparisonTab);
 
+
+  // ── Хелпер для маппинга кода метода в индекс ─────────────────────────────
+  const getMethodIndex = (method: string): number => {
+    if (method === "METHOD_1" || method === "low-d") return 0;
+    if (method === "METHOD_2" || method === "high-d") return 1;
+    if (method === "METHOD_3" || method === "mixed-d") return 2;
+    return 0; // По умолчанию Метод 1
+  };
+
+  // ── Эффект для автоматического переключения ─────────────────────────────
+  React.useEffect(() => {
+    // Если приоритетный метод не задан, не переключаем
+    if (!priorityMethod) return;
+
+    const idx = getMethodIndex(priorityMethod);
+
+    setOptimizationTab(idx);
+    setComparisonTab(idx);
+    // +2, потому что первые 2 вкладки раскадровки — это Точечная и Рекомендуемая
+    setStoryboardTab(idx + 2);
+  }, [priorityMethod]); // Срабатывает, когда priorityMethod загрузился или изменился
+
   // ── Данные для графиков сравнения ────────────────────────────────────────
 
   /** Для каждого таксона строим точки по времени */
@@ -376,7 +398,31 @@ const FlightSchemaPage: React.FC<Props> = ({
       setExpanded(newExpanded ? panel : false);
     };
 
-const formatPoint = (p: number[]) => `(${p[0].toFixed(1)} м, ${p[1].toFixed(1)} м)`;
+  const formatPoint = (p: number[]) => `(${p[0].toFixed(1)} м, ${p[1].toFixed(1)} м)`;
+
+  // Функция для создания пропсов вкладки оптимизации
+  // Возвращает объект { label: ..., sx: ... }
+  const getPriorityTabProps = (
+    label: string,
+    methodCode: string, // "low-d", "high-d", "mixed-d"
+    priorityMethod: string
+  ) => {
+    const isPriority = priorityMethod === methodCode;
+
+    return {
+      label: (
+        isPriority
+          ? "⭐ " + label
+          : label
+      ),
+      sx: isPriority
+        ? {
+          color: "primary.dark",
+          fontWeight: 700,
+        }
+        : {},
+    };
+  };
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -1050,7 +1096,7 @@ const formatPoint = (p: number[]) => `(${p[0].toFixed(1)} м, ${p[1].toFixed(1)}
               <Typography variant="h6">Оптимизация траектории</Typography>
               <Chip
                 label={`Приоритетная траектория: ${getMethodFullRussianFromEnglish(priorityMethod) || 'Не выбран'}`}
-                color="primary"
+                color="success"
                 variant="outlined"
                 size="small"
               />
@@ -1062,24 +1108,21 @@ const formatPoint = (p: number[]) => `(${p[0].toFixed(1)} м, ${p[1].toFixed(1)}
             onChange={(_, v) => setOptimizationTab(v)}
             sx={{ borderBottom: 1, borderColor: "divider" }}
           >
-            <Tab label="Метод 1 (НПТ)" sx={{
-              ...(priorityMethod === "low-d" && {
-                color: "primary.dark",
-                fontWeight: 700
-              })
-            }} />
-            <Tab label="Метод 2 (ВПТ)" sx={{
-              ...(priorityMethod === "high-d" && {
-                color: "primary.dark",
-                fontWeight: 700
-              })
-            }} />
-            <Tab label="Метод 3 (СПТ)" sx={{
-              ...(priorityMethod === "mixed-d" && {
-                color: "primary.dark",
-                fontWeight: 700
-              })
-            }} />
+            {/* Оптимальная (НПТ) */}
+            <Tab
+              {...getPriorityTabProps("Метод 1 (НПТ)", "low-d", priorityMethod)}
+            />
+
+            {/* Оптимальная (ВПТ) */}
+            <Tab
+              {...getPriorityTabProps("Метод 2 (ВПТ)", "high-d", priorityMethod)}
+            />
+
+            {/* Оптимальная (СПТ) */}
+            <Tab
+              {...getPriorityTabProps("Метод 3 (СПТ)", "mixed-d", priorityMethod)}
+            />
+
           </Tabs>
 
           <Box mt={2} minHeight={400} maxHeight={400}>
@@ -1344,7 +1387,7 @@ const formatPoint = (p: number[]) => `(${p[0].toFixed(1)} м, ${p[1].toFixed(1)}
               <Typography variant="h6">Раскадровка</Typography>
               <Chip
                 label={`Приоритетная раскадровка: ${getMethodFullRussianFromEnglish(priorityMethod) || 'Не выбрана'}`}
-                color="primary"
+                color="success"
                 variant="outlined"
                 size="small"
               />
@@ -1358,24 +1401,20 @@ const formatPoint = (p: number[]) => `(${p[0].toFixed(1)} м, ${p[1].toFixed(1)}
           >
             <Tab label="Точечная" />
             <Tab label="Рекомендуемая" />
-            <Tab label="Оптимальная (НПТ)" sx={{
-              ...(priorityMethod === "low-d" && {
-                color: "primary.dark",
-                fontWeight: 700
-              })
-            }} />
-            <Tab label="Оптимальная (ВПТ)" sx={{
-              ...(priorityMethod === "high-d" && {
-                color: "primary.dark",
-                fontWeight: 700
-              })
-            }} />
-            <Tab label="Оптимальная (СПТ)" sx={{
-              ...(priorityMethod === "mixed-d" && {
-                color: "primary.dark",
-                fontWeight: 700
-              })
-            }} />
+            {/* Оптимальная (НПТ) */}
+            <Tab
+              {...getPriorityTabProps("Оптимальная (НПТ)", "low-d", priorityMethod)}
+            />
+
+            {/* Оптимальная (ВПТ) */}
+            <Tab
+              {...getPriorityTabProps("Оптимальная (ВПТ)", "high-d", priorityMethod)}
+            />
+
+            {/* Оптимальная (СПТ) */}
+            <Tab
+              {...getPriorityTabProps("Оптимальная (СПТ)", "mixed-d", priorityMethod)}
+            />
             {/* <Tab label="Точечная" disabled={!storyboardsData?.point?.applied} />
             <Tab label="Рекомендуемая" disabled={!storyboardsData?.recommended?.applied} />
             <Tab label="Оптимальная (НПТ)" disabled={!storyboardsData?.optimal?.applied} />
@@ -1554,15 +1593,37 @@ const formatPoint = (p: number[]) => `(${p[0].toFixed(1)} м, ${p[1].toFixed(1)}
         {/* ═══════════════════════════════════════════════════════════════════
             7. Сравнение оптимизаций
         ═══════════════════════════════════════════════════════════════════ */}
-        <SectionBox title="Сравнение оптимизаций">
+        <SectionBox title={
+          <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
+            <Typography variant="h6">Сравнение оптимизаций</Typography>
+            <Chip
+              label={`Приоритетная оптимизация: ${getMethodFullRussianFromEnglish(priorityMethod) || 'Не выбрана'}`}
+              color="success"
+              variant="outlined"
+              size="small"
+            />
+          </Box>
+        }>
           <Tabs
             value={comparisonTab}
             onChange={(_, v) => setComparisonTab(v)}
             sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
           >
-            <Tab label="Метод 1 (НПТ)" />
-            <Tab label="Метод 2 (ВПТ)" />
-            <Tab label="Метод 3 (СПТ)" />
+            <Tab
+              {...getPriorityTabProps("Метод 1 (НПТ)", "low-d", priorityMethod)}
+            />
+
+            {/* Оптимальная (ВПТ) */}
+            <Tab
+              {...getPriorityTabProps("Метод 2 (ВПТ)", "high-d", priorityMethod)}
+            />
+
+            {/* Оптимальная (СПТ) */}
+            <Tab
+              {...getPriorityTabProps("Метод 3 (СПТ)", "mixed-d", priorityMethod)}
+            />
+
+
           </Tabs>
 
           {comparisonData ? (
