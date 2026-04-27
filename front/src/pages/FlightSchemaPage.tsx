@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 import { IconButton, Tooltip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import FavoriteIcon from '@mui/icons-material/Favorite';
 
 import PageContainer from "../components/layout/PageContainer";
 import { ExifData } from "../types/common.types";
@@ -38,6 +39,11 @@ import { DateToPrettyLocalDateTime } from "../utils/dateUtils";
 
 import ScenePreview from "../features/trajectory/components/ScenePreview";
 import useImage from "use-image";
+import { getMethodFullRussianFromEnglish } from "../utils/optNames";
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 import {
   LineChart,
@@ -362,6 +368,15 @@ const FlightSchemaPage: React.FC<Props> = ({
     stageRef: sceneUserTrajectoryShower,
     image: image,
   };
+
+  const [expanded, setExpanded] = React.useState<string | false>('panel1');
+
+  const handleChange =
+    (panel: string) => (event: React.SyntheticEvent, newExpanded: boolean) => {
+      setExpanded(newExpanded ? panel : false);
+    };
+
+const formatPoint = (p: number[]) => `(${p[0].toFixed(1)} м, ${p[1].toFixed(1)} м)`;
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -1032,9 +1047,9 @@ const FlightSchemaPage: React.FC<Props> = ({
         <SectionBox
           title={
             <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
-              Оптимизация траектории
+              <Typography variant="h6">Оптимизация траектории</Typography>
               <Chip
-                label={`Приоритетная траектория: ${priorityMethod || 'Не выбран'}`}
+                label={`Приоритетная траектория: ${getMethodFullRussianFromEnglish(priorityMethod) || 'Не выбран'}`}
                 color="primary"
                 variant="outlined"
                 size="small"
@@ -1047,12 +1062,27 @@ const FlightSchemaPage: React.FC<Props> = ({
             onChange={(_, v) => setOptimizationTab(v)}
             sx={{ borderBottom: 1, borderColor: "divider" }}
           >
-            <Tab label="Метод 1 (НПТ, low-d)" />
-            <Tab label="Метод 2 (ВПТ, high-d)" />
-            <Tab label="Метод 3 (Комби, combi)" />
+            <Tab label="Метод 1 (НПТ)" sx={{
+              ...(priorityMethod === "low-d" && {
+                color: "primary.dark",
+                fontWeight: 700
+              })
+            }} />
+            <Tab label="Метод 2 (ВПТ)" sx={{
+              ...(priorityMethod === "high-d" && {
+                color: "primary.dark",
+                fontWeight: 700
+              })
+            }} />
+            <Tab label="Метод 3 (СПТ)" sx={{
+              ...(priorityMethod === "mixed-d" && {
+                color: "primary.dark",
+                fontWeight: 700
+              })
+            }} />
           </Tabs>
 
-          <Box mt={2}>
+          <Box mt={2} minHeight={400} maxHeight={400}>
             {/* Отрисовка активной вкладки оптимизации */}
             {currentOptimizationData ? (
               <Stack direction="row" spacing={2}>
@@ -1089,140 +1119,212 @@ const FlightSchemaPage: React.FC<Props> = ({
                   component={Paper}
                   elevation={1}
                   variant="outlined"
-                  sx={{ p: 2, background: "transparent" }}
+                  sx={{
+                    p: 2, background: "transparent", height: 400, // Фиксированная высота
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden'
+                  }}
                 >
-                  <Stack spacing={2}>
-                    <Typography variant="subtitle1">
-                      Результаты оптимизации (Метод {optimizationTab + 1})
-                    </Typography>
+                  <Stack spacing={1}> {/* Stack для отступа между двумя аккордеонами */}
 
-                    <Grid container spacing={2}>
-                      <Grid size={{ xs: 6 }}>
-                        <MetricCard
-                          label="Таксонов"
-                          value={currentOptimizationData.B?.length ?? "—"}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        <MetricCard
-                          label="Охвачено точек"
-                          value={
-                            currentOptimizationData.B
-                              ? currentOptimizationData.B.reduce(
-                                (s: number, t: any) =>
-                                  s + (t.route ?? t.points ?? []).length - 2,
-                                0,
-                              )
-                              : "—"
-                          }
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        <MetricCard
-                          label="Недостижимых точек"
-                          value={currentOptimizationData.C?.length ?? 0}
-                          tooltip="Точки, которые не удалось включить ни в один таксон."
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        <MetricCard
-                          label="Суммарное время"
-                          value={formatTime(
-                            currentOptimizationData.B?.reduce((s: number, t: any) => {
-                              const pts = t.route ?? t.points ?? [];
-                              return (
-                                s +
-                                (pts[pts.length - 1]?.[2] ?? t.time_sec ?? 0)
-                              );
-                            }, 0),
-                          )}
-                        />
-                      </Grid>
-                    </Grid>
-
-                    {/* Таблица по таксонам (пересчитываем для текущих данных) */}
-                    <TableContainer
-                      component={Paper}
-                      variant="outlined"
-                      sx={{ background: "transparent", maxHeight: 150 }}
-                    >
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Таксон</TableCell>
-                            <TableCell>База</TableCell>
-                            <TableCell align="center">Точек</TableCell>
-                            <TableCell align="right">Время</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {currentOptimizationData.B.map((taxon: any, idx: number) => {
-                            const pts = taxon.route ?? taxon.points ?? [];
-                            const lastPt = pts[pts.length - 1];
-                            return (
-                              <TableRow key={idx} hover>
-                                <TableCell>
-                                  <Stack
-                                    direction="row"
-                                    spacing={1}
-                                    alignItems="center"
-                                  >
-                                    <Box
-                                      sx={{
-                                        width: 10,
-                                        height: 10,
-                                        borderRadius: "50%",
-                                        bgcolor: taxon.color,
-                                      }}
-                                    />
-                                    <span>{idx + 1}</span>
-                                  </Stack>
-                                </TableCell>
-                                <TableCell>
-                                  {taxon.base ? `(${taxon.base[0]?.toFixed(1)}, ${taxon.base[1]?.toFixed(1)})` : "—"}
-                                </TableCell>
-                                <TableCell align="center">
-                                  {pts.length > 0 ? pts.length - 2 : 0}
-                                </TableCell>
-                                <TableCell align="right">
-                                  {formatTime(lastPt?.[2] ?? taxon.time_sec)}
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-
-                    {/* Недостижимые точки */}
-                    {currentOptimizationData.C?.length > 0 && (
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="warning.main"
-                          fontWeight={600}
-                          mb={0.5}
-                        >
-                          Недостижимые точки ({currentOptimizationData.C.length}):
+                    {/* 1. Результаты оптимизации */}
+                    <Accordion defaultExpanded={true} expanded={expanded === 'panel1'} onChange={handleChange('panel1')} elevation={0}
+                      sx={{
+                        mt: 1,
+                        '&:not(:last-of-type)': {
+                          borderBottom: '1px solid',
+                          borderColor: '#ddd',
+                        },
+                      }}>
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                          Результаты оптимизации
                         </Typography>
-                        <Box
-                          sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
-                        >
-                          {currentOptimizationData.C.map((pt: number[], i: number) => (
-                            <Chip
-                              key={i}
-                              size="small"
-                              label={`(${pt[0]?.toFixed(1)}, ${pt[1]?.toFixed(
-                                1,
-                              )})`}
-                              color="warning"
-                              variant="outlined"
-                            />
+                      </AccordionSummary>
+                      <AccordionDetails sx={{
+                        overflowY: 'scroll', // Включаем скролл
+                        maxHeight: 230,   // Максимальная высота контента (подберите нужную цифру)
+                      }}>
+                        {/* Ваш старый контент */}
+                        <Stack spacing={2}>
+                          <Grid container spacing={2}>
+                            <Grid size={{ xs: 6 }}>
+                              <MetricCard
+                                label="Таксонов"
+                                value={currentOptimizationData.B?.length ?? "—"}
+                              />
+                            </Grid>
+                            <Grid size={{ xs: 6 }}>
+                              <MetricCard
+                                label="Охвачено точек"
+                                value={
+                                  currentOptimizationData.B
+                                    ? currentOptimizationData.B.reduce(
+                                      (s: number, t: any) =>
+                                        s + (t.route ?? t.points ?? []).length - 2,
+                                      0,
+                                    )
+                                    : "—"
+                                }
+                              />
+                            </Grid>
+                            <Grid size={{ xs: 6 }}>
+                              <MetricCard
+                                label="Недостижимых точек"
+                                value={currentOptimizationData.C?.length ?? 0}
+                                tooltip="Точки, которые не удалось включить ни в один таксон."
+                              />
+                            </Grid>
+                            <Grid size={{ xs: 6 }}>
+                              <MetricCard
+                                label="Суммарное время"
+                                value={formatTime(
+                                  currentOptimizationData.B?.reduce((s: number, t: any) => {
+                                    const pts = t.route ?? t.points ?? [];
+                                    return (
+                                      s +
+                                      (pts[pts.length - 1]?.[2] ?? t.time_sec ?? 0)
+                                    );
+                                  }, 0),
+                                )}
+                              />
+                            </Grid>
+                          </Grid>
+
+                          {/* Таблица по таксонам */}
+                          <TableContainer
+                            component={Paper}
+                            variant="outlined"
+                            sx={{ background: "transparent" }}
+                          >
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Таксон</TableCell>
+                                  <TableCell>База</TableCell>
+                                  <TableCell align="center">Точек</TableCell>
+                                  <TableCell align="right">Время</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {currentOptimizationData.B.map((taxon: any, idx: number) => {
+                                  const pts = taxon.route ?? taxon.points ?? [];
+                                  const lastPt = pts[pts.length - 1];
+                                  return (
+                                    <TableRow key={idx} hover>
+                                      <TableCell>
+                                        <Stack
+                                          direction="row"
+                                          spacing={1}
+                                          alignItems="center"
+                                        >
+                                          <Box
+                                            sx={{
+                                              width: 10,
+                                              height: 10,
+                                              borderRadius: "50%",
+                                              bgcolor: taxon.color,
+                                            }}
+                                          />
+                                          <span>{idx + 1}</span>
+                                        </Stack>
+                                      </TableCell>
+                                      <TableCell>
+                                        {taxon.base ? `(${taxon.base[0]?.toFixed(1)} м, ${taxon.base[1]?.toFixed(1)} м)` : "—"}
+                                      </TableCell>
+                                      <TableCell align="center">
+                                        {pts.length > 0 ? pts.length - 2 : 0}
+                                      </TableCell>
+                                      <TableCell align="right">
+                                        {formatTime(lastPt?.[2] ?? taxon.time_sec)}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+
+                          {/* Недостижимые точки */}
+                          {currentOptimizationData.C?.length > 0 && (
+                            <Box>
+                              <Typography
+                                variant="body2"
+                                color="warning.main"
+                                fontWeight={600}
+                                mb={0.5}
+                              >
+                                Недостижимые точки ({currentOptimizationData.C.length}):
+                              </Typography>
+                              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                                {currentOptimizationData.C.map((pt: number[], i: number) => (
+                                  <Chip
+                                    key={i}
+                                    size="small"
+                                    label={`(${pt[0]?.toFixed(1)}, ${pt[1]?.toFixed(
+                                      1,
+                                    )})`}
+                                    color="warning"
+                                    variant="outlined"
+                                  />
+                                ))}
+                              </Box>
+                            </Box>
+                          )}
+                        </Stack>
+                      </AccordionDetails>
+                    </Accordion>
+
+                    {/* 2. Полный маршрут */}
+                    <Accordion sx={{ flexShrink: 0 }} expanded={expanded === 'panel2'} onChange={handleChange('panel2')}>
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                          Полный маршрут
+                        </Typography>
+                      </AccordionSummary>
+                      <AccordionDetails sx={{
+                        overflowY: 'scroll', // Включаем скролл
+                        maxHeight: 230,   // Максимальная высота контента (подберите нужную цифру)
+                      }}>
+                        <Stack spacing={2}>
+                          {currentOptimizationData.B.map((taxon: any, idx: number) => (
+                            <Box key={`taxon-route-${idx}`}>
+                              {/* Заголовок таксона */}
+                              <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
+                                <Box
+                                  sx={{
+                                    width: 10,
+                                    height: 10,
+                                    borderRadius: "50%",
+                                    bgcolor: taxon.color, // Цвет таксона
+                                  }}
+                                />
+                                <Typography variant="subtitle2" fontWeight={600}>
+                                  Таксон {idx + 1}
+                                </Typography>
+                              </Stack>
+
+                              {/* Вывод маршрута */}
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  pl: 1.5, // Отступ, чтобы выровнять по тексту заголовка
+                                  color: "text.secondary",
+                                  wordBreak: "break-word", // На случай, если маршрут слишком длинный
+                                }}
+                              >
+                                {taxon.route.map(formatPoint).join(" → ")}
+                              </Typography>
+                            </Box>
                           ))}
-                        </Box>
-                      </Box>
-                    )}
+                        </Stack>
+                      </AccordionDetails>
+                    </Accordion>
+
                   </Stack>
+
+
                 </Box>
               </Stack>
             ) : (
@@ -1236,17 +1338,44 @@ const FlightSchemaPage: React.FC<Props> = ({
         {/* ═══════════════════════════════════════════════════════════════════
             6. Раскадровка
         ═══════════════════════════════════════════════════════════════════ */}
-        <SectionBox title="Раскадровка">
+        <SectionBox
+          title={
+            <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
+              <Typography variant="h6">Раскадровка</Typography>
+              <Chip
+                label={`Приоритетная раскадровка: ${getMethodFullRussianFromEnglish(priorityMethod) || 'Не выбрана'}`}
+                color="primary"
+                variant="outlined"
+                size="small"
+              />
+            </Box>
+          }
+        >
           <Tabs
             value={storyboardTab}
             onChange={(_, v) => setStoryboardTab(v)}
             sx={{ borderBottom: 1, borderColor: "divider" }}
           >
-            <Tab label="Точечная"/>
+            <Tab label="Точечная" />
             <Tab label="Рекомендуемая" />
-            <Tab label="Оптимальная (НПТ)" />
-            <Tab label="Оптимальная (ВПТ)" />
-            <Tab label="Оптимальная (Комби)" />
+            <Tab label="Оптимальная (НПТ)" sx={{
+              ...(priorityMethod === "low-d" && {
+                color: "primary.dark",
+                fontWeight: 700
+              })
+            }} />
+            <Tab label="Оптимальная (ВПТ)" sx={{
+              ...(priorityMethod === "high-d" && {
+                color: "primary.dark",
+                fontWeight: 700
+              })
+            }} />
+            <Tab label="Оптимальная (СПТ)" sx={{
+              ...(priorityMethod === "mixed-d" && {
+                color: "primary.dark",
+                fontWeight: 700
+              })
+            }} />
             {/* <Tab label="Точечная" disabled={!storyboardsData?.point?.applied} />
             <Tab label="Рекомендуемая" disabled={!storyboardsData?.recommended?.applied} />
             <Tab label="Оптимальная (НПТ)" disabled={!storyboardsData?.optimal?.applied} />
@@ -1336,7 +1465,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                 </Box>
                 <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
                   <Stack spacing={2}>
-                    <Typography variant="subtitle1">Свойства раскадровки</Typography>
+                    <Typography variant="subtitle1">Свойства раскадровки (НПТ)</Typography>
                     <StoryboardMetrics data={storyboardsData.optimal} />
                   </Stack>
                   <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
@@ -1366,7 +1495,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                 </Box>
                 <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
                   <Stack spacing={2}>
-                    <Typography variant="subtitle1">Свойства раскадровки (Плотная)</Typography>
+                    <Typography variant="subtitle1">Свойства раскадровки (ВПТ)</Typography>
                     <StoryboardMetrics data={storyboardsData.optimal_big_density} />
                   </Stack>
                   <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
@@ -1396,7 +1525,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                 </Box>
                 <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display=" flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
                   <Stack spacing={2}>
-                    <Typography variant="subtitle1">Свойства раскадровки (Комби)</Typography>
+                    <Typography variant="subtitle1">Свойства раскадровки (СПТ)</Typography>
                     <StoryboardMetrics data={storyboardsData.optimal_combi} />
                   </Stack>
                   <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
@@ -1431,9 +1560,9 @@ const FlightSchemaPage: React.FC<Props> = ({
             onChange={(_, v) => setComparisonTab(v)}
             sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
           >
-            <Tab label="Метод 1" />
-            <Tab label="Метод 2"  />
-            <Tab label="Метод 3" />
+            <Tab label="Метод 1 (НПТ)" />
+            <Tab label="Метод 2 (ВПТ)" />
+            <Tab label="Метод 3 (СПТ)" />
           </Tabs>
 
           {comparisonData ? (

@@ -31,6 +31,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import ScatterPlotIcon from "@mui/icons-material/ScatterPlot";
 import PersonIcon from "@mui/icons-material/Person";
+import MergeIcon from '@mui/icons-material/Merge';
 
 import PageContainer from "../../../components/layout/PageContainer";
 import type { TrajectorySchema } from "../../flight/types/schema.types";
@@ -93,11 +94,11 @@ export default function TrajectoryList() {
       color: "secondary",
       tooltip: "Высокая плотность точек",
     },
-    "combi": {
-      label: "combi",
-      icon: <ScatterPlotIcon fontSize="small" />,
-      color: "warning",
-      tooltip: "Комбинированный",
+    "mixed-d": {
+      label: "mixed-d",
+      icon: <MergeIcon fontSize="small" />,
+      color: "primary",
+      tooltip: "Смешанная плотность точек",
     },
     "user": {
       label: "user",

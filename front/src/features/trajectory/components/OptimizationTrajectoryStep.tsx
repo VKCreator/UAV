@@ -842,7 +842,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                           onChange={(e) => updateOptimization('combi', { flag: e.target.checked })}
                         />
                       }
-                      label="Комбинированный"
+                      label="Смешанной плотности точек"
                     />
                     <Tooltip title="Показать схему" arrow placement="left">
                       <Chip

@@ -279,7 +279,7 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
   const methods = [
     { id: "METHOD_1", name: "Метод 1 (НПТ)", data: data1 },
     { id: "METHOD_2", name: "Метод 2 (ВПТ)", data: data2 },
-    { id: "METHOD_3", name: "Метод 3 (Комби)", data: data3 },
+    { id: "METHOD_3", name: "Метод 3 (СПТ)", data: data3 },
   ];
 
   const metrics = [
@@ -407,7 +407,7 @@ const CompareOptimizationMethodsStep: React.FC<CompareOptimizationMethodsStepPro
       case 1:
         return <MethodTab data={trajectoryData2} methodLabel="2 методу (Высокая плотность точек)" />;
       case 2:
-        return <MethodTab data={trajectoryData3} methodLabel="3 методу (Комбинированный)" />;
+        return <MethodTab data={trajectoryData3} methodLabel="3 методу (Смешанная плотность точек)" />;
       case 3:
         return <ComparisonTab data1={trajectoryData} data2={trajectoryData2} data3={trajectoryData3} priorityMethod={priorityMethod} setPriorityMethod={setPriorityMethod} />;
       default:

@@ -308,7 +308,7 @@ const TrajectoryStepper = () => {
   const methodNames2PrettyName: Record<string, string> = {
   "METHOD_1": "low-d",
   "METHOD_2": "high-d",
-  "METHOD_3": "combi",
+  "METHOD_3": "mixed-d",
   };
 
   // ── Очистка раскадровок ───────────────────────────────────────────────────
