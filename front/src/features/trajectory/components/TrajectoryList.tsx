@@ -479,7 +479,7 @@ export default function TrajectoryList() {
                           letter-spacing: 1.5pt; color: #004E9E;
                           text-transform: uppercase;
                           font-weight: bold;">
-                <b>Полётная карта</b>
+                <b style="font-size: 18pt; color: #004E9E;">Полётная карта</b>
               </div>
               <div style="font-family:${FONT}; font-size: 16pt;
                           font-weight: bold; margin-top: 3pt; color: #000;">
@@ -574,7 +574,7 @@ export default function TrajectoryList() {
             <div style="font-family:${FONT}; font-size: 9pt;
                         color: #555; text-align: right;">
               <div>Дата: <strong style="color:#000;">${createdAt}</strong></div>
-              <div style="margin-top:2pt; style="color: #d1d0d0"">
+              <div style="margin-top:2pt; color: #d1d0d0;">
                 © SkyPath Service
               </div>
             </div>
@@ -656,9 +656,9 @@ export default function TrajectoryList() {
 
           // Центрируем по обеим осям
           const offsetX = (PAGE_W - finalW) / 2;
-          const offsetY = (PAGE_H - finalH) / 2;
+          // const offsetY = (PAGE_H - finalH) / 2;
 
-          pdf.addImage(imgData, "JPEG", offsetX, offsetY, finalW, finalH);
+          pdf.addImage(imgData, "JPEG", offsetX, MARGIN, finalW, finalH);
         } finally {
           document.body.removeChild(landscapeElement);
         }
