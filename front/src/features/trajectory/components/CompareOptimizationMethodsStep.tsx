@@ -65,7 +65,7 @@ interface CompareOptimizationMethodsStepProps {
   trajectoryData2: TrajectoryData | null;
   trajectoryData3: TrajectoryData | null;
   priorityMethod: string,
-  setPriorityMethod: (newMethod: string) => void;
+  setPriorityMethod: React.Dispatch<React.SetStateAction<any>>;
 }
 
 // ─── Константы ────────────────────────────────────────────────────────────────
@@ -273,7 +273,7 @@ const MethodTab: React.FC<{ data: TrajectoryData | null; methodLabel: string }> 
   );
 };
 
-const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryData | null; data2: TrajectoryData | null;  priorityMethod: string; setPriorityMethod: (m: string) => void; }> = ({ data1, data2, data3, priorityMethod, setPriorityMethod }) => {
+const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryData | null; data3: TrajectoryData | null;  priorityMethod: string; setPriorityMethod: React.Dispatch<React.SetStateAction<any>>; }> = ({ data1, data2, data3, priorityMethod, setPriorityMethod }) => {
   // const [selectedMethod, setSelectedMethod] = useState("method1");
 
   const methods = [
@@ -398,7 +398,7 @@ const CompareOptimizationMethodsStep: React.FC<CompareOptimizationMethodsStepPro
   priorityMethod,
   setPriorityMethod,
 }) => {
-  const [selectedTab, setSelectedTab] = useState(0);
+  const [selectedTab, setSelectedTab] = useState(3);
 
   const renderTabContent = () => {
     switch (selectedTab) {

@@ -274,6 +274,11 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           tags?.RelativeAltitude != null
             ? parseFloat(tags.RelativeAltitude)
             : undefined;
+            
+        const subjectDistance =
+          tags?.SubjectDistance != null
+            ? parseFloat(tags.SubjectDistance)
+            : undefined;
 
         const newExifData: ExifData = {
           fileName: file.name,
@@ -301,7 +306,9 @@ const ImageUploadStep: React.FC<ImageUploadStepProps> = ({
           relativeAltitude: relativeAltitude != null && !Number.isNaN(relativeAltitude)
             ? String(relativeAltitude)
             : "",
-          subjectDistance: tags?.SubjectDistance,
+          subjectDistance: subjectDistance != null && !Number.isNaN(subjectDistance)
+            ? String(subjectDistance)
+            : "",
         };
 
         setExifData([newExifData]);

@@ -64,7 +64,7 @@ import UndoIcon from "@mui/icons-material/Undo";
 import { convexHull, outwardUnitNormal } from "../utils/Geometry";
 
 import { SceneStage } from "./SceneStage";
-import { exportSceneImage } from "../utils/exportSceneImage";
+import { createKonvaScene, exportSceneImage } from "../utils/exportSceneImage";
 
 const COLORS = [
   "#65b9f7", "#ff6b6b", "#66a9ff", "#ffdd57", "#9e69c4",
@@ -655,10 +655,10 @@ const SceneEditor: FC<SceneEditorProps> = ({
   //   });
   // };
 
-
-
   const handleDownload = () => {
-    exportSceneImage({
+    setLoading(true);
+
+    let params = {
       image: image!,
       width_m: droneParams.frameWidthBase,
       height_m: droneParams.frameHeightBase,
@@ -678,10 +678,16 @@ const SceneEditor: FC<SceneEditorProps> = ({
 
       PREVIEW_WIDTH: STAGE_WIDTH,
       PREVIEW_HEIGHT: STAGE_HEIGHT,
-
+    }
+    // 1. Рисуем сцену
+    const stage = createKonvaScene({
+      ...params,
       setLoading: setLoading
     });
-  }
+
+    // 2. Скачиваем картинку
+    exportSceneImage(stage, "map.png", setLoading);
+  };
 
   return (
     <Box display="flex" flexDirection="column" height="100%" width="100%">

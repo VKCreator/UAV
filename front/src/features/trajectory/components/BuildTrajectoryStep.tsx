@@ -53,7 +53,7 @@ import { Drone } from "../../uav/types/uav.types";
 import useImage from "use-image";
 import { SceneStage } from "./SceneStage";
 import { convexHull, outwardUnitNormal } from "../utils/Geometry";
-import { exportSceneImage } from "../utils/exportSceneImage";
+import { createKonvaScene, exportSceneImage } from "../utils/exportSceneImage";
 
 interface BuildTrajectoryStepProps {
   imageData: ImageData;
@@ -277,30 +277,38 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   };
 
   const handleDownload = () => {
-  exportSceneImage({
-    image: image!,
-    width_m: droneParams.frameWidthBase,
-    height_m: droneParams.frameHeightBase,
-    GRID_COLS: droneParams.frameWidthBase / droneParams.frameWidthPlanned,
-    GRID_ROWS: droneParams.frameHeightBase / droneParams.frameHeightPlanned,
-    
-    flightLineY: flightLineY,
-    obstacles: obstacles,
-    points: points,
-    trajectoryData: null,
-    
-    showGrid: true,
-    showObstacles: true,
-    showUserTrajectory: true,
-    showTaxonTrajectory: false,
-    showNavTriangles: false,
-    
-    PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
-    PREVIEW_HEIGHT: 400, 
-        
-    setLoading: setLoading
-  });
-};
+    setLoading(true);
+
+    let params = {
+      image: image!,
+      width_m: droneParams.frameWidthBase,
+      height_m: droneParams.frameHeightBase,
+      GRID_COLS: droneParams.frameWidthBase / droneParams.frameWidthPlanned,
+      GRID_ROWS: droneParams.frameHeightBase / droneParams.frameHeightPlanned,
+
+      flightLineY: flightLineY,
+      obstacles: obstacles,
+      points: points,
+      trajectoryData: null,
+
+      showGrid: true,
+      showObstacles: true,
+      showUserTrajectory: true,
+      showTaxonTrajectory: false,
+      showNavTriangles: false,
+
+      PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
+      PREVIEW_HEIGHT: 400,
+    }
+    // 1. Рисуем сцену
+    const stage = createKonvaScene({
+      ...params,
+      setLoading: setLoading
+    });
+
+    // 2. Скачиваем картинку
+    exportSceneImage(stage, "trajectory_map.png", setLoading);
+  };
 
   return (
     <Box sx={{ p: 2 }}>

@@ -18,5 +18,5 @@ export interface ExifData {
   latitude: string;
   longitude: string;
   relativeAltitude: string;
-  subjectDistance: number;
+  subjectDistance: string;
 }

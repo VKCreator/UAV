@@ -58,10 +58,10 @@ import useImage from "use-image";
 import SceneEditor from "./SceneEditor";
 import StoryboardEditor from "./StoryboardEditor";
 import ScenePreview from "./ScenePreview";
-import { exportSceneImage } from "../utils/exportSceneImage";
+import { createKonvaScene, exportSceneImage } from "../utils/exportSceneImage";
 
 import { trajectoryApi } from "../../../api/trajectory.api";
-import { useDialogs } from '../../../hooks/useDialogs/useDialogs'; 
+import { useDialogs } from '../../../hooks/useDialogs/useDialogs';
 
 interface OptimizationTrajectoryStepProps {
   imageData: ImageData;
@@ -173,8 +173,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   optimizationState,
   setOptimizationState
 }) => {
-    const { confirm } = useDialogs();
-  
+  const { confirm } = useDialogs();
+
   const [activeImage, setActiveImage] = React.useState(0);
   const [image] = useImage(imageData.imageUrl);
   const [showView, setShowView] = React.useState(false);
@@ -211,41 +211,41 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
   const isAnyOptimizationSelected = Object.values(optimizationState).some(item => item.flag);
 
-const { isAllStoryboardCompleted, isAllStoryboardNotCompleted } = React.useMemo(() => {
-  // Определяем маппинг ключей
-  const mappings = [
-    { optKey: 'small', sbKey: 'optimal' },             // Метод 1 (НПТ)
-    { optKey: 'large', sbKey: 'optimal_big_density' }, // Метод 2 (ВПТ)
-    { optKey: 'combi', sbKey: 'optimal_combi' },        // Метод 3 (СПТ)
-  ];
+  const { isAllStoryboardCompleted, isAllStoryboardNotCompleted } = React.useMemo(() => {
+    // Определяем маппинг ключей
+    const mappings = [
+      { optKey: 'small', sbKey: 'optimal' },             // Метод 1 (НПТ)
+      { optKey: 'large', sbKey: 'optimal_big_density' }, // Метод 2 (ВПТ)
+      { optKey: 'combi', sbKey: 'optimal_combi' },        // Метод 3 (СПТ)
+    ];
 
-  // 1. Проверка: Все ВЫПОЛНЕННЫЕ оптимизации имеют раскадровки
-  const allCompleted = mappings.every(({ optKey, sbKey }) => {
-    const optStatus = optimizationState[optKey].status;
-    
-    // Если оптимизация еще не выполнена, она не учитывается в "All"
-    if (optStatus !== 'completed') return true;
-    
-    // Если оптимизация выполнена, проверяем наличие раскадровки
-    return storyboardsData[sbKey].applied === true;
-  });
+    // 1. Проверка: Все ВЫПОЛНЕННЫЕ оптимизации имеют раскадровки
+    const allCompleted = mappings.every(({ optKey, sbKey }) => {
+      const optStatus = optimizationState[optKey].status;
 
-  // 2. Проверка: Все ВЫПОЛНЕННЫЕ оптимизации НЕ имеют раскадровок
-  const allNotCompleted = mappings.every(({ optKey, sbKey }) => {
-    const optStatus = optimizationState[optKey].status;
+      // Если оптимизация еще не выполнена, она не учитывается в "All"
+      if (optStatus !== 'completed') return true;
 
-    // Если оптимизация еще не выполнена, она не учитывается
-    if (optStatus !== 'completed') return true;
+      // Если оптимизация выполнена, проверяем наличие раскадровки
+      return storyboardsData[sbKey].applied === true;
+    });
 
-    // Если оптимизация выполнена, проверяем ОТСУТСТВИЕ раскадровки
-    return storyboardsData[sbKey].applied === false;
-  });
+    // 2. Проверка: Все ВЫПОЛНЕННЫЕ оптимизации НЕ имеют раскадровок
+    const allNotCompleted = mappings.every(({ optKey, sbKey }) => {
+      const optStatus = optimizationState[optKey].status;
 
-  return {
-    isAllStoryboardCompleted: allCompleted,
-    isAllStoryboardNotCompleted: allNotCompleted,
-  };
-}, [optimizationState, storyboardsData]);
+      // Если оптимизация еще не выполнена, она не учитывается
+      if (optStatus !== 'completed') return true;
+
+      // Если оптимизация выполнена, проверяем ОТСУТСТВИЕ раскадровки
+      return storyboardsData[sbKey].applied === false;
+    });
+
+    return {
+      isAllStoryboardCompleted: allCompleted,
+      isAllStoryboardNotCompleted: allNotCompleted,
+    };
+  }, [optimizationState, storyboardsData]);
 
 
   const [isConsiderWeather, setConsiderWeather] = React.useState(weatherConditions.isUse);
@@ -518,9 +518,10 @@ const { isAllStoryboardCompleted, isAllStoryboardNotCompleted } = React.useMemo(
     setAnchorEl(null);
   };
 
-
   const handleDownloadScene = () => {
-    exportSceneImage({
+    setLoading(true);
+
+    let params = {
       image: image!,
       width_m: droneParams.frameWidthBase,
       height_m: droneParams.frameHeightBase,
@@ -540,9 +541,15 @@ const { isAllStoryboardCompleted, isAllStoryboardNotCompleted } = React.useMemo(
 
       PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
       PREVIEW_HEIGHT: 400,
-
+    }
+    // 1. Рисуем сцену
+    const stage = createKonvaScene({
+      ...params,
       setLoading: setLoading
     });
+
+    // 2. Скачиваем картинку
+    exportSceneImage(stage, "map.png", setLoading);
   };
 
   const handleDownload = (type) => {
@@ -1033,7 +1040,7 @@ const { isAllStoryboardCompleted, isAllStoryboardNotCompleted } = React.useMemo(
                   <Typography fontWeight={600}>2. Раскадровка</Typography>
                 </Box>
 
-                  
+
                 {/* Правая часть: статус ЗДЕСЬ СДЕЛАТЬ ПРОВЕРКУ ВЫПОЛНЕНО НЕ ВЫПОЛНЕНО ЧАСТИЧНО и в кнопку далее тоже добавить запрет если нет раскадровки выполненной*/}
                 <Chip
                   label={

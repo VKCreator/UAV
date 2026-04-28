@@ -1,7 +1,7 @@
 import Konva from "konva";
-import { buildSafeZoneForDownload } from "./Geometry.ts"
+import { buildSafeZoneForDownload } from "./Geometry.ts";
 
-// Типы для входных данных (упрощенные для примера, при желании можно импортировать из типов проекта)
+// ─── Интерфейсы (сохранены из вашего кода) ────────────────────────────────
 interface Point {
   x: number;
   y: number;
@@ -17,18 +17,18 @@ interface Polygon {
 interface Segment {
   p_from: [number, number];
   p_to: [number, number];
-  TC: number | { parsedValue?: number; source?: number }; // True Course
-  TA: number; // True Airspeed angle
-  GS: number; // Ground Speed
-  TAS: number; // True Airspeed
+  TC: number | { parsedValue?: number; source?: number };
+  TA: number;
+  GS: number;
+  TAS: number;
   wind_speed: number;
   wind_dir_deg: number;
 }
 
 interface TrajectoryData {
-  B?: any[]; // Таксоны
-  C?: [number, number][]; // Недостижимые точки
-  segments?: Segment[]; // Сегменты для нав. треугольников
+  B?: any[];
+  C?: [number, number][];
+  segments?: Segment[];
 }
 
 interface ExportSceneParams {
@@ -37,50 +37,47 @@ interface ExportSceneParams {
   height_m: number;
   GRID_COLS: number;
   GRID_ROWS: number;
-
-  // Данные сцены
   flightLineY: number | null;
   obstacles: Polygon[];
   points: Point[];
   trajectoryData: TrajectoryData | null;
-
-  // Флаги видимости
   showGrid: boolean;
   showObstacles: boolean;
   showUserTrajectory: boolean;
   showTaxonTrajectory: boolean;
   showNavTriangles: boolean;
-
-  // Размеры превью для расчета пропорций UI
   PREVIEW_WIDTH: number;
   PREVIEW_HEIGHT: number;
-
-  // Колбеки
-  setLoading: (loading: boolean) => void;
+  setLoading?: (loading: boolean) => void; // Оставим опциональным, т.к. логика отрисовки его не использует
 }
 
-export const exportSceneImage = ({
-  image,
-  width_m,
-  height_m,
-  GRID_COLS,
-  GRID_ROWS,
-  flightLineY,
-  obstacles,
-  points,
-  trajectoryData,
-  showGrid,
-  showObstacles,
-  showUserTrajectory,
-  showTaxonTrajectory,
-  showNavTriangles,
-  PREVIEW_WIDTH,
-  PREVIEW_HEIGHT,
-  setLoading,
-}: ExportSceneParams) => {
-  if (!image) return;
-  setLoading(true);
+// ─── 1. Функция отрисовки сцены (создает и возвращает Stage) ─────────────────────────────
 
+/**
+ * Создает Konva Stage, рисует на нем все элементы и возвращает объект Stage.
+ * НЕ уничтожает Stage, чтобы его можно было использовать для экспорта.
+ */
+export const createKonvaScene = (params: ExportSceneParams): Konva.Stage => {
+  const {
+    image,
+    width_m,
+    height_m,
+    GRID_COLS,
+    GRID_ROWS,
+    flightLineY,
+    obstacles,
+    points,
+    trajectoryData,
+    showGrid,
+    showObstacles,
+    showUserTrajectory,
+    showTaxonTrajectory,
+    showNavTriangles,
+    PREVIEW_WIDTH,
+    PREVIEW_HEIGHT,
+  } = params;
+
+  // Создаем контейнер и Stage в памяти
   const container = document.createElement("div");
   const downloadStage = new Konva.Stage({
     container,
@@ -91,10 +88,7 @@ export const exportSceneImage = ({
   const layer = new Konva.Layer();
   downloadStage.add(layer);
 
-  // PREVIEW_WIDTH = 1100;
-  // PREVIEW_HEIGHT = 700;
-
-  // Масштабный коэффициент UI (чтобы стрелки и текст выглядели так же, как на 500x400)
+  // Масштабный коэффициент UI
   const uiScale = Math.min(image.width / PREVIEW_WIDTH, image.height / PREVIEW_HEIGHT) * 0.5;
 
   const POINT_R_USER = 14 * uiScale;
@@ -106,7 +100,6 @@ export const exportSceneImage = ({
   const FONT_USER = 16 * uiScale;
   const FONT_TAXON = 14 * uiScale;
 
-  // Вспомогательная функция для точек стрелки
   const arrowPts = (
     from: { x: number; y: number },
     to: { x: number; y: number },
@@ -124,14 +117,18 @@ export const exportSceneImage = ({
     ];
   };
 
-  // ── 1. Фоновое изображение ────────────────────────────────
+  // ── РИСОВАНИЕ (вся логика из оригинального кода) ─────────────────────────────────────────────────
+
+  // 1. Фоновое изображение
   layer.add(new Konva.Image({
     image,
-    x: 0, y: 0,
-    width: image.width, height: image.height,
+    x: 0,
+    y: 0,
+    width: image.width,
+    height: image.height,
   }));
 
-  // ── 2. Сетка ──────────────────────────────────────────────
+  // 2. Сетка
   if (showGrid) {
     const cellW = image.width / GRID_COLS;
     const cellH = image.height / GRID_ROWS;
@@ -140,43 +137,59 @@ export const exportSceneImage = ({
 
     for (let i = 1; i < GRID_COLS; i++) {
       layer.add(new Konva.Rect({
-        x: cellW * i - lineWidth / 2, y: 0,
-        width: lineWidth, height: image.height,
-        fill: "rgba(255, 255, 255, 0.8)", stroke: "rgba(0, 0, 0, 1)", strokeWidth: 0.1 * uiScale,
+        x: cellW * i - lineWidth / 2,
+        y: 0,
+        width: lineWidth,
+        height: image.height,
+        fill: "rgba(255,255,255,0.8)",
+        stroke: "rgba(0,0,0,1)",
+        strokeWidth: 0.1 * uiScale,
       }));
     }
     for (let i = 1; i < GRID_ROWS; i++) {
       const y = image.height - cellH * i;
       layer.add(new Konva.Rect({
-        x: 0, y: y - lineHeight / 2,
-        width: image.width, height: lineHeight,
-        fill: "rgba(255, 255, 255, 0.8)", stroke: "rgba(0, 0, 0, 1)", strokeWidth: 0.1 * uiScale,
+        x: 0,
+        y: y - lineHeight / 2,
+        width: image.width,
+        height: lineHeight,
+        fill: "rgba(255,255,255,0.8)",
+        stroke: "rgba(0,0,0,1)",
+        strokeWidth: 0.1 * uiScale,
       }));
     }
   }
 
-  // ── 3. Линия полёта ──────────────────────────────────────
+  // 3. Линия полёта
   if (flightLineY !== null) {
     layer.add(new Konva.Line({
       points: [0, flightLineY, image.width, flightLineY],
-      stroke: "orange", strokeWidth: STROKE_W,
+      stroke: "orange",
+      strokeWidth: STROKE_W,
     }));
     layer.add(new Konva.Rect({
-      x: 0, y: flightLineY,
-      width: image.width, height: image.height - flightLineY,
-      fill: "rgba(128,128,128,0.3)", listening: false,
+      x: 0,
+      y: flightLineY,
+      width: image.width,
+      height: image.height - flightLineY,
+      fill: "rgba(128,128,128,0.3)",
+      listening: false,
     }));
     if (flightLineY < image.height - 0.01) {
       layer.add(new Konva.Text({
-        x: 0, y: flightLineY + (image.height - flightLineY) / 2 - FONT_USER * 1.5,
+        x: 0,
+        y: flightLineY + (image.height - flightLineY) / 2 - FONT_USER * 1.5,
         width: image.width,
-        text: "Неинформативная зона", align: "center",
-        fontSize: FONT_USER * 1.5, fill: "rgba(255,255,255,0.85)", listening: false,
+        text: "Неинформативная зона",
+        align: "center",
+        fontSize: FONT_USER * 1.5,
+        fill: "rgba(255,255,255,0.85)",
+        listening: false,
       }));
     }
   }
 
-  // ── 4. Препятствия ────────────────────────────────────────
+  // 4. Препятствия
   if (showObstacles) {
     obstacles.forEach((poly) => {
       // Безопасная зона
@@ -184,22 +197,31 @@ export const exportSceneImage = ({
         const safeZonePoints = buildSafeZoneForDownload(poly, poly.safeZone, image, width_m, height_m);
         layer.add(new Konva.Line({
           points: safeZonePoints.flatMap((p) => [p.x, p.y]),
-          closed: true, fill: "#E0F4FF", stroke: "#4FC3F7",
-          strokeWidth: STROKE_W, dash: [8 * uiScale, 4 * uiScale], opacity: 0.8,
+          closed: true,
+          fill: "#E0F4FF",
+          stroke: "#4FC3F7",
+          strokeWidth: STROKE_W,
+          dash: [8 * uiScale, 4 * uiScale],
+          opacity: 0.8,
         }));
       }
 
       // Основной полигон
       layer.add(new Konva.Line({
         points: poly.points.flatMap((p) => [p.x, p.y]),
-        closed: true, fill: `${poly.color}20`, stroke: poly.color, strokeWidth: STROKE_W,
+        closed: true,
+        fill: `${poly.color}20`,
+        stroke: poly.color,
+        strokeWidth: STROKE_W,
       }));
 
       // Вершины
       poly.points.forEach((point) => {
         layer.add(new Konva.Circle({
-          x: point.x, y: point.y,
-          radius: 3 * uiScale, fill: poly.color,
+          x: point.x,
+          y: point.y,
+          radius: 3 * uiScale,
+          fill: poly.color,
         }));
       });
 
@@ -210,40 +232,57 @@ export const exportSceneImage = ({
       const labelRadius = 12 * uiScale;
 
       layer.add(new Konva.Circle({
-        x: centerX, y: centerY, radius: labelRadius,
-        fill: "rgba(0,0,0,0.55)", listening: false,
+        x: centerX,
+        y: centerY,
+        radius: labelRadius,
+        fill: "rgba(0,0,0,0.55)",
+        listening: false,
       }));
       layer.add(new Konva.Text({
-        x: centerX - labelRadius * 0.8 * labelText.length * 0.5, // Приблизительно центрируем
+        x: centerX - labelRadius * 0.8 * labelText.length * 0.5,
         y: centerY - FONT_USER * 0.55,
-        text: labelText, fontSize: FONT_USER, fontStyle: "bold", fill: "#fff", listening: false,
+        text: labelText,
+        fontSize: FONT_USER,
+        fontStyle: "bold",
+        fill: "#fff",
+        listening: false,
       }));
     });
   }
 
-  // ── 5. Пользовательская траектория ─────────────────────────
+  // 5. Пользовательская траектория
   if (showUserTrajectory) {
     points.forEach((point, i) => {
       if (i === 0) return;
       const prev = points[i - 1];
       layer.add(new Konva.Arrow({
         points: arrowPts(prev, point, POINT_R_USER, POINT_R_USER),
-        pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
-        fill: "red", stroke: "red", strokeWidth: STROKE_W,
+        pointerLength: ARROW_PTR_LEN,
+        pointerWidth: ARROW_PTR_WID,
+        fill: "red",
+        stroke: "red",
+        strokeWidth: STROKE_W,
       }));
     });
     points.forEach((point, i) => {
       layer.add(new Konva.Circle({
-        x: point.x, y: point.y, radius: POINT_R_USER, fill: "blue",
+        x: point.x,
+        y: point.y,
+        radius: POINT_R_USER,
+        fill: "blue",
       }));
       layer.add(new Konva.Text({
-        x: point.x - POINT_R_USER * 0.45, y: point.y - FONT_USER * 0.55,
-        text: (i + 1).toString(), fontSize: FONT_USER, fontStyle: "bold", fill: "white",
+        x: point.x - POINT_R_USER * 0.45,
+        y: point.y - FONT_USER * 0.55,
+        text: (i + 1).toString(),
+        fontSize: FONT_USER,
+        fontStyle: "bold",
+        fill: "white",
       }));
     });
   }
 
-  // ── 6a. Стрелки таксонов и базы (без точек/номеров) ────────
+  // 6a. Стрелки таксонов и базы
   if (showTaxonTrajectory && trajectoryData) {
     const meterPerPixelX = width_m / image.width;
     const meterPerPixelY = height_m / image.height;
@@ -259,17 +298,22 @@ export const exportSceneImage = ({
           y: image.height - p[1] / meterPerPixelY,
         }));
 
-        // Стрелки к точкам
         if (taxonPoints.length > 0) {
           layer.add(new Konva.Arrow({
             points: arrowPts({ x: baseX, y: baseY }, taxonPoints[0], BASE_R_DL, POINT_R_TAXON),
-            pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
-            fill: color, stroke: color, strokeWidth: STROKE_W,
+            pointerLength: ARROW_PTR_LEN,
+            pointerWidth: ARROW_PTR_WID,
+            fill: color,
+            stroke: color,
+            strokeWidth: STROKE_W,
           }));
           layer.add(new Konva.Arrow({
             points: arrowPts(taxonPoints[taxonPoints.length - 1], { x: baseX, y: baseY }, POINT_R_TAXON, BASE_R_DL),
-            pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
-            fill: color, stroke: color, strokeWidth: STROKE_W,
+            pointerLength: ARROW_PTR_LEN,
+            pointerWidth: ARROW_PTR_WID,
+            fill: color,
+            stroke: color,
+            strokeWidth: STROKE_W,
           }));
 
           taxonPoints.forEach((p: any, i: number) => {
@@ -277,27 +321,31 @@ export const exportSceneImage = ({
               const prev = taxonPoints[i - 1];
               layer.add(new Konva.Arrow({
                 points: arrowPts(prev, p, POINT_R_TAXON, POINT_R_TAXON),
-                pointerLength: ARROW_PTR_LEN, pointerWidth: ARROW_PTR_WID,
-                fill: color, stroke: color, strokeWidth: STROKE_W,
+                pointerLength: ARROW_PTR_LEN,
+                pointerWidth: ARROW_PTR_WID,
+                fill: color,
+                stroke: color,
+                strokeWidth: STROKE_W,
               }));
             }
           });
         }
 
-        // База (треугольник) — рисуется со стрелками, под точками
+        // База
         layer.add(new Konva.Line({
           points: [
             baseX - BASE_R_DL * 1.5, baseY - BASE_R_DL * 1.5,
             baseX + BASE_R_DL * 1.5, baseY,
             baseX - BASE_R_DL * 1.5, baseY + BASE_R_DL * 1.5,
           ],
-          fill: color, closed: true,
+          fill: color,
+          closed: true,
         }));
       });
     }
   }
 
-  // ── 7. Навигационные треугольники (поверх стрелок, под точками) ─
+  // 7. Навигационные треугольники
   if (showNavTriangles && trajectoryData?.B) {
     const meterPerPixelX = width_m / image.width;
     const meterPerPixelY = height_m / image.height;
@@ -329,7 +377,7 @@ export const exportSceneImage = ({
         const pFrom = segment.p_from;
 
         let TC = segment.TC;
-        if (typeof TC === 'object' && TC !== null) {
+        if (typeof TC === "object" && TC !== null) {
           TC = TC.parsedValue ?? TC.source ?? 0;
         }
         const TA = segment.TA;
@@ -387,7 +435,7 @@ export const exportSceneImage = ({
     });
   }
 
-  // ── 6b. Точки таксонов и недостижимые точки (поверх всего) ──
+  // 6b. Точки таксонов и недостижимые точки (поверх всего)
   if (showTaxonTrajectory && trajectoryData) {
     const meterPerPixelX = width_m / image.width;
     const meterPerPixelY = height_m / image.height;
@@ -402,11 +450,18 @@ export const exportSceneImage = ({
 
         taxonPoints.forEach((p: any, i: number) => {
           layer.add(new Konva.Circle({
-            x: p.x, y: p.y, radius: POINT_R_TAXON, fill: color,
+            x: p.x,
+            y: p.y,
+            radius: POINT_R_TAXON,
+            fill: color,
           }));
           layer.add(new Konva.Text({
-            x: p.x - POINT_R_TAXON * 0.45, y: p.y - FONT_TAXON * 0.55,
-            text: (i + 1).toString(), fontSize: FONT_TAXON, fontStyle: "bold", fill: "black",
+            x: p.x - POINT_R_TAXON * 0.45,
+            y: p.y - FONT_TAXON * 0.55,
+            text: (i + 1).toString(),
+            fontSize: FONT_TAXON,
+            fontStyle: "bold",
+            fill: "black",
           }));
         });
       });
@@ -419,16 +474,22 @@ export const exportSceneImage = ({
         const cy = image.height - point[1] / meterPerPixelY;
 
         layer.add(new Konva.Circle({
-          x: cx, y: cy, radius: crossR,
-          fill: "rgba(255,107,53,0.15)", stroke: "#FF6B35", strokeWidth: STROKE_W * 0.8,
+          x: cx,
+          y: cy,
+          radius: crossR,
+          fill: "rgba(255,107,53,0.15)",
+          stroke: "#FF6B35",
+          strokeWidth: STROKE_W * 0.8,
         }));
         layer.add(new Konva.Line({
           points: [cx - crossR * 0.6, cy - crossR * 0.6, cx + crossR * 0.6, cy + crossR * 0.6],
-          stroke: "#FF6B35", strokeWidth: STROKE_W,
+          stroke: "#FF6B35",
+          strokeWidth: STROKE_W,
         }));
         layer.add(new Konva.Line({
           points: [cx + crossR * 0.6, cy - crossR * 0.6, cx - crossR * 0.6, cy + crossR * 0.6],
-          stroke: "#FF6B35", strokeWidth: STROKE_W,
+          stroke: "#FF6B35",
+          strokeWidth: STROKE_W,
         }));
       });
     }
@@ -436,15 +497,41 @@ export const exportSceneImage = ({
 
   layer.batchDraw();
 
-  downloadStage.toCanvas().toBlob((blob) => {
+  // Возвращаем Stage для дальнейшего использования
+  return downloadStage;
+};
+
+// ─── 2. Экспорт в Blob (Скачивание PNG) ─────────────────────────────────────────────
+
+export const exportSceneImage = (
+  stage: Konva.Stage,
+  filename: string = "trajectory_map.png",
+  setLoading?: (loading: boolean) => void
+) => {
+  stage.toCanvas().toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "trajectory_map.png";
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
-    downloadStage.destroy();
-    setLoading(false);
-  });
+    
+    // Уничтожаем Stage после экспорта
+    stage.destroy();
+    
+    if (setLoading) setLoading(false);
+  }, "image/png"); // Добавил тип явно
+};
+
+// ─── 3. Экспорт в DataURL (Для вставки в PDF) ───────────────────────────────────────
+
+export const exportSceneImageToDataURL = (stage: Konva.Stage): string | null => {
+  // Получаем Data URL
+  const dataUrl = stage.toDataURL({ pixelRatio: 1 });
+  
+  // Уничтожаем Stage, так как он больше не нужен
+  stage.destroy();
+  
+  return dataUrl;
 };

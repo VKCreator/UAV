@@ -47,6 +47,10 @@ import { useDocumentTitle } from "../../../hooks/useDocumentTitle/useDocumentTit
 import { API_BASE_URL } from "../../../api/config";
 import DownloadIcon from "@mui/icons-material/Download";
 import html2pdf from "html2pdf.js";
+import html2canvas from 'html2canvas'
+
+import { createKonvaScene, exportSceneImageToDataURL } from "../utils/exportSceneImage";
+
 interface MethodConfig {
   label: string;
   icon: React.ReactNode;
@@ -223,30 +227,503 @@ export default function TrajectoryList() {
     [navigate, paginationModel],
   );
 
-  const handleDownload = React.useCallback(
-    (id: string, schemaName: string) => {
-      // 1. Создаем временный невидимый div с нужным текстом
-      const element = document.createElement("div");
-      element.style.fontFamily = "Arial, sans-serif";
-      element.style.padding = "40px";
-      element.innerHTML = `
-        <h1 style="margin: 0 0 15px 0; color: #333;">Полётная карта</h1>
-        <h2 style="margin: 0; font-weight: normal; color: #555;">${schemaName}</h2>
-      `;
+  // Скачивание pdf-файла.
+  // const handleDownload = React.useCallback(
+  //   (id: string, schemaName: string) => {
+  //     // 1. Создаем временный невидимый div с нужным текстом
+  //     const element = document.createElement("div");
+  //     element.style.fontFamily = "Arial, sans-serif";
+  //     element.style.padding = "40px";
+  //     element.innerHTML = `
+  //       <h1 style="margin: 0 0 15px 0; color: #333;">Полётная карта</h1>
+  //       <h2 style="margin: 0; font-weight: normal; color: #555;">${schemaName}</h2>
+  //     `;
 
-      // 2. Настраиваем параметры PDF
-      const opt = {
-        margin: 10,
-        filename: `${schemaName || 'Карта'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 }, // Увеличиваем качество
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  //     // 2. Настраиваем параметры PDF
+  //     const opt = {
+  //       margin: 10,
+  //       filename: `${schemaName || 'Карта'}.pdf`,
+  //       image: { type: 'jpeg', quality: 0.98 },
+  //       html2canvas: { scale: 2 }, // Увеличиваем качество
+  //       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  //     };
+
+  //     // 3. Генерируем и скачаем
+  //     html2pdf().set(opt).from(element).save();
+  //   },
+  //   [],
+  // );
+
+
+  const handleDownloadPDF = React.useCallback(
+    async (schemaData: any, baseImageObj: HTMLImageElement) => {
+      if (!schemaData || !baseImageObj) return;
+
+      const getNum = (val: any, fallback: number = 0): number => {
+        if (val && typeof val === "object" && "parsedValue" in val) {
+          return val.parsedValue;
+        }
+        if (typeof val === "number") return val;
+        return fallback;
       };
 
-      // 3. Генерируем и скачаем
-      html2pdf().set(opt).from(element).save();
+      const formatTime = (sec: number): string => {
+        if (!sec) return "0 сек";
+        const m = Math.floor(sec / 60);
+        const s = Math.round(sec % 60);
+        return `${m} мин ${s} сек`;
+      };
+
+      const getWindDirectionLabel = (deg: number) => {
+        const dirs = [
+          "Север", "Северо-восток", "Восток", "Юго-восток",
+          "Юг", "Юго-запад", "Запад", "Северо-запад",
+        ];
+        return dirs[Math.round(deg / 45) % 8];
+      };
+
+      function calcFrameSize(distance: number, fovDeg: number): number {
+        const fovRad = (fovDeg * Math.PI) / 180;
+        return 2 * distance * Math.tan(fovRad / 2);
+      }
+
+      try {
+        // ====== 1. Данные ======
+        const mapName = schemaData.map_name || "Карта";
+        const createdAt = schemaData.created_at
+          ? new Date(schemaData.created_at).toLocaleDateString("ru-RU", {
+            day: "2-digit", month: "long", year: "numeric",
+          })
+          : "";
+
+        const priorityMethod = schemaData.priority_opt_method;
+        const priorityItem = schemaData.opt_results?.items?.find(
+          (item: any) => item.method_id === priorityMethod?.method_id,
+        );
+        const traj = priorityItem?.taxons;
+
+        const drn = schemaData.drone_params.drone ?? {};
+        const cam = schemaData.drone_params.camera_params ?? {};
+
+        const fov = getNum(cam.vertical_fov) ?? getNum(drn.default_vertical_fov) ?? 77;
+        const resW = getNum(cam.resolution_width) ?? getNum(drn.default_resolution_width) ?? 5472;
+        const resH = getNum(cam.resolution_height) ?? getNum(drn.default_resolution_height) ?? 3648;
+        const baseDist = getNum(schemaData.drone_params.base_distance) ?? 75;
+        const plannedDist = getNum(schemaData.drone_params.planned_distance) ?? 15;
+
+        const frameHeightBase = calcFrameSize(baseDist, fov);
+        const frameWidthBase = frameHeightBase * (resW / resH);
+        const frameHeightPlanned = calcFrameSize(plannedDist, fov);
+        const frameWidthPlanned = frameHeightPlanned * (resW / resH);
+
+        // ====== 2. Konva-сцена ======
+        // ВАЖНО: задаём пропорции под A4 landscape (с учётом полей):
+        // полезная область альбомной страницы ≈ 257мм × 170мм (соотношение ~1.51)
+        const SCENE_W = 1100;
+        const SCENE_H = 700;
+
+        const params = {
+          image: baseImageObj,
+          width_m: frameWidthBase,
+          height_m: frameHeightBase,
+          GRID_COLS: frameWidthBase / frameWidthPlanned,
+          GRID_ROWS: frameHeightBase / frameHeightPlanned,
+          flightLineY: schemaData.traj_shapes?.line,
+          obstacles: schemaData.traj_shapes?.obstacles || [],
+          points: schemaData.traj_shapes?.points || [],
+          trajectoryData: traj,
+          showGrid: true,
+          showObstacles: true,
+          showUserTrajectory: false,
+          showTaxonTrajectory: true,
+          showNavTriangles: true,
+          PREVIEW_WIDTH: SCENE_W,
+          PREVIEW_HEIGHT: SCENE_H,
+        };
+
+        const stage = createKonvaScene(params);
+        const sceneDataUrl = exportSceneImageToDataURL(stage);
+
+        // ====== 3. Подсчёты ======
+        const reachedCount = traj?.B.reduce(
+          (sum: number, t: any) => sum + (t.points?.length || 0), 0,
+        ) || 0;
+        const unreachedCount = traj?.C?.length || 0;
+        const totalCount = reachedCount + unreachedCount;
+
+        // ====== 4. Стили (Times New Roman, поля по ГОСТ) ======
+        // Поля: левое 30мм, правое 15мм, верх/низ 20мм
+        const FONT = `"Times New Roman", Times, serif`;
+
+        // Универсальный шаблон таблицы "Параметр — Значение"
+        const renderTable = (title: string, rows: [string, string][]) => `
+        <h3 style="font-family:${FONT}; font-size: 14pt; font-weight: bold;
+                   color: #bbb; margin: 14pt 0 6pt 0;">
+          ${title}
+        </h3>
+        <table style="width: 100%; border-collapse: collapse;
+                      font-family:${FONT}; font-size: 12pt;
+                      border: 0.5px solid #bbb;">
+          <thead>
+            <tr style="background: #e8eef5;">
+              <th style="border: 0.5px solid #bbb; padding: 5pt 8pt;
+                         text-align: left; font-weight: bold; width: 55%;">
+                Параметр
+              </th>
+              <th style="border: 0.5px solid #bbb; padding: 5pt 8pt;
+                         text-align: left; font-weight: bold;">
+                Значение
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(([k, v], i) => `
+              <tr style="background: ${i % 2 === 0 ? "#fff" : "#f7f9fc"};">
+                <td style="border: 0.5px solid #bbb; padding: 5pt 8pt;">${k}</td>
+                <td style="border: 0.5px solid #bbb; padding: 5pt 8pt;">${v}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+
+        // ====== 5. Маршрут — отдельная таблица сессий ======
+        const routeTableHtml = traj?.B && traj.B.length > 0 ? `
+        <table style="width: 100%; border-collapse: collapse;
+                      font-family:${FONT}; font-size: 11pt;
+                      border: 0.5px solid #bbb;">
+          <thead>
+            <tr style="background: #e8eef5;">
+              <th style="border: 0.5px solid #bbb; padding: 5pt 8pt;
+                         text-align: left; width: 18%;">Сессия</th>
+              <th style="border: 0.5px solid #bbb; padding: 5pt 8pt;
+                         text-align: left;">Точки маршрута</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${traj.B.map((taxon: any, idx: number) => {
+          const pointsStr = taxon.route
+            .map((p: number[]) => `(${p[0].toFixed(1)} м; ${p[1].toFixed(1)} м)`)
+            .join(" → ");
+          return `
+                <tr style="background: ${idx % 2 === 0 ? "#fff" : "#f7f9fc"};">
+                  <td style="border: 0.5px solid #bbb; padding: 5pt 8pt;
+                             vertical-align: top;">
+                    <span style="display:inline-block; width:10pt; height:10pt;
+                                 background:${taxon.color}; margin-right:4pt;
+                                 vertical-align: middle;"></span>
+                    №${idx + 1}
+                  </td>
+                  <td style="border: 0.5px solid #bbb; padding: 5pt 8pt;
+                             font-size: 10pt; line-height: 1.5;">
+                    ${pointsStr}
+                  </td>
+                </tr>
+              `;
+        }).join("")}
+          </tbody>
+        </table>
+      ` : `<div style="font-family:${FONT}; font-size: 12pt; color:#555;">
+            Данные отсутствуют
+          </div>`;
+
+        // ====== 6. Препятствия — таблица ======
+        const obstaclesRows: [string, string][] =
+          schemaData.traj_shapes?.obstacles?.map((obs: any, idx: number) =>
+            [`Препятствие №${idx + 1}`, `${obs.safeZone || 0} м`] as [string, string]
+          ) || [];
+
+        // ====== 7. Данные для таблиц ======
+        const drone = schemaData.drone_params;
+        const droneRows: [string, string][] = [
+          ["Модель БПЛА", drone?.drone?.model || "—"],
+          ["Рабочая скорость", `${getNum(drone?.speed).toFixed(2)} м/с`],
+          ["Время работы батареи", `${getNum(drone?.battery_time).toFixed(0)} мин`],
+          ["Время зависания для фото", `${getNum(drone?.hover_time).toFixed(0)} с`],
+          ["Сопротивляемость ветру", `${getNum(drone?.wind_resistance).toFixed(0)} м/с`],
+          ["Расстояние до объекта", `${getNum(drone?.planned_distance).toFixed(1)} м`],
+        ];
+
+        const weatherRows: [string, string][] = [
+          ["Скорость ветра", `${getNum(schemaData.weather?.wind_speed).toFixed(1)} м/с`],
+          ["Направление ветра", getWindDirectionLabel(getNum(schemaData.weather?.wind_direction))],
+          ["Учёт погоды при расчёте", schemaData.is_use_weather ? "Да" : "Нет"],
+        ];
+
+        const optRows: [string, string][] | null = traj
+          ? [
+            ["Количество зон исследования", `${traj.N_k || traj.B.length}`],
+            ["Охвачено точек", `${reachedCount} из ${totalCount}`],
+            ["Количество недостижимых точек", `${unreachedCount}`],
+            ["Оптимальное время облёта", formatTime(priorityItem?.total_flight_time)],
+          ]
+          : null;
+
+        // ====== 8. СТРАНИЦА 1 — портрет ======
+        // Полезная область A4 portrait при полях 30/15/20/20 мм:
+        // ширина = 210 - 30 - 15 = 165 мм
+        // высота = 297 - 20 - 20 = 257 мм
+        const portraitElement = document.createElement("div");
+        portraitElement.style.fontFamily = FONT;
+        portraitElement.style.color = "#000";
+        portraitElement.style.background = "#fff";
+
+        portraitElement.innerHTML = `
+        <div style="position: relative; min-height: 257mm; box-sizing: border-box;">
+          <!-- ШАПКА -->
+          <div style="border-bottom: 2px solid #004E9E;
+                      padding-bottom: 8pt; margin-bottom: 14pt;
+                      display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+              <div style="font-family:${FONT}; font-size: 16pt;
+                          letter-spacing: 1.5pt; color: #004E9E;
+                          text-transform: uppercase;
+                          font-weight: bold;">
+                <b>Полётная карта</b>
+              </div>
+              <div style="font-family:${FONT}; font-size: 16pt;
+                          font-weight: bold; margin-top: 3pt; color: #000;">
+                «${mapName}»
+              </div>
+            </div>
+            <div style="text-align: right; font-family:${FONT};
+                        font-size: 10pt; color: #555;">
+              <div>Дата создания</div>
+              <div style="color:#000; font-weight: bold;">${createdAt}</div>
+            </div>
+          </div>
+
+          <!-- 1. МАРШРУТ -->
+          <h3 style="font-family:${FONT}; font-size: 14pt; font-weight: bold;
+                     color: #000; margin: 10pt 0 6pt 0;">
+            1. Полный маршрут (см. приложение)
+          </h3>
+          ${routeTableHtml}
+
+          <!-- 2. БПЛА -->
+          ${renderTable("2. Характеристики БПЛА и параметры съёмки", droneRows)}
+
+          <!-- 3. ПРЕПЯТСТВИЯ -->
+          ${obstaclesRows.length > 0
+            ? renderTable("3. Безопасная зона вокруг препятствий", obstaclesRows)
+            : `<h3 style="font-family:${FONT}; font-size: 14pt; font-weight: bold;
+                            color: #000; margin: 14pt 0 6pt 0;">
+                  3. Безопасная зона вокруг препятствий
+                </h3>
+                <div style="font-family:${FONT}; font-size: 12pt; color:#555;">
+                  Препятствия отсутствуют
+                </div>`
+          }
+
+          <!-- 4. ПОГОДА -->
+          ${renderTable("4. Погодные условия", weatherRows)}
+
+          <!-- 5. ОПТИМИЗАЦИЯ -->
+          ${optRows
+            ? renderTable(
+              `5. Параметры оптимизации`,
+              optRows
+            )
+            : `<h3 style="font-family:${FONT}; font-size: 14pt; font-weight: bold;
+                            color: #000; margin: 14pt 0 6pt 0;">
+                  5. Параметры оптимизации
+                </h3>
+                <div style="font-family:${FONT}; font-size: 12pt; color:#555;">
+                  Оптимизация не выполнена
+                </div>`
+          }
+
+          <!-- ФУТЕР -->
+          <div style="margin-top: 30pt; border-top: 1px solid #cbc5c5;
+                      padding-top: 6pt;
+                      display: flex; justify-content: space-between; align-items: center;
+                      font-family:${FONT}; font-size: 9pt; color: #555;">
+            <div style="font-style: italic;">
+              Схема полёта прилагается отдельным листом (приложение)
+            </div>
+            <div style="color: #d1d0d0">
+              © SkyPath Service
+            </div>
+          </div>
+        </div>
+      `;
+
+        // СТРАНИЦА 2 — альбом
+        const landscapeElement = document.createElement("div");
+        landscapeElement.style.fontFamily = FONT;
+        // landscapeElement.style.color = "#000";
+        landscapeElement.style.background = "#fff";
+
+        landscapeElement.innerHTML = `
+        <div style="box-sizing: border-box; width: 100%;">
+          <div style="width: 100%; display: flex; justify-content: space-between;
+                      align-items: flex-end;
+                      border-bottom: 2px solid #004E9E;
+                      padding-bottom: 6pt; margin-bottom: 10pt;">
+            <div>
+              <div style="font-family:${FONT}; font-size: 9pt; font-weight: bold;
+                          letter-spacing: 1.5pt; color: #004E9E;
+                          text-transform: uppercase;">
+                <b>Приложение к полному маршруту</b>
+              </div>
+              <div style="font-family:${FONT}; font-size: 14pt;
+                          font-weight: bold; color: #000;">
+                Схема полёта: «${mapName}»
+              </div>
+            </div>
+            <div style="font-family:${FONT}; font-size: 9pt;
+                        color: #555; text-align: right;">
+              <div>Дата: <strong style="color:#000;">${createdAt}</strong></div>
+              <div style="margin-top:2pt; style="color: #d1d0d0"">
+                © SkyPath Service
+              </div>
+            </div>
+          </div>
+          <div style="text-align: center;">
+            ${sceneDataUrl
+            ? `<img src="${sceneDataUrl}"
+                        style="width: 100%; height: auto;
+                               display: inline-block;
+                               border: 0.5px solid #888;" />`
+            : `<div style="font-family:${FONT}; padding:50pt;
+                              text-align:center; color:#888;">
+                    Изображение не сгенерировано
+                  </div>`
+          }
+          </div>
+        </div>
+      `;
+
+        // ====== 10. Сборка PDF ======
+        const safeName = mapName.replace(/[^a-zа-яё0-9]/gi, "_");
+
+        // Даём UI кадр перед тяжёлой работой
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+
+        // Поля A4 portrait: top, left, bottom, right (мм)
+        const PORTRAIT_MARGIN: [number, number, number, number] = [20, 30, 20, 15];
+
+        const worker = html2pdf()
+          .set({
+            margin: PORTRAIT_MARGIN,
+            filename: `Полётная карта_${safeName}.pdf`,
+            image: { type: "png" },
+            html2canvas: { scale: 3, useCORS: true, backgroundColor: "#ffffff" },
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait", compress: false },
+            pagebreak: { mode: ['css', 'legacy', 'avoid-all'], avoid: ['tr', 'table', 'h3'] },
+          })
+          .from(portraitElement);
+
+        const pdf = await worker.toPdf().get("pdf");
+
+        // Альбомная страница через прямой html2canvas
+        landscapeElement.style.position = "fixed";
+        landscapeElement.style.left = "-10000px";
+        landscapeElement.style.top = "0";
+        landscapeElement.style.width = "297mm"; // полная ширина A4 landscape
+
+        document.body.appendChild(landscapeElement);
+
+        try {
+          const canvas = await html2canvas(landscapeElement, {
+            scale: 3,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+            letterRendering: true,
+          });
+          const imgData = canvas.toDataURL("image/png");
+          pdf.addPage("a4", "landscape");
+
+          // Размеры листа A4 landscape
+          const PAGE_W = 297;
+          const PAGE_H = 210;
+
+          // Минимальные поля (если нужны нулевые — поставьте 0)
+          const MARGIN = 5;
+          const maxW = PAGE_W - MARGIN * 2; // 287мм
+          const maxH = PAGE_H - MARGIN * 2; // 200мм
+
+          const canvasAspect = canvas.width / canvas.height;
+
+          // Подбираем размер так, чтобы вписаться И по ширине, И по высоте
+          let finalW = maxW;
+          let finalH = finalW / canvasAspect;
+
+          if (finalH > maxH) {
+            finalH = maxH;
+            finalW = finalH * canvasAspect;
+          }
+
+          // Центрируем по обеим осям
+          const offsetX = (PAGE_W - finalW) / 2;
+          const offsetY = (PAGE_H - finalH) / 2;
+
+          pdf.addImage(imgData, "JPEG", offsetX, offsetY, finalW, finalH);
+        } finally {
+          document.body.removeChild(landscapeElement);
+        }
+
+        pdf.save(`Полётная карта_${safeName}.pdf`);
+      } catch (e) {
+        console.error("Ошибка генерации PDF:", e);
+        alert("Не удалось создать PDF. Проверьте консоль.");
+      }
     },
     [],
+  );
+
+  const handleDownload = React.useCallback(
+    async (id: string) => {
+      // 1. Начинаем загрузку
+      setIsLoading(true);
+
+      try {
+        // 2. Получаем данные схемы по ID
+        const schemaData = await schemasApi.getById(Number(id));
+
+        // Проверка наличия данных изображения
+        if (!schemaData?.base_image) {
+          throw new Error("Отсутствует базовое изображение для генерации отчета");
+        }
+
+        // 3. Загружаем само изображение (HTMLImageElement)
+        // Это необходимо для Konva, которая рисует сцену для PDF
+        const imageUrl = `${API_BASE_URL}/${schemaData.base_image.image_path.replace(/\\/g, "/")}`;
+
+        const image = new Image();
+        image.crossOrigin = "anonymous"; // Важно для корректной работы в браузере
+
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = imageUrl;
+        });
+
+        // 4. Вызываем функцию генерации PDF
+        // Передаем данные схемы и загруженный объект изображения
+        await handleDownloadPDF(schemaData, image);
+
+        notifications.show("Карта сформирована",
+          {
+            severity: "success",
+            autoHideDuration: 3000,
+          },)
+
+      } catch (error) {
+        console.error("Ошибка при скачивании:", error);
+        notifications.show("Ошибка при скачивании",
+          {
+            severity: "error",
+            autoHideDuration: 3000,
+          },)
+      } finally {
+        // 5. В любом случае завершаем загрузку
+
+        setIsLoading(false);
+
+      }
+    },
+    [handleDownloadPDF, setIsLoading], // handleDownloadPDF должен быть зависимостью
   );
 
   const handleDelete = () => {
@@ -455,6 +932,7 @@ export default function TrajectoryList() {
         renderCell: (params) => {
           // const config = getMethodConfig(params.row.methodType);
           const config = getMethodConfig(params.row.methodType);
+          if (config) {
           return (
             <Tooltip title={`${config.tooltip}`} arrow>
               <Chip
@@ -468,6 +946,10 @@ export default function TrajectoryList() {
               />
             </Tooltip>
           );
+        }
+        return (
+          "Неизвестно"
+        )
         },
       },
       {
@@ -501,7 +983,7 @@ export default function TrajectoryList() {
                   onClick={(e) => {
                     e.stopPropagation();
                     // Передаем id и название карты из params.row
-                    handleDownload(id, params.row.schemaName); 
+                    handleDownload(id, params.row.schemaName);
                   }}
                 >
                   <DownloadIcon fontSize="small" />

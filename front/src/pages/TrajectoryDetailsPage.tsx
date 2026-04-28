@@ -599,7 +599,7 @@ export default function TrajectoryDetails() {
         framesUrlsOptimal={framesUrlsOptimal}
         framesUrlsOptimal2={framesUrlsOptimal2}
         framesUrlsOptimal3={framesUrlsOptimal3}
-        priorityMethod={priority_opt_method.pretty_name}
+        priorityMethod={priority_opt_method?.pretty_name || "Неизвестно"}
         schemaName={schemaData.map_name}
         createdAt={schemaData.created_at}
         author={schemaData.user}

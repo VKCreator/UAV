@@ -304,7 +304,14 @@ const TrajectoryStepper = () => {
 
   // Шаг 4: сравнение оптимизаций и выбор приоритетной траектори
   const [priorityMethod, setPriorityMethod] = React.useState<string>("");
+  // React.useEffect(() => {
+  //   console.log("🔴 Родитель: priorityMethod изменился на:", priorityMethod);
+  // }, [priorityMethod]);
 
+  // React.useEffect(() => {
+  //   console.log("🟡 Родитель смонтирован");
+  //   return () => console.log("🟡 Родитель РАЗМОНТИРОВАН");
+  // }, []);
   const methodNames2PrettyName: Record<string, string> = {
     "METHOD_1": "low-d",
     "METHOD_2": "high-d",
@@ -456,7 +463,7 @@ const TrajectoryStepper = () => {
 
     const hasAppliedStoryboards =
       storyboardsData.point.applied ||
-      storyboardsData.optimal.applied || 
+      storyboardsData.optimal.applied ||
       storyboardsData.optimal_big_density.applied ||
       storyboardsData.optimal_combi.applied ||
       storyboardsData.recommended.applied;
@@ -472,7 +479,7 @@ const TrajectoryStepper = () => {
   }, [flightLineY]);
 
 
-    React.useEffect(() => {
+  React.useEffect(() => {
     if (opt1TrajectoryData !== null || opt2TrajectoryData !== null || opt3TrajectoryData !== null) {
       setOpt1TrajectoryData(null);
       setOpt2TrajectoryData(null);
@@ -490,7 +497,7 @@ const TrajectoryStepper = () => {
 
     const hasAppliedStoryboards =
       storyboardsData.point.applied ||
-      storyboardsData.optimal.applied || 
+      storyboardsData.optimal.applied ||
       storyboardsData.optimal_big_density.applied ||
       storyboardsData.optimal_combi.applied ||
       storyboardsData.recommended.applied;
@@ -663,7 +670,7 @@ const TrajectoryStepper = () => {
 
     const hasAppliedStoryboards =
       storyboardsData.point.applied ||
-      storyboardsData.optimal.applied || 
+      storyboardsData.optimal.applied ||
       storyboardsData.optimal_big_density.applied ||
       storyboardsData.optimal_combi.applied ||
       storyboardsData.recommended.applied;
@@ -731,19 +738,19 @@ const TrajectoryStepper = () => {
       { optKey: 'large', sbKey: 'optimal_big_density' }, // Метод 2 (ВПТ)
       { optKey: 'combi', sbKey: 'optimal_combi' },        // Метод 3 (СПТ)
     ];
-  
+
     // 1. Проверка: Все ВЫПОЛНЕННЫЕ оптимизации имеют раскадровки
     const allCompleted = mappings.every(({ optKey, sbKey }) => {
       const optStatus = optimizationState[optKey].status;
-      
+
       // Если оптимизация еще не выполнена, она не учитывается в "All"
       if (optStatus !== 'completed') return true;
-      
+
       // Если оптимизация выполнена, проверяем наличие раскадровки
       return storyboardsData[sbKey].applied === true;
     });
-  
-    return  allCompleted
+
+    return allCompleted
   }, [optimizationState, storyboardsData]);
 
   // Загрузка дронов
@@ -1049,6 +1056,7 @@ const TrajectoryStepper = () => {
       }
     });
 
+    console.log(priorityMethod)
     let priorityMethodName = priorityMethod;
     formData.append("priority_opt_method", String(priorityMethodName));
 
@@ -1136,6 +1144,7 @@ const TrajectoryStepper = () => {
     storyboardsData,
     confirm,
     notifications,
+    priorityMethod,
     navigate,
   ]);
 
@@ -1201,7 +1210,7 @@ const TrajectoryStepper = () => {
     }
 
     if (activeStep == 2 && !isAllStoryboardCompleted) {
-        return {
+      return {
         isNextDisabled: true,
         nextTooltip:
           "Для шага 4 необходимо выполнить раскадровку по выполненным методам оптимизации",
