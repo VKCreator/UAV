@@ -109,10 +109,10 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ title, priority, state, onRef
   const { status, windSpeed, windDirection, error } = state;
 
   const statusChip = () => {
-    if (status === "idle")    return <Chip size="small" label="Ожидание" variant="outlined" />;
+    if (status === "idle") return <Chip size="small" label="Ожидание" variant="outlined" />;
     if (status === "loading") return <Chip size="small" label="Загрузка…" color="warning" variant="outlined" icon={<CircularProgress size={12} sx={{ ml: "6px !important" }} />} />;
-    if (status === "ok")      return <Chip size="small" label="Доступен" color="success" variant="outlined" icon={<CheckCircleIcon fontSize="small" />} />;
-    return                           <Chip size="small" label="Недоступен" color="error" variant="outlined" icon={<CancelIcon fontSize="small" />} />;
+    if (status === "ok") return <Chip size="small" label="Доступен" color="success" variant="outlined" icon={<CheckCircleIcon fontSize="small" />} />;
+    return <Chip size="small" label="Недоступен" color="error" variant="outlined" icon={<CancelIcon fontSize="small" />} />;
   };
 
   return (
@@ -122,8 +122,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ title, priority, state, onRef
         p: 2.5,
         border: "1px solid",
         borderColor:
-          status === "ok"    ? "success.light" :
-          status === "error" ? "error.light"   : "#e0e0e0",
+          status === "ok" ? "success.light" :
+            status === "error" ? "error.light" : "#e0e0e0",
         borderRadius: 2,
         transition: "border-color .25s",
       }}
@@ -184,38 +184,38 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ title, priority, state, onRef
         </Alert>
       )}
 
-    {status === "ok" && windSpeed !== null && windDirection !== null && (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 2, py: 1.5 }}>
-        <Box sx={{ color: ACCENT, display: "flex" }}>
-        <AirIcon fontSize="small" />
-        </Box>
-        <Box>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.2, mb: 0.25 }}>
-            Скорость ветра
-        </Typography>
-        <Typography variant="body1" fontWeight={500}>
-            {windSpeed.toFixed(1)} м/с
-            <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
-            ({(windSpeed * 3.6).toFixed(1)} км/ч)
+      {status === "ok" && windSpeed !== null && windDirection !== null && (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, py: 1.5 }}>
+          <Box sx={{ color: ACCENT, display: "flex" }}>
+            <AirIcon fontSize="small" />
+          </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.2, mb: 0.25 }}>
+              Скорость ветра
             </Typography>
-        </Typography>
-        </Box>
+            <Typography variant="body1" fontWeight={500}>
+              {windSpeed.toFixed(1)} м/с
+              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                ({(windSpeed * 3.6).toFixed(1)} км/ч)
+              </Typography>
+            </Typography>
+          </Box>
 
-        <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
 
-        <Box sx={{ color: ACCENT, display: "flex" }}>
-        <ExploreIcon fontSize="small" />
+          <Box sx={{ color: ACCENT, display: "flex" }}>
+            <ExploreIcon fontSize="small" />
+          </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.2, mb: 0.25 }}>
+              Направление
+            </Typography>
+            <Typography variant="body1" fontWeight={500}>
+              {degToCompass(windDirection)} — {windDirection}°
+            </Typography>
+          </Box>
         </Box>
-        <Box>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.2, mb: 0.25 }}>
-            Направление
-        </Typography>
-        <Typography variant="body1" fontWeight={500}>
-            {degToCompass(windDirection)} — {windDirection}°
-        </Typography>
-        </Box>
-    </Box>
-    )}
+      )}
     </Paper>
   );
 };
@@ -266,20 +266,20 @@ const WeatherPage: React.FC = () => {
     const prevCoords = React.useRef<Coords | null>(null);
 
     React.useEffect(() => {
-        if (!isFly) return;
-        if (!coords) return;
-        if (
+      if (!isFly) return;
+      if (!coords) return;
+      if (
         prevCoords.current?.lat === coords.lat &&
         prevCoords.current?.lon === coords.lon
-        ) return;
+      ) return;
 
-        prevCoords.current = coords;
-        map.flyTo([coords.lat, coords.lon], map.getZoom(), { duration: 0.5 });
-        setFly(false);
+      prevCoords.current = coords;
+      map.flyTo([coords.lat, coords.lon], map.getZoom(), { duration: 0.5 });
+      setFly(false);
     }, [coords]);
 
     return null;
-    };
+  };
 
   React.useEffect(() => {
     const lat = parseFloat(latInput);
@@ -288,15 +288,15 @@ const WeatherPage: React.FC = () => {
     applyCoords(c);
   }, [])
 
-//   const handleMyLocation = () => {
-//     navigator.geolocation.getCurrentPosition(
-//       (pos) => applyCoords({
-//         lat: parseFloat(pos.coords.latitude.toFixed(5)),
-//         lon: parseFloat(pos.coords.longitude.toFixed(5)),
-//       }),
-//       () => notifications.show("Геолокация недоступна", { severity: "error", autoHideDuration: 4000 }),
-//     );
-//   };
+  //   const handleMyLocation = () => {
+  //     navigator.geolocation.getCurrentPosition(
+  //       (pos) => applyCoords({
+  //         lat: parseFloat(pos.coords.latitude.toFixed(5)),
+  //         lon: parseFloat(pos.coords.longitude.toFixed(5)),
+  //       }),
+  //       () => notifications.show("Геолокация недоступна", { severity: "error", autoHideDuration: 4000 }),
+  //     );
+  //   };
 
   // ── Fetch single service ───────────────────────────────────────────────────
   const setServiceState = (key: string, patch: Partial<ServiceState>) =>
@@ -370,45 +370,45 @@ const WeatherPage: React.FC = () => {
 
   return (
     <PageContainer
-        title={"Мониторинг погодных сервисов"}
-        actions={
+      title={"Мониторинг погодных сервисов"}
+      actions={
         <Stack direction="row" alignItems="center" spacing={1}>
-            <Tooltip title="Обновить все" enterDelay={500}>
+          <Tooltip title="Обновить все" enterDelay={500}>
             <span>
-                <IconButton
+              <IconButton
                 onClick={fetchAll}
                 disabled={!hasCoords}
                 color="primary"
                 size="small"
-                >
+              >
                 <RefreshIcon />
-                </IconButton>
+              </IconButton>
             </span>
-            </Tooltip>
+          </Tooltip>
         </Stack>
-        }
+      }
     >
 
-    <Box sx={{ width: "100%", overflow: "auto", height: "calc(100vh - 200px)" }}>
+      <Box sx={{ width: "100%", overflow: "auto", height: "calc(100vh - 200px)" }}>
 
-      {/* <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
+        {/* <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>
           Мониторинг погодных сервисов
         </Typography>
 
       </Box> */}
 
-      <Grid container spacing={3}>
+        <Grid container spacing={3}>
 
-        <Grid size={{ xs: 12, md: 5 }}>
+          <Grid size={{ xs: 12, md: 5 }}>
 
-          {/* Coords input */}
-          <Paper elevation={0} sx={{ p: 2.5, border: "1px solid #e0e0e0", borderRadius: 2, mb: 2, background: "white" }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Координаты
-          </Typography>
+            {/* Coords input */}
+            <Paper elevation={0} sx={{ p: 2.5, border: "1px solid #e0e0e0", borderRadius: 2, mb: 2, background: "white" }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Координаты
+              </Typography>
 
-            {/* <Typography
+              {/* <Typography
               variant="caption"
               color="text.secondary"
               sx={{ display: "block", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600, mb: 1.5 }}
@@ -416,40 +416,40 @@ const WeatherPage: React.FC = () => {
               Координаты
             </Typography> */}
 
-            <Box sx={{ display: "flex", gap: 1, mb: 1.5 }}>
-              <TextField
-                label="Широта"
-                size="small"
-                value={latInput}
-                onChange={(e) => setLatInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter"}
-                placeholder="55.7558"
-                fullWidth
-                inputProps={{ inputMode: "decimal" }}
-              />
-              <TextField
-                label="Долгота"
-                size="small"
-                value={lonInput}
-                onChange={(e) => setLonInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter"}
-                placeholder="37.6176"
-                fullWidth
-                inputProps={{ inputMode: "decimal" }}
-              />
-            </Box>
+              <Box sx={{ display: "flex", gap: 1, mb: 1.5 }}>
+                <TextField
+                  label="Широта"
+                  size="small"
+                  value={latInput}
+                  onChange={(e) => setLatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter"}
+                  placeholder="55.7558"
+                  fullWidth
+                  inputProps={{ inputMode: "decimal" }}
+                />
+                <TextField
+                  label="Долгота"
+                  size="small"
+                  value={lonInput}
+                  onChange={(e) => setLonInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter"}
+                  placeholder="37.6176"
+                  fullWidth
+                  inputProps={{ inputMode: "decimal" }}
+                />
+              </Box>
 
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<PlaceIcon />}
-                onClick={handleInputApply}
-                fullWidth
-              >
-                Отобразить координаты на карте
-              </Button>
-              {/* <Button
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PlaceIcon />}
+                  onClick={handleInputApply}
+                  fullWidth
+                >
+                  Отобразить координаты на карте
+                </Button>
+                {/* <Button
                 variant="outlined"
                 size="small"
                 startIcon={<MyLocationIcon />}
@@ -458,9 +458,9 @@ const WeatherPage: React.FC = () => {
               >
                 Моя геолокация
               </Button> */}
-            </Box>
+              </Box>
 
-            {/* {coords && (
+              {/* {coords && (
               <Box sx={{ mt: 1.5, display: "flex", alignItems: "center", gap: 0.5 }}>
                 <PlaceIcon sx={{ fontSize: 14, color: ACCENT }} />
                 <Typography variant="caption" color="text.secondary" fontFamily="monospace">
@@ -468,53 +468,53 @@ const WeatherPage: React.FC = () => {
                 </Typography>
               </Box>
             )} */}
-          </Paper>
+            </Paper>
 
-          {/* Map */}
-          <Paper elevation={0} sx={{ border: "1px solid #e0e0e0", borderRadius: 2, overflow: "hidden", mb: 2 }}>
-            <Box sx={{ height: 300, "& .leaflet-container": { height: "100%", width: "100%" } }}>
-              <MapContainer
-                center={[53.4260327, 59.0531761]}
-                zoom={12}
-                style={{ height: "100%", width: "100%" }}
-                scrollWheelZoom
-              >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='© <a href="https://openstreetmap.org">OpenStreetMap</a>'
-                />
-                <MapClickHandler onCoords={applyCoords} />
-                <FlyHandler coords={flyTarget} />
-                {coords && <Marker position={[coords.lat, coords.lon]} />}
-              </MapContainer>
-            </Box>
-            <Box sx={{ px: 2, py: 1, bgcolor: "#fafafa", borderTop: "1px solid #e0e0e0" }}>
-              <Typography variant="caption" color="text.secondary">
-                Нажмите на карте, чтобы выбрать координаты
+            {/* Map */}
+            <Paper elevation={0} sx={{ border: "1px solid #e0e0e0", borderRadius: 2, overflow: "hidden", mb: 2 }}>
+              <Box sx={{ height: 300, "& .leaflet-container": { height: "100%", width: "100%" } }}>
+                <MapContainer
+                  center={[53.4260327, 59.0531761]}
+                  zoom={12}
+                  style={{ height: "100%", width: "100%" }}
+                  scrollWheelZoom
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='© <a href="https://openstreetmap.org">OpenStreetMap</a>'
+                  />
+                  <MapClickHandler onCoords={applyCoords} />
+                  <FlyHandler coords={flyTarget} />
+                  {coords && <Marker position={[coords.lat, coords.lon]} />}
+                </MapContainer>
+              </Box>
+              <Box sx={{ px: 2, py: 1, bgcolor: "#fafafa", borderTop: "1px solid #e0e0e0" }}>
+                <Typography variant="caption" color="text.secondary">
+                  Нажмите на карте, чтобы выбрать координаты
+                </Typography>
+              </Box>
+            </Paper>
+
+            {/* Fetch all button */}
+            <Button
+              variant="contained"
+              fullWidth
+              disabled={!hasCoords}
+              onClick={fetchAll}
+              startIcon={<AirIcon />}
+              sx={{ bgcolor: ACCENT, "&:hover": { bgcolor: "#013370" } }}
+            >
+              Получить данные о погоде
+            </Button>
+          </Grid>
+
+          {/* ── RIGHT: service cards ──────────────────────────────────────── */}
+          <Grid size={{ xs: 12, md: 7 }}>
+            <Paper elevation={0} sx={{ p: 2.5, border: "1px solid #e0e0e0", borderRadius: 2, background: "white" }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Сервисы для получения текущей погоды
               </Typography>
-            </Box>
-          </Paper>
-
-          {/* Fetch all button */}
-          <Button
-            variant="contained"
-            fullWidth
-            disabled={!hasCoords}
-            onClick={fetchAll}
-            startIcon={<AirIcon />}
-            sx={{ bgcolor: ACCENT, "&:hover": { bgcolor: "#013370" } }}
-          >
-            Получить данные о погоде
-          </Button>
-        </Grid>
-
-        {/* ── RIGHT: service cards ──────────────────────────────────────── */}
-        <Grid size={{ xs: 12, md: 7 }}>
-          <Paper elevation={0} sx={{ p: 2.5, border: "1px solid #e0e0e0", borderRadius: 2, background: "white" }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-            Сервисы для получения текущей погоды
-        </Typography>
-            {/* <Typography
+              {/* <Typography
               variant="caption"
               color="text.secondary"
               sx={{ display: "block", textTransform: "uppercase", fontWeight: 600, mb: 2 }}
@@ -522,40 +522,40 @@ const WeatherPage: React.FC = () => {
               Используемые сервисы погоды
             </Typography> */}
 
-            {!hasCoords && (
-              <Alert severity="info" sx={{ mb: 2, alignItems: "center" }}>
-                Выберите координаты на карте или введите их вручную, чтобы запросить данные.
-              </Alert>
-            )}
+              {!hasCoords && (
+                <Alert severity="info" sx={{ mb: 2, alignItems: "center" }}>
+                  Выберите координаты на карте или введите их вручную, чтобы запросить данные.
+                </Alert>
+              )}
 
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <ServiceCard
-                title="Weatherbit"
-                priority={1}
-                state={services.weatherbit}
-                onRefresh={() => fetchService("weatherbit")}
-                disabled={!hasCoords}
-              />
-              <ServiceCard
-                title="Яндекс.Погода"
-                priority={2}
-                state={services.yandex}
-                onRefresh={() => fetchService("yandex")}
-                disabled={!hasCoords}
-              />
-              <ServiceCard
-                title="Open-Meteo"
-                priority={3}
-                state={services.openmeteo}
-                onRefresh={() => fetchService("openmeteo")}
-                disabled={!hasCoords}
-              />
-            </Box>
-          </Paper>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <ServiceCard
+                  title="Open-Meteo"
+                  priority={1}
+                  state={services.openmeteo}
+                  onRefresh={() => fetchService("openmeteo")}
+                  disabled={!hasCoords}
+                />
+                <ServiceCard
+                  title="Яндекс.Погода"
+                  priority={2}
+                  state={services.yandex}
+                  onRefresh={() => fetchService("yandex")}
+                  disabled={!hasCoords}
+                />
+                <ServiceCard
+                  title="Weatherbit"
+                  priority={3}
+                  state={services.weatherbit}
+                  onRefresh={() => fetchService("weatherbit")}
+                  disabled={!hasCoords}
+                />
+              </Box>
+            </Paper>
+          </Grid>
+
         </Grid>
-
-      </Grid>
-    </Box>
+      </Box>
     </PageContainer>
   );
 };

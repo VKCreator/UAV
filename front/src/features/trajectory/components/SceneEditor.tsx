@@ -64,7 +64,7 @@ import UndoIcon from "@mui/icons-material/Undo";
 import { convexHull, outwardUnitNormal } from "../utils/Geometry";
 
 import { SceneStage } from "./SceneStage";
-import { createKonvaScene, exportSceneImage } from "../utils/exportSceneImage";
+import { downloadScene } from "../utils/exportSceneImage";
 
 const COLORS = [
   "#65b9f7", "#ff6b6b", "#66a9ff", "#ffdd57", "#9e69c4",
@@ -655,7 +655,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
   //   });
   // };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     setLoading(true);
 
     let params = {
@@ -679,14 +679,10 @@ const SceneEditor: FC<SceneEditorProps> = ({
       PREVIEW_WIDTH: STAGE_WIDTH,
       PREVIEW_HEIGHT: STAGE_HEIGHT,
     }
-    // 1. Рисуем сцену
-    const stage = createKonvaScene({
-      ...params,
-      setLoading: setLoading
-    });
-
-    // 2. Скачиваем картинку
-    exportSceneImage(stage, "map.png", setLoading);
+    await downloadScene(
+      { ...params, setLoading },
+      "schema.jpeg",
+    );
   };
 
   return (

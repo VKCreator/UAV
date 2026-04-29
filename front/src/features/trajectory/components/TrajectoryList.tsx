@@ -341,7 +341,7 @@ export default function TrajectoryList() {
           PREVIEW_HEIGHT: SCENE_H,
         };
 
-        const stage = createKonvaScene(params);
+        const stage = await createKonvaScene(params);
         const sceneDataUrl = exportSceneImageToDataURL(stage);
 
         // ====== 3. Подсчёты ======

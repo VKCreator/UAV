@@ -31,15 +31,16 @@ const getArrowPoints = (
 };
 
 // СТАТИЧЕСКИЙ СЛОЙ (не меняется)
-export const StaticLayer = React.memo(({ 
-  image, 
-  imageX, 
-  imageY, 
-  scaleToFit, 
+// SceneLayers.tsx
+export const StaticLayer = React.memo(({
+  image,
+  imageX,
+  imageY,
+  scaleToFit,
   gridLines,
   handleClick,
   STAGE_WIDTH,
-  STAGE_HEIGHT 
+  STAGE_HEIGHT
 }: any) => {
   return (
     <Layer>
@@ -58,8 +59,27 @@ export const StaticLayer = React.memo(({
         </>
       ) : (
         <>
-          <Rect x={0} y={0} width={STAGE_WIDTH} height={STAGE_HEIGHT} fill="rgba(255,255,255,0.7)" />
-          <Text x={STAGE_WIDTH / 2 - 10} y={STAGE_HEIGHT / 2 - 10} text="Загрузка..." fontSize={20} fill="black" />
+          {/* Полупрозрачный фон */}
+          <Rect 
+            x={0} 
+            y={0} 
+            width={STAGE_WIDTH} 
+            height={STAGE_HEIGHT} 
+            fill="rgba(255,255,255,0.7)" 
+          />
+          
+          {/* Центрированный текст */}
+          <Text 
+            x={0}
+            y={0}
+            width={STAGE_WIDTH}
+            height={STAGE_HEIGHT}
+            text="Загрузка..."
+            fontSize={20}
+            fill="black"
+            align="center"
+            verticalAlign="middle"
+          />
         </>
       )}
     </Layer>
@@ -67,19 +87,19 @@ export const StaticLayer = React.memo(({
 });
 
 // СЛОЙ ПОЛЬЗОВАТЕЛЬСКИХ ТОЧЕК
-export const UserPointsLayer = React.memo(({ 
-  points, 
-  showUserTrajectory, 
-  scaleToFit, 
-  imageX, 
-  imageY, 
-  toolMode, 
+export const UserPointsLayer = React.memo(({
+  points,
+  showUserTrajectory,
+  scaleToFit,
+  imageX,
+  imageY,
+  toolMode,
   setPoints,
   getCursor,
   image
 }: any) => {
   if (!showUserTrajectory || !image) return null;
-  
+
   return (
     <Layer>
       {points.length > 1 && points.map((point: Point, i: number) => {
@@ -87,7 +107,7 @@ export const UserPointsLayer = React.memo(({
         const prev = points[i - 1];
         const from = { x: prev.x * scaleToFit + imageX, y: prev.y * scaleToFit + imageY };
         const to = { x: point.x * scaleToFit + imageX, y: point.y * scaleToFit + imageY };
-        
+
         return (
           <Arrow
             key={`arrow-${i}`}
@@ -100,7 +120,7 @@ export const UserPointsLayer = React.memo(({
           />
         );
       })}
-      
+
       {points.map((point: Point, i: number) => (
         <Fragment key={`point-${i}`}>
           <Circle
@@ -242,7 +262,7 @@ export const ObstaclesLayer = React.memo(({
               onMouseLeave={(e) => {
                 e.target.getStage().container().style.cursor = getCursor();
               }}
-              // listening={false}
+            // listening={false}
             />
             <Line
               points={poly.points.flatMap((p) => [
@@ -309,22 +329,22 @@ export const ObstaclesLayer = React.memo(({
 });
 
 // СЛОЙ ОПТИМИЗИРОВАННОЙ ТРАЕКТОРИИ
-export const TrajectoryLayer = React.memo(({ 
-  trajectoryData, 
-  showTaxonTrajectory, 
-  image, 
-  width_m, 
-  height_m, 
-  scaleToFit, 
-  imageX, 
-  imageY, 
-  colors 
+export const TrajectoryLayer = React.memo(({
+  trajectoryData,
+  showTaxonTrajectory,
+  image,
+  width_m,
+  height_m,
+  scaleToFit,
+  imageX,
+  imageY,
+  colors
 }: any) => {
   if (!showTaxonTrajectory || !image || !trajectoryData?.B) return null;
-  
+
   const meterPerPixelX = width_m / image.width;
   const meterPerPixelY = height_m / image.height;
-  
+
   return (
     <Layer>
       {trajectoryData.B.map((taxon: any, idx: number) => {
@@ -332,7 +352,7 @@ export const TrajectoryLayer = React.memo(({
         const color = taxon.color;
         const baseX = taxon.base[0] / meterPerPixelX;
         const baseY = image.height - taxon.base[1] / meterPerPixelY;
-        
+
         const taxonPoints: TrajectoryPoint[] = taxon.points.map(
           (p: [number, number], i: number) => ({
             x: p[0] / meterPerPixelX,
@@ -356,7 +376,7 @@ export const TrajectoryLayer = React.memo(({
               fill={color}
               closed
             />
-            
+
             {taxonPoints.length > 0 && (
               <Arrow
                 points={getArrowPoints(
@@ -372,7 +392,7 @@ export const TrajectoryLayer = React.memo(({
                 strokeWidth={2}
               />
             )}
-            
+
             {taxonPoints.map((point, i) => {
               if (i === 0) return null;
               const prev = taxonPoints[i - 1];
@@ -393,7 +413,7 @@ export const TrajectoryLayer = React.memo(({
                 />
               );
             })}
-            
+
             {taxonPoints.length > 0 && (
               <Arrow
                 points={getArrowPoints(
@@ -409,7 +429,7 @@ export const TrajectoryLayer = React.memo(({
                 strokeWidth={2}
               />
             )}
-            
+
             <NavigationTriangles
               segments={taxon.segments || []}
               meterPerPixelX={meterPerPixelX}
@@ -420,7 +440,7 @@ export const TrajectoryLayer = React.memo(({
               imageY={imageY}
               taxonIdx={idx}
             />
-            
+
             {taxonPoints.map((p, i) => (
               <Fragment key={`taxon-point-${idx}-${i}`}>
                 <Circle
@@ -441,7 +461,7 @@ export const TrajectoryLayer = React.memo(({
           </Fragment>
         );
       })}
-      
+
       {trajectoryData?.C?.map((point: [number, number], index: number) => {
         const meterPerPixelX = width_m / image.width;
         const meterPerPixelY = height_m / image.height;
@@ -449,7 +469,7 @@ export const TrajectoryLayer = React.memo(({
         const y = image.height - point[1] / meterPerPixelY;
         const cx = x * scaleToFit + imageX;
         const cy = y * scaleToFit + imageY;
-        
+
         return (
           <Fragment key={`unvisited-${index}`}>
             <Circle x={cx} y={cy} radius={10} fill="rgba(255, 107, 53, 0.15)" stroke="#FF6B35" strokeWidth={1.5} />
@@ -463,13 +483,13 @@ export const TrajectoryLayer = React.memo(({
 });
 
 // Слой вспомогательных информационных элементов
-export const UILayer = React.memo(({ 
-  toolMode, 
-  lineY, 
-  image, 
-  imageX, 
-  imageY, 
-  scaleToFit, 
+export const UILayer = React.memo(({
+  toolMode,
+  lineY,
+  image,
+  imageX,
+  imageY,
+  scaleToFit,
   weatherConditions,
   showUavLine,
   flightLineY,
@@ -570,5 +590,43 @@ export const UILayer = React.memo(({
     prevProps.flightLineY === nextProps.flightLineY &&
     prevProps.currentPolygon === nextProps.currentPolygon &&
     JSON.stringify(prevProps.weatherConditions) === JSON.stringify(nextProps.weatherConditions)
+  );
+});
+
+// Новый компонент LoadingLayer - всегда последний в Stage
+export const LoadingLayer = React.memo(({ 
+  loading, 
+  STAGE_WIDTH, 
+  STAGE_HEIGHT 
+}: any) => {
+  if (!loading) return null;
+  
+  return (
+    <Layer>
+      <Rect 
+        x={0} 
+        y={0} 
+        width={STAGE_WIDTH} 
+        height={STAGE_HEIGHT} 
+        fill="rgba(255,255,255,0.7)" 
+        listening={true} // Блокируем клики под лоадером
+        onClick={(e) => e.cancelBubble = true} // Предотвращаем всплытие
+        onTap={(e) => e.cancelBubble = true}
+      />
+      <Text 
+        x={STAGE_WIDTH / 2} 
+        y={STAGE_HEIGHT / 2} 
+        text="Загрузка..." 
+        fontSize={18}
+        fontStyle="bold"
+        fill="#004E9E"
+        align="center"
+        verticalAlign="middle"
+        fontFamily="Inter"
+        offsetX={50}
+        offsetY={10}
+        listening={false}
+      />
+    </Layer>
   );
 });

@@ -53,7 +53,7 @@ import { Drone } from "../../uav/types/uav.types";
 import useImage from "use-image";
 import { SceneStage } from "./SceneStage";
 import { convexHull, outwardUnitNormal } from "../utils/Geometry";
-import { createKonvaScene, exportSceneImage } from "../utils/exportSceneImage";
+import { downloadScene } from "../utils/exportSceneImage";
 
 interface BuildTrajectoryStepProps {
   imageData: ImageData;
@@ -276,7 +276,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
     }));
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     setLoading(true);
 
     let params = {
@@ -300,14 +300,11 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
       PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
       PREVIEW_HEIGHT: 400,
     }
-    // 1. Рисуем сцену
-    const stage = createKonvaScene({
-      ...params,
-      setLoading: setLoading
-    });
 
-    // 2. Скачиваем картинку
-    exportSceneImage(stage, "trajectory_map.png", setLoading);
+    await downloadScene(
+      { ...params, setLoading },
+      "trajectory_schema.jpeg",
+    );
   };
 
   return (

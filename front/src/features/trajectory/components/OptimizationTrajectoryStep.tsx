@@ -54,11 +54,12 @@ import FlightSettingsDialog from "./FlightSettingsDialog";
 import OptimizationDetailDialog from "./OptimizationDetailDialog";
 
 import useImage from "use-image";
+import useNotifications from "../../../hooks/useNotifications/useNotifications";
 
 import SceneEditor from "./SceneEditor";
 import StoryboardEditor from "./StoryboardEditor";
 import ScenePreview from "./ScenePreview";
-import { createKonvaScene, exportSceneImage } from "../utils/exportSceneImage";
+import { downloadScene } from "../utils/exportSceneImage";
 
 import { trajectoryApi } from "../../../api/trajectory.api";
 import { useDialogs } from '../../../hooks/useDialogs/useDialogs';
@@ -174,6 +175,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   setOptimizationState
 }) => {
   const { confirm } = useDialogs();
+  const notifications = useNotifications();
 
   const [activeImage, setActiveImage] = React.useState(0);
   const [image] = useImage(imageData.imageUrl);
@@ -346,6 +348,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
         windDirection: weatherConditions.windDirection,
         isUseWeather: weatherConditions.isUse
       };
+      let isError = false;
 
       // Запускаем small оптимизацию
       const smallPromise = (async () => {
@@ -371,11 +374,16 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
           setTrajectoryData(preparedData);
         } catch (err) {
           console.error("Ошибка small оптимизации:", err);
+          notifications.show(`Ошибка оптимизации НПТ: ${err}`, { severity: "error", autoHideDuration: 3000 });
+          updateOptimization("small", { isLoading: false, status: "idle" });
+          isError = true;
         } finally {
           // setOptimizationStatus(prev => ({ ...prev, small: 'completed' }));
           // setLoadingOptimization(prev => ({ ...prev, small: false }));
 
-          updateOptimization("small", { isLoading: false, status: "completed" });
+          // if (optimizationState.small.status != "idle")
+          if (!isError)
+            updateOptimization("small", { isLoading: false, status: "completed" });
 
           setActiveImage(1);
         }
@@ -402,6 +410,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
         isUseWeather: weatherConditions.isUse
       };
 
+      let isError = false;
       // Запускаем large оптимизацию
       const largePromise = (async () => {
         try {
@@ -425,8 +434,13 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
           setTrajectoryData2(preparedData);
         } catch (err) {
           console.error("Ошибка large оптимизации:", err);
+          notifications.show(`Ошибка оптимизации ВПТ: ${err}`, { severity: "error", autoHideDuration: 3000 });
+          updateOptimization("large", { isLoading: false, status: "idle" });
+          isError = true;
         } finally {
-          updateOptimization("large", { isLoading: false, status: "completed" });
+
+          if (!isError)
+            updateOptimization("large", { isLoading: false, status: "completed" });
 
           // setOptimizationStatus(prev => ({ ...prev, large: 'completed' }));
           // setLoadingOptimization(prev => ({ ...prev, large: false }));
@@ -455,6 +469,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
         isUseWeather: weatherConditions.isUse
       };
 
+      let isError = false;
       // Запускаем large оптимизацию
       const combiPromise = (async () => {
         try {
@@ -478,8 +493,13 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
           setTrajectoryData3(preparedData);
         } catch (err) {
           console.error("Ошибка combi оптимизации:", err);
+          notifications.show(`Ошибка оптимизации СПТ: ${err}`, { severity: "error", autoHideDuration: 3000 });
+          updateOptimization("combi", { isLoading: false, status: "idle" });
+          isError = true;
         } finally {
-          updateOptimization("combi", { isLoading: false, status: "completed" });
+
+          if (!isError)
+            updateOptimization("combi", { isLoading: false, status: "completed" });
 
           setActiveImage(3);
         }
@@ -518,7 +538,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     setAnchorEl(null);
   };
 
-  const handleDownloadScene = () => {
+  const handleDownloadScene = async () => {
     setLoading(true);
 
     let params = {
@@ -542,14 +562,11 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
       PREVIEW_HEIGHT: 400,
     }
-    // 1. Рисуем сцену
-    const stage = createKonvaScene({
-      ...params,
-      setLoading: setLoading
-    });
 
-    // 2. Скачиваем картинку
-    exportSceneImage(stage, "map.png", setLoading);
+    await downloadScene(
+      { ...params, setLoading },
+      "trajectory_schema.jpeg",
+    );
   };
 
   const handleDownload = (type) => {

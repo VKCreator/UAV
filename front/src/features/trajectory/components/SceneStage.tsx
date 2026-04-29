@@ -8,7 +8,7 @@ import {
 } from "react-konva";
 
 import type { Point, Polygon, ImageData } from "../../../types/scene.types";
-import { StaticLayer, UserPointsLayer, ObstaclesLayer, TrajectoryLayer, UILayer } from "./SceneLayers";
+import { StaticLayer, UserPointsLayer, ObstaclesLayer, TrajectoryLayer, UILayer, LoadingLayer } from "./SceneLayers";
 
 interface SceneStageProps {
     stageRef: React.RefObject<any>;
@@ -127,6 +127,7 @@ export const SceneStage: FC<SceneStageProps> = ({
                     handleClick={handleClick}
                     STAGE_WIDTH={STAGE_WIDTH}
                     STAGE_HEIGHT={STAGE_HEIGHT}
+                    loading={loading}
                 />
 
                 <UserPointsLayer
@@ -182,32 +183,11 @@ export const SceneStage: FC<SceneStageProps> = ({
                     STAGE_HEIGHT={STAGE_HEIGHT}
                 />
 
-                <Layer>
-                    {(loading) && (
-                        <>
-                            <Rect
-                                x={0}
-                                y={0}
-                                width={STAGE_WIDTH}
-                                height={STAGE_HEIGHT}
-                                fill="rgba(255,255,255,0.7)"
-                            />
-                            <Text
-                                x={STAGE_WIDTH / 2}
-                                y={STAGE_HEIGHT / 2}
-                                text="Загрузка..."
-                                fontSize={18}
-                                fontStyle="bold"
-                                fill="#004E9E"
-                                align="center"
-                                verticalAlign="middle"
-                                fontFamily="Inter"
-                                offsetX={50}
-                                offsetY={10}
-                            />
-                        </>
-                    )}
-                </Layer>
+                <LoadingLayer
+                    loading={loading}
+                    STAGE_WIDTH={STAGE_WIDTH}
+                    STAGE_HEIGHT={STAGE_HEIGHT}
+                />
             </Stage>
         </Box>
     );

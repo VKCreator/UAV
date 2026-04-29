@@ -1,7 +1,7 @@
 import Konva from "konva";
 import { buildSafeZoneForDownload } from "./Geometry.ts";
 
-// ─── Интерфейсы (сохранены из вашего кода) ────────────────────────────────
+// ─── Интерфейсы ────────────────────────────────
 interface Point {
   x: number;
   y: number;
@@ -48,16 +48,68 @@ interface ExportSceneParams {
   showNavTriangles: boolean;
   PREVIEW_WIDTH: number;
   PREVIEW_HEIGHT: number;
-  setLoading?: (loading: boolean) => void; // Оставим опциональным, т.к. логика отрисовки его не использует
+  setLoading?: (loading: boolean) => void;
 }
 
-// ─── 1. Функция отрисовки сцены (создает и возвращает Stage) ─────────────────────────────
+// ─── Утилиты для асинхронности ──────────────────────────────────────────────
 
 /**
- * Создает Konva Stage, рисует на нем все элементы и возвращает объект Stage.
- * НЕ уничтожает Stage, чтобы его можно было использовать для экспорта.
+ * Отдаёт управление браузеру, чтобы он мог обработать рендер DOM (спиннер) и события.
+ * setTimeout(0) надёжнее MessageChannel, и его достаточно между чанками.
  */
-export const createKonvaScene = (params: ExportSceneParams): Konva.Stage => {
+// const yieldToBrowser = (): Promise<void> =>
+//   new Promise((resolve) => setTimeout(resolve, 0));
+
+const yieldToBrowser = (): Promise<void> => {
+  if (typeof (globalThis as any).scheduler?.yield === "function") {
+    return (globalThis as any).scheduler.yield();
+  }
+  return new Promise((resolve) => setTimeout(resolve, 0));
+};
+/**
+ * Двойной requestAnimationFrame — гарантирует, что предыдущий setState
+ * (например, setLoading(true)) реально отрисовался, прежде чем мы заблокируем поток.
+ */
+const waitForPaint = (): Promise<void> =>
+  new Promise((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+  );
+
+/**
+ * Размер чанка для тяжёлых циклов. Подобрано так, чтобы один чанк
+ * занимал ~16мс на средней машине — кадр анимации спиннера не пропускается.
+ */
+const CHUNK_SIZE = 500;
+
+/**
+ * Обрабатывает массив чанками, отдавая управление браузеру между чанками.
+ */
+const processInChunks = async <T>(
+  items: T[],
+  chunkSize: number,
+  processor: (item: T, index: number) => void,
+): Promise<void> => {
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const end = Math.min(i + chunkSize, items.length);
+    for (let j = i; j < end; j++) {
+      processor(items[j], j);
+    }
+    if (end < items.length) {
+      await yieldToBrowser();
+    }
+  }
+};
+
+// ─── 1. Асинхронная отрисовка сцены ────────────────────────────────────────
+
+/**
+ * Создаёт Konva Stage, рисует на нём все элементы и возвращает объект Stage.
+ * Работает асинхронно: между этапами и внутри тяжёлых циклов отдаёт управление браузеру,
+ * чтобы UI (спиннер) оставался отзывчивым.
+ */
+export const createKonvaScene = async (
+  params: ExportSceneParams,
+): Promise<Konva.Stage> => {
   const {
     image,
     width_m,
@@ -77,29 +129,43 @@ export const createKonvaScene = (params: ExportSceneParams): Konva.Stage => {
     PREVIEW_HEIGHT,
   } = params;
 
-  // Создаем контейнер и Stage в памяти
+  // Создаём контейнер и Stage в памяти
   const container = document.createElement("div");
+  container.style.position = "absolute";
+  container.style.left = "-9999px";
+  container.style.visibility = "hidden";
+  container.style.pointerEvents = "none";
+
   const downloadStage = new Konva.Stage({
     container,
     width: image.width,
     height: image.height,
+    listening: false,
+    draggable: false,
   });
 
-  const layer = new Konva.Layer();
+  const layer = new Konva.Layer({ listening: false });
   downloadStage.add(layer);
 
-  // Масштабный коэффициент UI
-  const uiScale = Math.min(image.width / PREVIEW_WIDTH, image.height / PREVIEW_HEIGHT) * 0.5;
+  // Кешируем вычисления
+  const uiScale =
+    Math.min(image.width / PREVIEW_WIDTH, image.height / PREVIEW_HEIGHT) * 0.5;
 
-  const POINT_R_USER = 14 * uiScale;
-  const POINT_R_TAXON = 14 * uiScale;
-  const BASE_R_DL = 6 * uiScale;
-  const ARROW_PTR_LEN = 14 * uiScale;
-  const ARROW_PTR_WID = 10 * uiScale;
-  const STROKE_W = 3 * uiScale;
-  const FONT_USER = 16 * uiScale;
-  const FONT_TAXON = 14 * uiScale;
+  const cache = {
+    uiScale,
+    POINT_R_USER: 14 * uiScale,
+    POINT_R_TAXON: 14 * uiScale,
+    BASE_R_DL: 6 * uiScale,
+    ARROW_PTR_LEN: 14 * uiScale,
+    ARROW_PTR_WID: 10 * uiScale,
+    STROKE_W: 3 * uiScale,
+    FONT_USER: 16 * uiScale,
+    FONT_TAXON: 14 * uiScale,
+    meterPerPixelX: width_m / image.width,
+    meterPerPixelY: height_m / image.height,
+  };
 
+  // Вспомогательные функции
   const arrowPts = (
     from: { x: number; y: number },
     to: { x: number; y: number },
@@ -110,270 +176,370 @@ export const createKonvaScene = (params: ExportSceneParams): Konva.Stage => {
     const dy = to.y - from.y;
     const len = Math.sqrt(dx * dx + dy * dy);
     if (len === 0) return [from.x, from.y, to.x, to.y];
-    const ux = dx / len, uy = dy / len;
+    const ux = dx / len;
+    const uy = dy / len;
     return [
-      from.x + ux * fromR, from.y + uy * fromR,
-      to.x - ux * toR, to.y - uy * toR,
+      from.x + ux * fromR,
+      from.y + uy * fromR,
+      to.x - ux * toR,
+      to.y - uy * toR,
     ];
   };
 
-  // ── РИСОВАНИЕ (вся логика из оригинального кода) ─────────────────────────────────────────────────
+  const createArrow = (pts: number[], color: string) =>
+    new Konva.Arrow({
+      points: pts,
+      pointerLength: cache.ARROW_PTR_LEN,
+      pointerWidth: cache.ARROW_PTR_WID,
+      fill: color,
+      stroke: color,
+      strokeWidth: cache.STROKE_W,
+      listening: false,
+    });
 
-  // 1. Фоновое изображение
-  layer.add(new Konva.Image({
-    image,
-    x: 0,
-    y: 0,
-    width: image.width,
-    height: image.height,
-  }));
+  const createCircle = (
+    x: number,
+    y: number,
+    radius: number,
+    fill: string,
+    extra: any = {},
+  ) =>
+    new Konva.Circle({
+      x,
+      y,
+      radius,
+      fill,
+      listening: false,
+      ...extra,
+    });
 
-  // 2. Сетка
+  // ─── Этап 1: Фоновое изображение ─────────────────────────────────────────
+  const backgroundShapes: Konva.Shape[] = [];
+  backgroundShapes.push(
+    new Konva.Image({
+      image,
+      x: 0,
+      y: 0,
+      width: image.width,
+      height: image.height,
+      listening: false,
+    }),
+  );
+  layer.add(...backgroundShapes);
+  // await yieldToBrowser();
+
+  // ─── Этап 2: Сетка ────────────────────────────────────────────────────────
   if (showGrid) {
     const cellW = image.width / GRID_COLS;
     const cellH = image.height / GRID_ROWS;
-    const lineWidth = 2 * uiScale;
-    const lineHeight = 2 * uiScale;
+    const lineWidth = 2 * cache.uiScale;
+    const lineHeight = 2 * cache.uiScale;
+    const gridShapes: Konva.Shape[] = [];
 
     for (let i = 1; i < GRID_COLS; i++) {
-      layer.add(new Konva.Rect({
-        x: cellW * i - lineWidth / 2,
-        y: 0,
-        width: lineWidth,
-        height: image.height,
-        fill: "rgba(255,255,255,0.8)",
-        stroke: "rgba(0,0,0,1)",
-        strokeWidth: 0.1 * uiScale,
-      }));
+      gridShapes.push(
+        new Konva.Rect({
+          x: cellW * i - lineWidth / 2,
+          y: 0,
+          width: lineWidth,
+          height: image.height,
+          fill: "rgba(255,255,255,0.8)",
+          stroke: "rgba(0,0,0,1)",
+          strokeWidth: 0.1 * cache.uiScale,
+          listening: false,
+        }),
+      );
     }
     for (let i = 1; i < GRID_ROWS; i++) {
-      const y = image.height - cellH * i;
-      layer.add(new Konva.Rect({
-        x: 0,
-        y: y - lineHeight / 2,
-        width: image.width,
-        height: lineHeight,
-        fill: "rgba(255,255,255,0.8)",
-        stroke: "rgba(0,0,0,1)",
-        strokeWidth: 0.1 * uiScale,
-      }));
+      gridShapes.push(
+        new Konva.Rect({
+          x: 0,
+          y: image.height - cellH * i - lineHeight / 2,
+          width: image.width,
+          height: lineHeight,
+          fill: "rgba(255,255,255,0.8)",
+          stroke: "rgba(0,0,0,1)",
+          strokeWidth: 0.1 * cache.uiScale,
+          listening: false,
+        }),
+      );
     }
+    layer.add(...gridShapes);
+    // await yieldToBrowser();
   }
 
-  // 3. Линия полёта
+  // ─── Этап 3: Линия полёта ─────────────────────────────────────────────────
   if (flightLineY !== null) {
-    layer.add(new Konva.Line({
-      points: [0, flightLineY, image.width, flightLineY],
-      stroke: "orange",
-      strokeWidth: STROKE_W,
-    }));
-    layer.add(new Konva.Rect({
-      x: 0,
-      y: flightLineY,
-      width: image.width,
-      height: image.height - flightLineY,
-      fill: "rgba(128,128,128,0.3)",
-      listening: false,
-    }));
-    if (flightLineY < image.height - 0.01) {
-      layer.add(new Konva.Text({
-        x: 0,
-        y: flightLineY + (image.height - flightLineY) / 2 - FONT_USER * 1.5,
-        width: image.width,
-        text: "Неинформативная зона",
-        align: "center",
-        fontSize: FONT_USER * 1.5,
-        fill: "rgba(255,255,255,0.85)",
+    const flightShapes: Konva.Shape[] = [
+      new Konva.Line({
+        points: [0, flightLineY, image.width, flightLineY],
+        stroke: "orange",
+        strokeWidth: cache.STROKE_W,
         listening: false,
-      }));
+      }),
+      new Konva.Rect({
+        x: 0,
+        y: flightLineY,
+        width: image.width,
+        height: image.height - flightLineY,
+        fill: "rgba(128,128,128,0.3)",
+        listening: false,
+      }),
+    ];
+
+    if (flightLineY < image.height - 0.01) {
+      flightShapes.push(
+        new Konva.Text({
+          x: 0,
+          y:
+            flightLineY +
+            (image.height - flightLineY) / 2 -
+            cache.FONT_USER * 1.5,
+          width: image.width,
+          text: "Неинформативная зона",
+          align: "center",
+          fontSize: cache.FONT_USER * 1.5,
+          fill: "rgba(255,255,255,0.85)",
+          listening: false,
+        }),
+      );
     }
+    layer.add(...flightShapes);
+    // await yieldToBrowser();
   }
 
-  // 4. Препятствия
-  if (showObstacles) {
-    obstacles.forEach((poly) => {
+  // ─── Этап 4: Препятствия (чанками) ────────────────────────────────────────
+  if (showObstacles && obstacles.length > 0) {
+    const obstacleShapes: Konva.Shape[] = [];
+
+    await processInChunks(obstacles, CHUNK_SIZE, (poly, index) => {
       // Безопасная зона
       if (poly.safeZone && poly.safeZone > 0) {
-        const safeZonePoints = buildSafeZoneForDownload(poly, poly.safeZone, image, width_m, height_m);
-        layer.add(new Konva.Line({
-          points: safeZonePoints.flatMap((p) => [p.x, p.y]),
-          closed: true,
-          fill: "#E0F4FF",
-          stroke: "#4FC3F7",
-          strokeWidth: STROKE_W,
-          dash: [8 * uiScale, 4 * uiScale],
-          opacity: 0.8,
-        }));
+        const safeZonePoints = buildSafeZoneForDownload(
+          poly,
+          poly.safeZone,
+          image,
+          width_m,
+          height_m,
+        );
+        obstacleShapes.push(
+          new Konva.Line({
+            points: safeZonePoints.flatMap((p) => [p.x, p.y]),
+            closed: true,
+            fill: "#E0F4FF",
+            stroke: "#4FC3F7",
+            strokeWidth: cache.STROKE_W,
+            dash: [8 * cache.uiScale, 4 * cache.uiScale],
+            opacity: 0.8,
+            listening: false,
+          }),
+        );
       }
 
       // Основной полигон
-      layer.add(new Konva.Line({
-        points: poly.points.flatMap((p) => [p.x, p.y]),
-        closed: true,
-        fill: `${poly.color}20`,
-        stroke: poly.color,
-        strokeWidth: STROKE_W,
-      }));
+      obstacleShapes.push(
+        new Konva.Line({
+          points: poly.points.flatMap((p) => [p.x, p.y]),
+          closed: true,
+          fill: `${poly.color}20`,
+          stroke: poly.color,
+          strokeWidth: cache.STROKE_W,
+          listening: false,
+        }),
+      );
 
       // Вершины
       poly.points.forEach((point) => {
-        layer.add(new Konva.Circle({
-          x: point.x,
-          y: point.y,
-          radius: 3 * uiScale,
-          fill: poly.color,
-        }));
+        obstacleShapes.push(
+          createCircle(point.x, point.y, 3 * cache.uiScale, poly.color),
+        );
       });
 
-      // Номер
-      const centerX = poly.points.reduce((s, p) => s + p.x, 0) / poly.points.length;
-      const centerY = poly.points.reduce((s, p) => s + p.y, 0) / poly.points.length;
-      const labelText = (obstacles.indexOf(poly) + 1).toString();
-      const labelRadius = 12 * uiScale;
+      // Номер препятствия
+      const centerX =
+        poly.points.reduce((s, p) => s + p.x, 0) / poly.points.length;
+      const centerY =
+        poly.points.reduce((s, p) => s + p.y, 0) / poly.points.length;
+      const labelText = (index + 1).toString();
+      const labelRadius = 12 * cache.uiScale;
 
-      layer.add(new Konva.Circle({
-        x: centerX,
-        y: centerY,
-        radius: labelRadius,
-        fill: "rgba(0,0,0,0.55)",
-        listening: false,
-      }));
-      layer.add(new Konva.Text({
-        x: centerX - labelRadius * 0.8 * labelText.length * 0.5,
-        y: centerY - FONT_USER * 0.55,
-        text: labelText,
-        fontSize: FONT_USER,
-        fontStyle: "bold",
-        fill: "#fff",
-        listening: false,
-      }));
+      obstacleShapes.push(
+        createCircle(centerX, centerY, labelRadius, "rgba(0,0,0,0.55)"),
+        new Konva.Text({
+          x: centerX - labelRadius * 0.8 * labelText.length * 0.5,
+          y: centerY - cache.FONT_USER * 0.55,
+          text: labelText,
+          fontSize: cache.FONT_USER,
+          fontStyle: "bold",
+          fill: "#fff",
+          listening: false,
+        }),
+      );
     });
+
+    layer.add(...obstacleShapes);
+    await yieldToBrowser();
   }
 
-  // 5. Пользовательская траектория
-  if (showUserTrajectory) {
+  // ─── Этап 5: Пользовательская траектория ──────────────────────────────────
+  if (showUserTrajectory && points.length > 0) {
+    const userShapes: Konva.Shape[] = [];
+
     points.forEach((point, i) => {
       if (i === 0) return;
       const prev = points[i - 1];
-      layer.add(new Konva.Arrow({
-        points: arrowPts(prev, point, POINT_R_USER, POINT_R_USER),
-        pointerLength: ARROW_PTR_LEN,
-        pointerWidth: ARROW_PTR_WID,
-        fill: "red",
-        stroke: "red",
-        strokeWidth: STROKE_W,
-      }));
+      userShapes.push(
+        createArrow(
+          arrowPts(prev, point, cache.POINT_R_USER, cache.POINT_R_USER),
+          "red",
+        ),
+      );
     });
+
     points.forEach((point, i) => {
-      layer.add(new Konva.Circle({
-        x: point.x,
-        y: point.y,
-        radius: POINT_R_USER,
-        fill: "blue",
-      }));
-      layer.add(new Konva.Text({
-        x: point.x - POINT_R_USER * 0.45,
-        y: point.y - FONT_USER * 0.55,
-        text: (i + 1).toString(),
-        fontSize: FONT_USER,
-        fontStyle: "bold",
-        fill: "white",
-      }));
+      userShapes.push(
+        createCircle(point.x, point.y, cache.POINT_R_USER, "blue"),
+        new Konva.Text({
+          x: point.x - cache.POINT_R_USER * 0.45,
+          y: point.y - cache.FONT_USER * 0.55,
+          text: (i + 1).toString(),
+          fontSize: cache.FONT_USER,
+          fontStyle: "bold",
+          fill: "white",
+          listening: false,
+        }),
+      );
     });
+    layer.add(...userShapes);
+    await yieldToBrowser();
   }
 
-  // 6a. Стрелки таксонов и базы
+  // ─── Этап 6: Таксоны и траектории ─────────────────────────────────────────
   if (showTaxonTrajectory && trajectoryData) {
-    const meterPerPixelX = width_m / image.width;
-    const meterPerPixelY = height_m / image.height;
-
+    // 6a. Стрелки таксонов и базы
     if (trajectoryData.B) {
-      trajectoryData.B.forEach((taxon: any) => {
+      const taxonArrowShapes: Konva.Shape[] = [];
+
+      await processInChunks(trajectoryData.B, 20, (taxon: any) => {
         const color = taxon.color;
-        const baseX = taxon.base[0] / meterPerPixelX;
-        const baseY = image.height - taxon.base[1] / meterPerPixelY;
+        const baseX = taxon.base[0] / cache.meterPerPixelX;
+        const baseY = image.height - taxon.base[1] / cache.meterPerPixelY;
 
         const taxonPoints = taxon.points.map((p: [number, number]) => ({
-          x: p[0] / meterPerPixelX,
-          y: image.height - p[1] / meterPerPixelY,
+          x: p[0] / cache.meterPerPixelX,
+          y: image.height - p[1] / cache.meterPerPixelY,
         }));
 
         if (taxonPoints.length > 0) {
-          layer.add(new Konva.Arrow({
-            points: arrowPts({ x: baseX, y: baseY }, taxonPoints[0], BASE_R_DL, POINT_R_TAXON),
-            pointerLength: ARROW_PTR_LEN,
-            pointerWidth: ARROW_PTR_WID,
-            fill: color,
-            stroke: color,
-            strokeWidth: STROKE_W,
-          }));
-          layer.add(new Konva.Arrow({
-            points: arrowPts(taxonPoints[taxonPoints.length - 1], { x: baseX, y: baseY }, POINT_R_TAXON, BASE_R_DL),
-            pointerLength: ARROW_PTR_LEN,
-            pointerWidth: ARROW_PTR_WID,
-            fill: color,
-            stroke: color,
-            strokeWidth: STROKE_W,
-          }));
+          taxonArrowShapes.push(
+            createArrow(
+              arrowPts(
+                { x: baseX, y: baseY },
+                taxonPoints[0],
+                cache.BASE_R_DL,
+                cache.POINT_R_TAXON,
+              ),
+              color,
+            ),
+            createArrow(
+              arrowPts(
+                taxonPoints[taxonPoints.length - 1],
+                { x: baseX, y: baseY },
+                cache.POINT_R_TAXON,
+                cache.BASE_R_DL,
+              ),
+              color,
+            ),
+          );
 
           taxonPoints.forEach((p: any, i: number) => {
             if (i > 0) {
               const prev = taxonPoints[i - 1];
-              layer.add(new Konva.Arrow({
-                points: arrowPts(prev, p, POINT_R_TAXON, POINT_R_TAXON),
-                pointerLength: ARROW_PTR_LEN,
-                pointerWidth: ARROW_PTR_WID,
-                fill: color,
-                stroke: color,
-                strokeWidth: STROKE_W,
-              }));
+              taxonArrowShapes.push(
+                createArrow(
+                  arrowPts(
+                    prev,
+                    p,
+                    cache.POINT_R_TAXON,
+                    cache.POINT_R_TAXON,
+                  ),
+                  color,
+                ),
+              );
             }
           });
         }
 
-        // База
-        layer.add(new Konva.Line({
-          points: [
-            baseX - BASE_R_DL * 1.5, baseY - BASE_R_DL * 1.5,
-            baseX + BASE_R_DL * 1.5, baseY,
-            baseX - BASE_R_DL * 1.5, baseY + BASE_R_DL * 1.5,
-          ],
-          fill: color,
-          closed: true,
-        }));
+        // Маркер базы (треугольник)
+        taxonArrowShapes.push(
+          new Konva.Line({
+            points: [
+              baseX - cache.BASE_R_DL * 1.5,
+              baseY - cache.BASE_R_DL * 1.5,
+              baseX + cache.BASE_R_DL * 1.5,
+              baseY,
+              baseX - cache.BASE_R_DL * 1.5,
+              baseY + cache.BASE_R_DL * 1.5,
+            ],
+            fill: color,
+            closed: true,
+            listening: false,
+          }),
+        );
       });
+
+      layer.add(...taxonArrowShapes);
+      await yieldToBrowser();
     }
-  }
 
-  // 7. Навигационные треугольники
-  if (showNavTriangles && trajectoryData?.B) {
-    const meterPerPixelX = width_m / image.width;
-    const meterPerPixelY = height_m / image.height;
+    // 7. Навигационные треугольники — самый тяжёлый этап
+    if (showNavTriangles && trajectoryData?.B) {
+      const exportScale = Math.min(
+        image.width / PREVIEW_WIDTH,
+        image.height / PREVIEW_HEIGHT,
+      );
+      const previewScaleToFit = Math.min(
+        PREVIEW_WIDTH / image.width,
+        PREVIEW_HEIGHT / image.height,
+      );
 
-    const exportScale = Math.min(image.width / PREVIEW_WIDTH, image.height / PREVIEW_HEIGHT);
-    const previewScaleToFit = Math.min(PREVIEW_WIDTH / image.width, PREVIEW_HEIGHT / image.height);
-
-    const navAngleToCanvasVec = (angleDeg: number, magnitude: number, distMeters: number) => {
-      const rad = angleDeg * Math.PI / 180;
-      const dirX = Math.sin(rad);
-      const dirY = -Math.cos(rad);
-      const rawSizePxX = (distMeters / meterPerPixelX) * previewScaleToFit;
-      const rawSizePxY = (distMeters / meterPerPixelY) * previewScaleToFit;
-      const rawMagnitude = Math.hypot(rawSizePxX, rawSizePxY);
-      const MIN_PX = 10;
-      const MAX_PX = 15;
-      const clampedMagnitude = Math.min(Math.max(rawMagnitude, MIN_PX), MAX_PX);
-      const scale = clampedMagnitude / (rawMagnitude || 1);
-      return {
-        x: dirX * magnitude * rawSizePxX * scale,
-        y: dirY * magnitude * rawSizePxY * scale,
+      const navAngleToCanvasVec = (
+        angleDeg: number,
+        magnitude: number,
+        distMeters: number,
+      ) => {
+        const rad = (angleDeg * Math.PI) / 180;
+        const dirX = Math.sin(rad);
+        const dirY = -Math.cos(rad);
+        const rawSizePxX = (distMeters / cache.meterPerPixelX) * previewScaleToFit;
+        const rawSizePxY = (distMeters / cache.meterPerPixelY) * previewScaleToFit;
+        const rawMagnitude = Math.hypot(rawSizePxX, rawSizePxY);
+        const MIN_PX = 10;
+        const MAX_PX = 15;
+        const clampedMagnitude = Math.min(
+          Math.max(rawMagnitude, MIN_PX),
+          MAX_PX,
+        );
+        const scale = clampedMagnitude / (rawMagnitude || 1);
+        return {
+          x: dirX * magnitude * rawSizePxX * scale,
+          y: dirY * magnitude * rawSizePxY * scale,
+        };
       };
-    };
 
-    trajectoryData.B.forEach((taxon: any) => {
-      if (!taxon?.segments) return;
+      // Собираем все сегменты в один плоский массив для равномерного чанкинга.
+      // Это важнее, чем чанковать по таксонам: один таксон может содержать тысячи сегментов.
+      const allSegments: Array<{ taxon: any; segment: Segment }> = [];
+      trajectoryData.B.forEach((taxon: any) => {
+        if (!taxon?.segments) return;
+        taxon.segments.forEach((segment: Segment) => {
+          allSegments.push({ taxon, segment });
+        });
+      });
 
-      taxon.segments.forEach((segment: Segment) => {
+      const navShapes: Konva.Shape[] = [];
+
+      await processInChunks(allSegments, CHUNK_SIZE, ({ segment }) => {
         const pFrom = segment.p_from;
 
         let TC = segment.TC;
@@ -386,152 +552,258 @@ export const createKonvaScene = (params: ExportSceneParams): Konva.Stage => {
         const windSpeed = segment.wind_speed;
         const windDirDeg = segment.wind_dir_deg;
         const windTo = (windDirDeg + 180) % 360;
-        const distMeters = Math.hypot(segment.p_to[0] - pFrom[0], segment.p_to[1] - pFrom[1]);
+        const distMeters = Math.hypot(
+          segment.p_to[0] - pFrom[0],
+          segment.p_to[1] - pFrom[1],
+        );
 
-        const triStartX = pFrom[0] / meterPerPixelX;
-        const triStartY = image.height - pFrom[1] / meterPerPixelY;
+        const triStartX = pFrom[0] / cache.meterPerPixelX;
+        const triStartY = image.height - pFrom[1] / cache.meterPerPixelY;
 
         const gsVec = navAngleToCanvasVec(TC as number, GS, distMeters);
         const tasVec = navAngleToCanvasVec(TA, TAS, distMeters);
         const windVec = navAngleToCanvasVec(windTo, windSpeed, distMeters);
 
-        const gsX = gsVec.x * exportScale, gsY = gsVec.y * exportScale;
-        const tasX = tasVec.x * exportScale, tasY = tasVec.y * exportScale;
-        const windX = windVec.x * exportScale, windY = windVec.y * exportScale;
+        const gsX = gsVec.x * exportScale;
+        const gsY = gsVec.y * exportScale;
+        const tasX = tasVec.x * exportScale;
+        const tasY = tasVec.y * exportScale;
+        const windX = windVec.x * exportScale;
+        const windY = windVec.y * exportScale;
 
-        layer.add(new Konva.Arrow({
-          points: [triStartX, triStartY, triStartX + gsX, triStartY + gsY],
-          pointerLength: 8 * exportScale, pointerWidth: 5 * exportScale,
-          fill: "red", stroke: "red", strokeWidth: 1.5 * exportScale, opacity: 0.9,
-        }));
-        layer.add(new Konva.Arrow({
-          points: [triStartX, triStartY, triStartX + tasX, triStartY + tasY],
-          pointerLength: 8 * exportScale, pointerWidth: 5 * exportScale,
-          fill: "blue", stroke: "blue", strokeWidth: 2.5 * exportScale, opacity: 0.9,
-        }));
-        layer.add(new Konva.Arrow({
-          points: [triStartX, triStartY, triStartX + windX, triStartY + windY],
-          pointerLength: 8 * exportScale, pointerWidth: 5 * exportScale,
-          fill: "green", stroke: "green", strokeWidth: 2.5 * exportScale, opacity: 0.8,
-        }));
-
-        layer.add(new Konva.Line({
-          points: [
-            triStartX + windX, triStartY + windY,
-            triStartX + windX + tasX, triStartY + windY + tasY,
-          ],
-          stroke: "blue", strokeWidth: 1.5 * exportScale,
-          dash: [6 * exportScale, 4 * exportScale], opacity: 1,
-        }));
-        layer.add(new Konva.Line({
-          points: [
-            triStartX + tasX, triStartY + tasY,
-            triStartX + tasX + windX, triStartY + tasY + windY,
-          ],
-          stroke: "green", strokeWidth: 1.5 * exportScale,
-          dash: [6 * exportScale, 4 * exportScale], opacity: 1,
-        }));
+        navShapes.push(
+          new Konva.Arrow({
+            points: [triStartX, triStartY, triStartX + gsX, triStartY + gsY],
+            pointerLength: 8 * exportScale,
+            pointerWidth: 5 * exportScale,
+            fill: "red",
+            stroke: "red",
+            strokeWidth: 1.5 * exportScale,
+            opacity: 0.9,
+            listening: false,
+          }),
+          new Konva.Arrow({
+            points: [triStartX, triStartY, triStartX + tasX, triStartY + tasY],
+            pointerLength: 8 * exportScale,
+            pointerWidth: 5 * exportScale,
+            fill: "blue",
+            stroke: "blue",
+            strokeWidth: 2.5 * exportScale,
+            opacity: 0.9,
+            listening: false,
+          }),
+          new Konva.Arrow({
+            points: [
+              triStartX,
+              triStartY,
+              triStartX + windX,
+              triStartY + windY,
+            ],
+            pointerLength: 8 * exportScale,
+            pointerWidth: 5 * exportScale,
+            fill: "green",
+            stroke: "green",
+            strokeWidth: 2.5 * exportScale,
+            opacity: 0.8,
+            listening: false,
+          }),
+          new Konva.Line({
+            points: [
+              triStartX + windX,
+              triStartY + windY,
+              triStartX + windX + tasX,
+              triStartY + windY + tasY,
+            ],
+            stroke: "blue",
+            strokeWidth: 1.5 * exportScale,
+            dash: [6 * exportScale, 4 * exportScale],
+            opacity: 1,
+            listening: false,
+          }),
+          new Konva.Line({
+            points: [
+              triStartX + tasX,
+              triStartY + tasY,
+              triStartX + tasX + windX,
+              triStartY + tasY + windY,
+            ],
+            stroke: "green",
+            strokeWidth: 1.5 * exportScale,
+            dash: [6 * exportScale, 4 * exportScale],
+            opacity: 1,
+            listening: false,
+          }),
+        );
       });
-    });
-  }
 
-  // 6b. Точки таксонов и недостижимые точки (поверх всего)
-  if (showTaxonTrajectory && trajectoryData) {
-    const meterPerPixelX = width_m / image.width;
-    const meterPerPixelY = height_m / image.height;
+      layer.add(...navShapes);
+      await yieldToBrowser();
+    }
 
+    // 6b. Точки таксонов (поверх треугольников)
     if (trajectoryData.B) {
-      trajectoryData.B.forEach((taxon: any) => {
+      const taxonPointShapes: Konva.Shape[] = [];
+
+      await processInChunks(trajectoryData.B, 20, (taxon: any) => {
         const color = taxon.color;
         const taxonPoints = taxon.points.map((p: [number, number]) => ({
-          x: p[0] / meterPerPixelX,
-          y: image.height - p[1] / meterPerPixelY,
+          x: p[0] / cache.meterPerPixelX,
+          y: image.height - p[1] / cache.meterPerPixelY,
         }));
 
         taxonPoints.forEach((p: any, i: number) => {
-          layer.add(new Konva.Circle({
-            x: p.x,
-            y: p.y,
-            radius: POINT_R_TAXON,
-            fill: color,
-          }));
-          layer.add(new Konva.Text({
-            x: p.x - POINT_R_TAXON * 0.45,
-            y: p.y - FONT_TAXON * 0.55,
-            text: (i + 1).toString(),
-            fontSize: FONT_TAXON,
-            fontStyle: "bold",
-            fill: "black",
-          }));
+          taxonPointShapes.push(
+            createCircle(p.x, p.y, cache.POINT_R_TAXON, color),
+            new Konva.Text({
+              x: p.x - cache.POINT_R_TAXON * 0.45,
+              y: p.y - cache.FONT_TAXON * 0.55,
+              text: (i + 1).toString(),
+              fontSize: cache.FONT_TAXON,
+              fontStyle: "bold",
+              fill: "black",
+              listening: false,
+            }),
+          );
         });
       });
+
+      layer.add(...taxonPointShapes);
+      await yieldToBrowser();
     }
 
-    if (trajectoryData.C) {
-      const crossR = 7 * uiScale;
-      trajectoryData.C.forEach((point: [number, number]) => {
-        const cx = point[0] / meterPerPixelX;
-        const cy = image.height - point[1] / meterPerPixelY;
+    // Недостижимые точки
+    if (trajectoryData.C && trajectoryData.C.length > 0) {
+      const crossR = 7 * cache.uiScale;
+      const unreachShapes: Konva.Shape[] = [];
 
-        layer.add(new Konva.Circle({
-          x: cx,
-          y: cy,
-          radius: crossR,
-          fill: "rgba(255,107,53,0.15)",
-          stroke: "#FF6B35",
-          strokeWidth: STROKE_W * 0.8,
-        }));
-        layer.add(new Konva.Line({
-          points: [cx - crossR * 0.6, cy - crossR * 0.6, cx + crossR * 0.6, cy + crossR * 0.6],
-          stroke: "#FF6B35",
-          strokeWidth: STROKE_W,
-        }));
-        layer.add(new Konva.Line({
-          points: [cx + crossR * 0.6, cy - crossR * 0.6, cx - crossR * 0.6, cy + crossR * 0.6],
-          stroke: "#FF6B35",
-          strokeWidth: STROKE_W,
-        }));
-      });
+      await processInChunks(
+        trajectoryData.C,
+        CHUNK_SIZE,
+        (point: [number, number]) => {
+          const cx = point[0] / cache.meterPerPixelX;
+          const cy = image.height - point[1] / cache.meterPerPixelY;
+
+          unreachShapes.push(
+            new Konva.Circle({
+              x: cx,
+              y: cy,
+              radius: crossR,
+              fill: "rgba(255,107,53,0.15)",
+              stroke: "#FF6B35",
+              strokeWidth: cache.STROKE_W * 0.8,
+              listening: false,
+            }),
+            new Konva.Line({
+              points: [
+                cx - crossR * 0.6,
+                cy - crossR * 0.6,
+                cx + crossR * 0.6,
+                cy + crossR * 0.6,
+              ],
+              stroke: "#FF6B35",
+              strokeWidth: cache.STROKE_W,
+              listening: false,
+            }),
+            new Konva.Line({
+              points: [
+                cx + crossR * 0.6,
+                cy - crossR * 0.6,
+                cx - crossR * 0.6,
+                cy + crossR * 0.6,
+              ],
+              stroke: "#FF6B35",
+              strokeWidth: cache.STROKE_W,
+              listening: false,
+            }),
+          );
+        },
+      );
+
+      layer.add(...unreachShapes);
+      await yieldToBrowser();
     }
   }
 
-  layer.batchDraw();
+  // Финальный рендер
+  const canvas = layer.getCanvas();
+  const ctx = canvas.getContext();
+  if (ctx) {
+    ctx.imageSmoothingEnabled = false;
+  }
 
-  // Возвращаем Stage для дальнейшего использования
+  layer.batchDraw();
+  await yieldToBrowser();
+
   return downloadStage;
 };
 
-// ─── 2. Экспорт в Blob (Скачивание PNG) ─────────────────────────────────────────────
+// ─── 2. Экспорт в Blob (асинхронный) ───────────────────────────────────────
 
-export const exportSceneImage = (
+export const exportSceneImage = async (
   stage: Konva.Stage,
-  filename: string = "trajectory_map.png",
-  setLoading?: (loading: boolean) => void
-) => {
-  stage.toCanvas().toBlob((blob) => {
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-    
-    // Уничтожаем Stage после экспорта
-    stage.destroy();
-    
-    if (setLoading) setLoading(false);
-  }, "image/png"); // Добавил тип явно
+  filename: string = "trajectory_schema.jpeg",
+  setLoading?: (loading: boolean) => void,
+  quality: number = 0.5,
+): Promise<void> => {
+  return new Promise((resolve) => {
+    stage.toCanvas().toBlob(
+      (blob) => {
+        try {
+          if (!blob) {
+            resolve();
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = filename;
+          link.click();
+          URL.revokeObjectURL(url);
+        } finally {
+          stage.destroy();
+          if (setLoading) setLoading(false);
+          resolve();
+        }
+      },
+      "image/jpeg",
+      quality,
+    );
+  });
 };
 
-// ─── 3. Экспорт в DataURL (Для вставки в PDF) ───────────────────────────────────────
+// ─── 3. Экспорт в DataURL (для PDF) ────────────────────────────────────────
 
 export const exportSceneImageToDataURL = (stage: Konva.Stage): string | null => {
-  // Получаем Data URL
   const dataUrl = stage.toDataURL({ pixelRatio: 1 });
-  
-  // Уничтожаем Stage, так как он больше не нужен
   stage.destroy();
-  
   return dataUrl;
+};
+
+// ─── 4. Высокоуровневая обёртка для удобного вызова ────────────────────────
+
+/**
+ * Полный цикл скачивания: показывает спиннер до того, как начнётся рендер,
+ * строит сцену асинхронно, скачивает файл, прячет спиннер.
+ *
+ * Использование:
+ *   await downloadScene(params, "map.png");
+ */
+export const downloadScene = async (
+  params: ExportSceneParams,
+  filename: string = "trajectory_schema.jpeg",
+  quality: number = 0.5,
+): Promise<void> => {
+  const { setLoading } = params;
+
+  if (setLoading) setLoading(true);
+
+  await waitForPaint();
+
+  try {
+    const stage = await createKonvaScene(params);
+    await exportSceneImage(stage, filename, setLoading, quality);
+  } catch (err) {
+    if (setLoading) setLoading(false);
+    throw err;
+  }
 };
