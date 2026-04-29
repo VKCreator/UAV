@@ -1114,7 +1114,7 @@ const TrajectoryStepper = () => {
 
       setIsFadingOut(true);
       setTimeout(() => {
-        notifications.show("Схема полётов создана", {
+        notifications.show("Карта полётов создана", {
           severity: "success",
           autoHideDuration: 3000,
         });

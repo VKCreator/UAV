@@ -118,6 +118,21 @@ interface OptimizationTrajectoryStepProps {
   setOptimizationState: (data: any) => void;
 }
 
+function createColorGenerator() {
+    let index = 0;
+    const goldenRatio = 0.618033988749895;
+
+    return function() {
+        const hue = (index * goldenRatio * 360) % 360;
+        const saturation = 55 + Math.floor(Math.random() * 20); // 55–75%
+        const lightness = 42 + Math.floor(Math.random() * 14);  // 42–56%
+        index++;
+        return `hsl(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.round(lightness)}%)`;
+    };
+}
+
+
+// 50 таксонов и повтор
 const colors = [
   "#65b9f7",
   "#ff6b6b",
@@ -128,17 +143,48 @@ const colors = [
   "#f59fe1",
   "#f4e24d",
   "#e38b5a",
-  "#5e4a3a",
+  "#ecb385",
   "#7a9f60",
   "#a2b9d1",
   "#d1d1d1",
   "#b8a25b",
+  "#4ecdc4",
+  "#ff8c42",
+  "#6c5ce7",
+  "#fd79a8",
+  "#00b894",
+  "#e17055",
+  "#74b9ff",
+  "#fdcb6e",
+  "#a29bfe",
+  "#e84393",
+  "#55efc4",
+  "#fab1a0",
+  "#81ecec",
+  "#ff7675",
+  "#dfe6e9",
+  "#636e72",
+  "#f8a5c2",
+  "#7ed6df",
+  "#f0932b",
+  "#eb4d4b",
+  "#22a6b3",
+  "#be2edd",
+  "#bfb6fd",
+  "#aaabbf",
+  "#badc58",
+  "#c7ecee",
+  "#dff9fb",
+  "#f6e58d",
+  "#ffbe76",
+  "#ff7979",
+  "#7ed56f",
+  "#3d7ea6",
+  "#e056a0",
+  "#b33771",
+  "#58b19f",
+  "#9b59b6"
 ];
-
-interface OptimizationFlags {
-  small: boolean;
-  large: boolean;
-}
 
 const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   imageData,
@@ -196,7 +242,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   };
 
   const isAllNotCompleted = React.useMemo(() => {
-    return Object.entries(optimizationState).every(([key, item]) => item.status === 'idle' || item.status === "running");
+    return Object.entries(optimizationState).every(([key, item]) => item.status !== 'completed');
   }, [optimizationState]);
 
   const isAllCompleted = React.useMemo(() => {
@@ -375,7 +421,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
         } catch (err) {
           console.error("Ошибка small оптимизации:", err);
           notifications.show(`Ошибка оптимизации НПТ: ${err}`, { severity: "error", autoHideDuration: 3000 });
-          updateOptimization("small", { isLoading: false, status: "idle" });
+          updateOptimization("small", { isLoading: false, status: "error" });
           isError = true;
         } finally {
           // setOptimizationStatus(prev => ({ ...prev, small: 'completed' }));
@@ -435,7 +481,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
         } catch (err) {
           console.error("Ошибка large оптимизации:", err);
           notifications.show(`Ошибка оптимизации ВПТ: ${err}`, { severity: "error", autoHideDuration: 3000 });
-          updateOptimization("large", { isLoading: false, status: "idle" });
+          updateOptimization("large", { isLoading: false, status: "error" });
           isError = true;
         } finally {
 
@@ -494,7 +540,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
         } catch (err) {
           console.error("Ошибка combi оптимизации:", err);
           notifications.show(`Ошибка оптимизации СПТ: ${err}`, { severity: "error", autoHideDuration: 3000 });
-          updateOptimization("combi", { isLoading: false, status: "idle" });
+          updateOptimization("combi", { isLoading: false, status: "error" });
           isError = true;
         } finally {
 
@@ -520,7 +566,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     "Пользовательская",
     "Оптимум (НПТ)",
     "Оптимум (ВПТ)",
-    "Оптимум (Комби)"
+    "Оптимум (СПТ)"
   ];
 
   const handleNext = () => {
@@ -586,6 +632,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
         return { label: 'В процессе', color: 'warning', icon: <CircularProgress size={12} /> };
       case 'completed':
         return { label: 'Выполнено', color: 'success' };
+      case 'error':
+        return { label: 'Ошибка', color: 'error' };
       default:
         return { label: 'Не запущено', color: 'error' };
     }

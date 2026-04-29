@@ -68,14 +68,6 @@ interface CompareOptimizationMethodsStepProps {
   setPriorityMethod: React.Dispatch<React.SetStateAction<any>>;
 }
 
-// ─── Константы ────────────────────────────────────────────────────────────────
-
-const METHOD_CONFIG = {
-  0: { name: "Метод 1", label: "1 методу (Низкая плотность точек)", dataKey: "trajectoryData" as const },
-  1: { name: "Метод 2", label: "2 методу (Высокая плотность точек)", dataKey: "trajectoryData2" as const },
-  2: { name: "Метод 3", label: "3 методу (Комбинированный)", dataKey: null }, // Для будущего расширения
-};
-
 // Утилиты 
 
 const formatTime = (seconds: number): string => {

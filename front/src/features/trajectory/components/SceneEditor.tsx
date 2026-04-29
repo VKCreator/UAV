@@ -681,7 +681,7 @@ const SceneEditor: FC<SceneEditorProps> = ({
     }
     await downloadScene(
       { ...params, setLoading },
-      "schema.jpeg",
+      "trajectory_schema.jpeg",
     );
   };
 

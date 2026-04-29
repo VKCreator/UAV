@@ -20,7 +20,7 @@ export const trajectoryApi = {
     }),
 
   calculateMethod3: (body: any) =>
-    request<any>("/api/trajectory/calculate/method3", {
+    request<any>("/api/trajectory/calculate/method3", { 
       method: "POST",
       body: JSON.stringify(body),
     }),

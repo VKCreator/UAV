@@ -165,20 +165,6 @@ const renderValue = (value: any, suffix?: string) => {
   return suffix ? `${value} ${suffix}` : value;
 };
 
-// Цвета таксонов (должны совпадать со SceneEditor)
-const TAXON_COLORS = [
-  "#65b9f7",
-  "#ff6b6b",
-  "#66a9ff",
-  "#ffdd57",
-  "#9e69c4",
-  "#64f3f1",
-  "#f59fe1",
-  "#f4e24d",
-  "#e38b5a",
-  "#7a9f60",
-];
-
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {

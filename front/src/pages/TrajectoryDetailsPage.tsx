@@ -421,7 +421,7 @@ export default function TrajectoryDetails() {
           gap: 2,
         }}
       >
-        <Typography color="error">{error ?? "Схема не найдена"}</Typography>
+        <Typography color="error">{error ?? "Карта не найдена"}</Typography>
         <Button variant="outlined" onClick={handleClose}>
           Вернуться назад
         </Button>
