@@ -150,9 +150,10 @@ export const createKonvaScene = async (
   // Кешируем вычисления
   // const uiScale =
   //   Math.min(image.width / PREVIEW_WIDTH, image.height / PREVIEW_HEIGHT) * 0.5;
-  const REFERENCE_SIZE = 1000;
+  const REFERENCE_SIZE = 1000; // больше - меньше, меньше - крупнее
   const uiScale = Math.min(image.width, image.height) / REFERENCE_SIZE;
 
+  // если что тут изменять
   const cache = {
     uiScale,
     POINT_R_USER: 14 * uiScale,
@@ -504,15 +505,6 @@ export const createKonvaScene = async (
 
     // 7. Навигационные треугольники — самый тяжёлый этап
     if (showNavTriangles && trajectoryData?.B) {
-      const exportScale = Math.min(
-        image.width / PREVIEW_WIDTH,
-        image.height / PREVIEW_HEIGHT,
-      );
-      const previewScaleToFit = Math.min(
-        PREVIEW_WIDTH / image.width,
-        PREVIEW_HEIGHT / image.height,
-      );
-
       const navAngleToCanvasVec = (
         angleDeg: number,
         magnitude: number,
@@ -521,16 +513,22 @@ export const createKonvaScene = async (
         const rad = (angleDeg * Math.PI) / 180;
         const dirX = Math.sin(rad);
         const dirY = -Math.cos(rad);
-        const rawSizePxX = (distMeters / cache.meterPerPixelX) * previewScaleToFit;
-        const rawSizePxY = (distMeters / cache.meterPerPixelY) * previewScaleToFit;
+
+        // Размер сегмента в пикселях итогового изображения.
+        const rawSizePxX = distMeters / cache.meterPerPixelX;
+        const rawSizePxY = distMeters / cache.meterPerPixelY;
         const rawMagnitude = Math.hypot(rawSizePxX, rawSizePxY);
-        const MIN_PX = 10;
-        const MAX_PX = 15;
+
+        // Ограничиваем длину треугольника в пикселях итогового изображения,
+        // привязываясь к uiScale (то есть к REFERENCE_SIZE).
+        const MIN_PX = 15 * cache.uiScale; // если что тут изменять!
+        const MAX_PX = 30 * cache.uiScale;
         const clampedMagnitude = Math.min(
           Math.max(rawMagnitude, MIN_PX),
           MAX_PX,
         );
         const scale = clampedMagnitude / (rawMagnitude || 1);
+
         return {
           x: dirX * magnitude * rawSizePxX * scale,
           y: dirY * magnitude * rawSizePxY * scale,
@@ -538,7 +536,6 @@ export const createKonvaScene = async (
       };
 
       // Собираем все сегменты в один плоский массив для равномерного чанкинга.
-      // Это важнее, чем чанковать по таксонам: один таксон может содержать тысячи сегментов.
       const allSegments: Array<{ taxon: any; segment: Segment }> = [];
       trajectoryData.B.forEach((taxon: any) => {
         if (!taxon?.segments) return;
@@ -548,6 +545,13 @@ export const createKonvaScene = async (
       });
 
       const navShapes: Konva.Shape[] = [];
+
+      // Толщина и наконечники — тоже через uiScale.
+      const navStrokeThin = 1.5 * cache.uiScale;
+      const navStrokeThick = 2.5 * cache.uiScale;
+      const navPointerLen = 8 * cache.uiScale;
+      const navPointerWid = 5 * cache.uiScale;
+      const navDash = [6 * cache.uiScale, 4 * cache.uiScale];
 
       await processInChunks(allSegments, CHUNK_SIZE, ({ segment }) => {
         const pFrom = segment.p_from;
@@ -574,31 +578,31 @@ export const createKonvaScene = async (
         const tasVec = navAngleToCanvasVec(TA, TAS, distMeters);
         const windVec = navAngleToCanvasVec(windTo, windSpeed, distMeters);
 
-        const gsX = gsVec.x * exportScale;
-        const gsY = gsVec.y * exportScale;
-        const tasX = tasVec.x * exportScale;
-        const tasY = tasVec.y * exportScale;
-        const windX = windVec.x * exportScale;
-        const windY = windVec.y * exportScale;
+        const gsX = gsVec.x;
+        const gsY = gsVec.y;
+        const tasX = tasVec.x;
+        const tasY = tasVec.y;
+        const windX = windVec.x;
+        const windY = windVec.y;
 
         navShapes.push(
           new Konva.Arrow({
             points: [triStartX, triStartY, triStartX + gsX, triStartY + gsY],
-            pointerLength: 8 * exportScale,
-            pointerWidth: 5 * exportScale,
+            pointerLength: navPointerLen,
+            pointerWidth: navPointerWid,
             fill: "red",
             stroke: "red",
-            strokeWidth: 1.5 * exportScale,
+            strokeWidth: navStrokeThin,
             opacity: 0.9,
             listening: false,
           }),
           new Konva.Arrow({
             points: [triStartX, triStartY, triStartX + tasX, triStartY + tasY],
-            pointerLength: 8 * exportScale,
-            pointerWidth: 5 * exportScale,
+            pointerLength: navPointerLen,
+            pointerWidth: navPointerWid,
             fill: "blue",
             stroke: "blue",
-            strokeWidth: 2.5 * exportScale,
+            strokeWidth: navStrokeThick,
             opacity: 0.9,
             listening: false,
           }),
@@ -609,11 +613,11 @@ export const createKonvaScene = async (
               triStartX + windX,
               triStartY + windY,
             ],
-            pointerLength: 8 * exportScale,
-            pointerWidth: 5 * exportScale,
+            pointerLength: navPointerLen,
+            pointerWidth: navPointerWid,
             fill: "green",
             stroke: "green",
-            strokeWidth: 2.5 * exportScale,
+            strokeWidth: navStrokeThick,
             opacity: 0.8,
             listening: false,
           }),
@@ -625,8 +629,8 @@ export const createKonvaScene = async (
               triStartY + windY + tasY,
             ],
             stroke: "blue",
-            strokeWidth: 1.5 * exportScale,
-            dash: [6 * exportScale, 4 * exportScale],
+            strokeWidth: navStrokeThin,
+            dash: navDash,
             opacity: 1,
             listening: false,
           }),
@@ -638,8 +642,8 @@ export const createKonvaScene = async (
               triStartY + tasY + windY,
             ],
             stroke: "green",
-            strokeWidth: 1.5 * exportScale,
-            dash: [6 * exportScale, 4 * exportScale],
+            strokeWidth: navStrokeThin,
+            dash: navDash,
             opacity: 1,
             listening: false,
           }),

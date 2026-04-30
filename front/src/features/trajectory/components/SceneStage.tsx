@@ -118,12 +118,6 @@ export const SceneStage: FC<SceneStageProps> = ({
                 onMouseMove={handleMouseMove}
                 onClick={handleStageClick}
             >
-                <LoadingLayer
-                    loading={loading}
-                    STAGE_WIDTH={STAGE_WIDTH}
-                    STAGE_HEIGHT={STAGE_HEIGHT}
-                />
-
                 <StaticLayer
                     image={image}
                     imageX={imageX}
@@ -185,6 +179,12 @@ export const SceneStage: FC<SceneStageProps> = ({
                     showUavLine={showUavLine}
                     flightLineY={flightLineY}
                     currentPolygon={currentPolygon}
+                    STAGE_WIDTH={STAGE_WIDTH}
+                    STAGE_HEIGHT={STAGE_HEIGHT}
+                />
+
+                                <LoadingLayer
+                    loading={loading}
                     STAGE_WIDTH={STAGE_WIDTH}
                     STAGE_HEIGHT={STAGE_HEIGHT}
                 />
