@@ -119,16 +119,16 @@ interface OptimizationTrajectoryStepProps {
 }
 
 function createColorGenerator() {
-    let index = 0;
-    const goldenRatio = 0.618033988749895;
+  let index = 0;
+  const goldenRatio = 0.618033988749895;
 
-    return function() {
-        const hue = (index * goldenRatio * 360) % 360;
-        const saturation = 55 + Math.floor(Math.random() * 20); // 55–75%
-        const lightness = 42 + Math.floor(Math.random() * 14);  // 42–56%
-        index++;
-        return `hsl(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.round(lightness)}%)`;
-    };
+  return function () {
+    const hue = (index * goldenRatio * 360) % 360;
+    const saturation = 55 + Math.floor(Math.random() * 20); // 55–75%
+    const lightness = 42 + Math.floor(Math.random() * 14);  // 42–56%
+    index++;
+    return `hsl(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.round(lightness)}%)`;
+  };
 }
 
 
@@ -222,6 +222,11 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 }) => {
   const { confirm } = useDialogs();
   const notifications = useNotifications();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = React.useState({ width: 550, height: 400 });
+  // Размеры для превью (как указано в условии)
+  const PREVIEW_WIDTH = containerSize.width;
+  const PREVIEW_HEIGHT = containerSize.height;
 
   const [activeImage, setActiveImage] = React.useState(0);
   const [image] = useImage(imageData.imageUrl);
@@ -569,9 +574,24 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
     "Оптимум (СПТ)"
   ];
 
-  const handleNext = () => {
-    setActiveImage((prev) => (prev + 1) % trajectoryTitles.length);
-  };
+
+  const [activeTrajectory, setActiveTrajectory] = React.useState(0);
+
+const handleNext = () => {
+  setActiveTrajectory((prev) => {
+    const next = (prev + 1) % trajectoryTitles.length;
+    return next;
+  });
+  setActiveImage((prev) => (prev + 1) % trajectoryTitles.length);
+};
+
+const handlePrev = () => {
+  setActiveTrajectory((prev) => {
+    const prev_ = (prev - 1 + trajectoryTitles.length) % trajectoryTitles.length;
+    return prev_;
+  });
+  setActiveImage((prev) => (prev - 1 + trajectoryTitles.length) % trajectoryTitles.length);
+};
 
   const [anchorEl, setAnchorEl] = React.useState(null);
   const openMenu = Boolean(anchorEl);
@@ -664,6 +684,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showUserTrajectory={true}
             showTaxonTrajectory={false}
             isLoading={isLoadingUserScene}
+            PREVIEW_WIDTH={PREVIEW_WIDTH - 20}
+            PREVIEW_HEIGHT={PREVIEW_HEIGHT - 20}
           />
         );
       case 2:
@@ -674,6 +696,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showUserTrajectory={false}
             showTaxonTrajectory={true}
             isLoading={optimizationState.small.isLoading}
+            PREVIEW_WIDTH={PREVIEW_WIDTH - 20}
+            PREVIEW_HEIGHT={PREVIEW_HEIGHT - 20}
           />
         );
       case 3:
@@ -684,6 +708,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showUserTrajectory={false}
             showTaxonTrajectory={true}
             isLoading={optimizationState.large.isLoading}
+            PREVIEW_WIDTH={PREVIEW_WIDTH - 20}
+            PREVIEW_HEIGHT={PREVIEW_HEIGHT - 20}
           />
         );
       case 4:
@@ -694,12 +720,32 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             showUserTrajectory={false}
             showTaxonTrajectory={true}
             isLoading={optimizationState.combi.isLoading}
+            PREVIEW_WIDTH={PREVIEW_WIDTH - 20}
+            PREVIEW_HEIGHT={PREVIEW_HEIGHT - 20}
           />
         );
       default:
         return <Typography>Контент для изображения {index}</Typography>;
     }
   };
+
+  // Отслеживаем реальный размер контейнера
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        setContainerSize({
+          width: Math.floor(width),
+          height: Math.floor(height)
+        });
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   return (
     <Box sx={{ p: 2 }}>
@@ -786,32 +832,6 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                     </MenuItem>
                   </Menu>
                 </>
-
-                {/* Вертикальная палочка */}
-                <Divider
-                  orientation="vertical"
-                  flexItem
-                  sx={{ mr: 1, ml: 1 }}
-                />
-
-                {/* Счётчик */}
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ whiteSpace: "nowrap", textAlign: "right" }}
-                >
-                  Траектория: {activeImage + 1} / {trajectoryTitles.length}
-                </Typography>
-
-                {/* Стрелка */}
-                <IconButton
-                  color="primary"
-                  onClick={handleNext}
-                  aria-label="Следующая траектория"
-                  size="small"
-                >
-                  ❯
-                </IconButton>
               </Box>
             </Box>
 
@@ -819,23 +839,96 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
             {/* Контент */}
             <Box
+              ref={containerRef}
               sx={{
-                mt: 1,
                 width: "100%",
-                maxHeight: "450px",
-                // bgcolor: "#f4f6f8",
+                height: "100%",
+                maxHeight: "500px",
+                minHeight: "300px",
                 display: "flex",
-                alignItems: "center",
                 justifyContent: "center",
+                alignItems: "center",
+                mt: 1,
+                position: "relative",
                 overflow: "hidden",
-                // borderRadius: 1,
               }}
             >
-              {renderImage(activeImage + 1)}
-              {/* <Typography color="text.secondary">
-                Изображение #{activeImage + 1}
-              </Typography> */}
+              <Box
+                sx={{
+                  cursor: "pointer",
+                  width: "100%",
+                  height: "100%",
+                  p: "10px"
+                }}
+              >              {renderImage(activeImage + 1)}
+              </Box>
             </Box>
+{/* Добавьте этот блок после контейнера со сценой */}
+<Box
+  sx={{
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 2,
+    mt: 1,
+    px: 2,
+  }}
+>
+  {/* Кнопка "Назад" */}
+  <IconButton
+    onClick={handlePrev}
+    // disabled={activeTrajectory === 0}
+    size="small"
+          color="primary"
+
+    sx={{
+      // border: "1px solid",
+      // borderColor: "divider",
+      "&:hover": {
+        backgroundColor: "action.hover",
+      },
+    }}
+  >
+    <Typography sx={{ fontSize: "18px", lineHeight: 1 }}>❮</Typography>
+  </IconButton>
+
+  {/* Информация о текущей траектории */}
+  <Box
+    sx={{
+      display: "flex",
+      alignItems: "center",
+      gap: 1,
+      minWidth: "130px",
+      justifyContent: "center",
+    }}
+  >
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      sx={{ whiteSpace: "nowrap", minWidth: "120px" }}
+    >
+      Траектория: {activeTrajectory + 1} / {trajectoryTitles.length}
+    </Typography>
+
+  </Box>
+
+  {/* Кнопка "Вперед" */}
+  <IconButton
+    onClick={handleNext}
+    // disabled={activeTrajectory === trajectoryTitles.length - 1}
+    size="small"
+    color="primary"
+    sx={{
+      // border: "1px solid",
+      // borderColor: "divider",
+      "&:hover": {
+        backgroundColor: "action.hover",
+      },
+    }}
+  >
+    <Typography sx={{ fontSize: "18px", lineHeight: 1 }}>❯</Typography>
+  </IconButton>
+</Box>
           </Paper>
         </Grid>
 

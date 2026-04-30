@@ -354,7 +354,7 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
         </Table>
       </TableContainer>
 
-      <Paper variant="outlined" sx={{ p: 2.5, borderColor: "success.main", borderWidth: 1.5 }}>
+      <Paper variant="outlined" sx={{ p: 2.5, borderColor: "success.main", borderWidth: 1.5, maxWidth: 700 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
           <Typography variant="body1" color="text.secondary">Рекомендованный метод оптимизации траектории:</Typography>
           <Typography variant="body1" fontWeight={700} color="success.dark">{recommendedMethod?.name}</Typography>

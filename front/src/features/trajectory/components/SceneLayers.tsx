@@ -7,7 +7,7 @@ import { convexHull, outwardUnitNormal } from "../utils/Geometry";
 
 const TAXON_POINT_RADIUS = 10;
 const BASE_RADIUS = 4;
-
+const POINT_RADIUS = 14;
 
 // Вспомогательная функция для стрелок
 const getArrowPoints = (
@@ -111,7 +111,7 @@ export const UserPointsLayer = React.memo(({
         return (
           <Arrow
             key={`arrow-${i}`}
-            points={getArrowPoints(from, to, TAXON_POINT_RADIUS, TAXON_POINT_RADIUS)}
+            points={getArrowPoints(from, to, POINT_RADIUS, POINT_RADIUS)}
             pointerLength={10}
             pointerWidth={7}
             fill="red"
@@ -126,25 +126,32 @@ export const UserPointsLayer = React.memo(({
           <Circle
             x={point.x * scaleToFit + imageX}
             y={point.y * scaleToFit + imageY}
-            radius={10}
+            radius={POINT_RADIUS}
             fill="blue"
             onContextMenu={(e) => {
               e.evt.preventDefault();
               if (toolMode === "points") setPoints(points.filter((_: any, idx: number) => idx !== i));
             }}
+            stroke="white"
+            strokeWidth={1}
             onMouseEnter={(e) => e.target.getStage().container().style.cursor = "pointer"}
             onMouseLeave={(e) => e.target.getStage().container().style.cursor = getCursor()}
           />
           <Text
-            x={point.x * scaleToFit + imageX - 6}
-            y={point.y * scaleToFit + imageY - 6}
-            text={(i + 1).toString()}
-            fontSize={12}
-            fill="white"
-            onContextMenu={(e) => {
-              e.evt.preventDefault();
-              if (toolMode === "points") setPoints(points.filter((_: any, idx: number) => idx !== i));
-            }}
+          x={point.x * scaleToFit + imageX - POINT_RADIUS}
+          y={point.y * scaleToFit + imageY - POINT_RADIUS}
+          width={POINT_RADIUS * 2}
+          height={POINT_RADIUS * 2}
+          verticalAlign="middle"
+          align="center"
+          text={(i + 1).toString()}
+          fontSize={POINT_RADIUS}
+          fontStyle="bold"
+          fill="white"
+          onContextMenu={(e) => {
+            e.evt.preventDefault();
+            if (toolMode === "points") setPoints(points.filter((_: any, idx: number) => idx !== i));
+          }}
           />
         </Fragment>
       ))}
@@ -297,21 +304,21 @@ export const ObstaclesLayer = React.memo(({
             <Circle
               x={labelX}
               y={labelY}
-              radius={12}
-              fill="rgba(0,0,0,0.55)"
+              radius={15}
+              fill="rgba(0,0,0,0.8)"
               listening={false}
             />
             <Text
-              x={labelX}
-              y={labelY}
+              x={labelX - 15}
+              y={labelY - 15}
               text={labelText}
-              fontSize={14}
+              fontSize={15}
               fontStyle="bold"
               fill="#fff"
               align="center"
               verticalAlign="middle"
-              offsetX={labelText.length * 4}
-              offsetY={7}
+              height={15 * 2}
+              width={15 * 2} 
               listening={false}
             />
           </Fragment>
@@ -448,13 +455,19 @@ export const TrajectoryLayer = React.memo(({
                   y={p.y * scaleToFit + imageY}
                   radius={TAXON_POINT_RADIUS}
                   fill={p.color}
+                  stroke="#1a1a1a"
+                  strokeWidth={1}
                 />
                 <Text
-                  x={p.x * scaleToFit + imageX - 5}
-                  y={p.y * scaleToFit + imageY - 7}
+                  x={p.x * scaleToFit + imageX - TAXON_POINT_RADIUS}
+                  y={p.y * scaleToFit + imageY - TAXON_POINT_RADIUS}
+                  width={TAXON_POINT_RADIUS * 2}
+                  height={TAXON_POINT_RADIUS * 2}
                   text={`${i + 1}`}
                   fontSize={12}
                   fill="black"
+                  verticalAlign="middle"
+                  align="center"
                 />
               </Fragment>
             ))}

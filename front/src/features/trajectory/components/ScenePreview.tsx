@@ -24,6 +24,9 @@ interface ScenePreviewProps {
     showUserTrajectory: boolean;
     showTaxonTrajectory: boolean;
     isLoading?: boolean;
+
+    PREVIEW_WIDTH?: number;
+    PREVIEW_HEIGHT?: number;
 }
 
 const ScenePreview: FC<ScenePreviewProps> = ({
@@ -40,9 +43,11 @@ const ScenePreview: FC<ScenePreviewProps> = ({
     showUserTrajectory,
     showTaxonTrajectory,
     isLoading = false,
+    PREVIEW_WIDTH = 700,
+    PREVIEW_HEIGHT = 500
 }) => {
-    const PREVIEW_WIDTH = 500;
-    const PREVIEW_HEIGHT = 400;
+    // const PREVIEW_WIDTH = 700;
+    // const PREVIEW_HEIGHT = 500;
 
     const width_m = droneParams.frameWidthBase;
     const height_m = droneParams.frameHeightBase;
@@ -52,8 +57,8 @@ const ScenePreview: FC<ScenePreviewProps> = ({
     const scaleToFit = image
         ? Math.min(
             1,
-            (PREVIEW_WIDTH / image.width) * 1,
-            (PREVIEW_HEIGHT / image.height) * 1,
+            (PREVIEW_WIDTH / image.width) * 0.9,
+            (PREVIEW_HEIGHT / image.height) * 0.9,
         )
         : 1;
 
@@ -125,8 +130,7 @@ const ScenePreview: FC<ScenePreviewProps> = ({
             followCursor
         >
             <Box
-                sx={{ cursor: "pointer", width: "fit-content",                   mb: 1,
-                    mt: 1, }}
+                sx={{ cursor: "pointer", width: "100%", height: "100%" }}
                 onClick={onShowView}
             >
                 <SceneStage

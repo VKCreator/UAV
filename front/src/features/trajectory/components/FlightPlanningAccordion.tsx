@@ -223,52 +223,54 @@ export default function FlightPlanningAccordion({
               </Tooltip>
             </Box>
 
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5 }}>
-              <Typography fontWeight={600} sx={{ pb: 2 }}>
-                Параметры съёмки базового слоя
-              </Typography>
-              <FloatInput
-                fullWidth
-                label="Расстояние от объекта до камеры, м"
-                value={droneParams.distance}
-                onChange={(val) => {
-                  setDroneParams((prev) => ({ ...prev, distance: val }))
+<Box sx={{ display: 'flex', gap: 2 }}>
+  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5, flex: 1 }}>
+    <Typography fontWeight={600} sx={{ pb: 2 }}>
+      Параметры съёмки базового слоя
+    </Typography>
+    <FloatInput
+      fullWidth
+      label="Расстояние от объекта до камеры, м"
+      value={droneParams.distance}
+      onChange={(val) => {
+        setDroneParams((prev) => ({ ...prev, distance: val }))
 
-                  if (val < droneParams.plannedDistance) {
-                    setDroneParams((prev) => ({ ...prev, plannedDistance: val }))
-                  }
-                }}
-                min={0.1}
-                sx={{ mb: 1.5 }}
-              />
-              <Typography variant="body2" color="text.secondary">
-                Кадр: {droneParams.frameWidthBase.toFixed(2)} м ×{" "}
-                {droneParams.frameHeightBase.toFixed(2)} м
-              </Typography>
-            </Paper>
+        if (val < droneParams.plannedDistance) {
+          setDroneParams((prev) => ({ ...prev, plannedDistance: val }))
+        }
+      }}
+      min={0.1}
+      sx={{ mb: 1.5 }}
+    />
+    <Typography variant="body2" color="text.secondary">
+      Кадр: {droneParams.frameWidthBase.toFixed(2)} м ×{" "}
+      {droneParams.frameHeightBase.toFixed(2)} м
+    </Typography>
+  </Paper>
 
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5 }}>
-              <Typography fontWeight={600} sx={{ pb: 2 }}>
-                Параметры планируемой съёмки
-              </Typography>
-              <FloatInput
-                fullWidth
-                label="Расстояние от объекта до камеры, м"
-                value={droneParams.plannedDistance}
-                onChange={(val) => {
-                  const maxValue = droneParams.distance;
-                  const correctedValue = Math.min(val, maxValue);
-                  setDroneParams((prev) => ({ ...prev, plannedDistance: correctedValue }))
-                }}
-                min={0.1}
-                max={droneParams.distance}
-                sx={{ mb: 1.5 }}
-              />
-              <Typography variant="body2" color="text.secondary">
-                Кадр: {droneParams.frameWidthPlanned.toFixed(2)} м ×{" "}
-                {droneParams.frameHeightPlanned.toFixed(2)} м
-              </Typography>
-            </Paper>
+  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5, flex: 1 }}>
+    <Typography fontWeight={600} sx={{ pb: 2 }}>
+      Параметры планируемой съёмки
+    </Typography>
+    <FloatInput
+      fullWidth
+      label="Расстояние от объекта до камеры, м"
+      value={droneParams.plannedDistance}
+      onChange={(val) => {
+        const maxValue = droneParams.distance;
+        const correctedValue = Math.min(val, maxValue);
+        setDroneParams((prev) => ({ ...prev, plannedDistance: correctedValue }))
+      }}
+      min={0.1}
+      max={droneParams.distance}
+      sx={{ mb: 1.5 }}
+    />
+    <Typography variant="body2" color="text.secondary">
+      Кадр: {droneParams.frameWidthPlanned.toFixed(2)} м ×{" "}
+      {droneParams.frameHeightPlanned.toFixed(2)} м
+    </Typography>
+  </Paper>
+</Box>
           </Box>
         </AccordionDetails>
       </Accordion>

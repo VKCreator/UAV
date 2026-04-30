@@ -245,6 +245,13 @@ const FlightSchemaPage: React.FC<Props> = ({
 
   const hasExifData = exifData && exifData.length > 0;
 
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = React.useState({ width: 550, height: 400 });
+
+  // Размеры для превью (как указано в условии)
+  const PREVIEW_WIDTH = containerSize.width;
+  const PREVIEW_HEIGHT = containerSize.height;
+
   // ── Хелпер для выбора данных оптимизации ────────────────────────────────
   const getOptimizationData = (tab: number): Opt1TrajectoryData | null => {
     if (tab === 0) return trajectoryData;
@@ -264,6 +271,25 @@ const FlightSchemaPage: React.FC<Props> = ({
     if (method === "METHOD_3" || method === "mixed-d") return 2;
     return 0; // По умолчанию Метод 1
   };
+
+  // Отслеживаем реальный размер контейнера
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        console.log(width, height)
+        setContainerSize({
+          width: Math.floor(width),
+          height: Math.floor(height)
+        });
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   // ── Эффект для автоматического переключения ─────────────────────────────
   React.useEffect(() => {
@@ -781,22 +807,43 @@ const FlightSchemaPage: React.FC<Props> = ({
           <Stack direction="row" spacing={2}>
             {/* Сцена */}
             <Box
-              display="flex"
               flex={1}
-              minHeight={340}
-              sx={{ borderRadius: 2, overflow: "hidden", backgroundColor: "#F2F2F2", justifyContent: "center", alignItems: "center" }}
+              ref={containerRef}
+              sx={{
+                width: "100%",
+                height: "100%",
+                maxHeight: "500px",
+                minHeight: "340px",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                mt: 1,
+                position: "relative",
+                overflow: "hidden"
+              }}
             >
-              {imageData ? (
-                <ScenePreview
-                  {...commonProps}
-                  trajectoryData={null}
-                  showUserTrajectory={true}
-                  showTaxonTrajectory={false}
-                  isLoading={false}
-                />
-              ) : (
-                <Placeholder label="Нет данных" />
-              )}
+              <Box
+                sx={{
+                  cursor: "pointer",
+                  width: "100%",
+                  height: "100%",
+                  p: "10px"
+                }}
+              >
+                {imageData ? (
+                  <ScenePreview
+                    {...commonProps}
+                    trajectoryData={null}
+                    showUserTrajectory={true}
+                    showTaxonTrajectory={false}
+                    isLoading={false}
+                    PREVIEW_WIDTH={PREVIEW_WIDTH - 20}
+                    PREVIEW_HEIGHT={PREVIEW_HEIGHT - 20}
+                  />
+                ) : (
+                  <Placeholder label="Нет данных" />
+                )}
+              </Box>
             </Box>
 
             {/* Вкладки с деталями */}
@@ -1313,7 +1360,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                         </Typography>
                       </AccordionSummary>
                       <AccordionDetails sx={{
-                        overflowY: 'scroll', // Включаем скролл
+                        overflowY: 'auto', // Включаем скролл
                         maxHeight: 230,   // Максимальная высота контента (подберите нужную цифру)
                       }}>
                         <Stack spacing={2}>

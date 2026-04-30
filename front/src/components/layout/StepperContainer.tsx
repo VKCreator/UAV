@@ -47,8 +47,8 @@ export default function StepperContainer(props: StepperContainerProps) {
         sx={{
           flex: 1,
           pt: 5,
-          pl: { xs: 0, sm: 0, md: 3, lg: 25 },
-          pr: { xs: 0, sm: 0, md: 3, lg: 25 },
+          pl: { xs: 0, sm: 0, md: 3, lg: 10 },
+          pr: { xs: 0, sm: 0, md: 3, lg: 10 },
         }}
         spacing={1}
       >

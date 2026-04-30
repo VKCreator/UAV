@@ -32,19 +32,18 @@ import {
   Group
 } from "react-konva";
 
-import Konva from "konva";
-
-import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DownloadIcon from "@mui/icons-material/Download";
 import FlightPlanningAccordion from "./FlightPlanningAccordion";
 import SceneEditor from "./SceneEditor";
-import SceneShower from "./SceneShower";
 
 import ModeEditIcon from "@mui/icons-material/ModeEdit";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import DeleteIcon from "@mui/icons-material/Delete";
+
 import InfoIcon from "@mui/icons-material/Info";
 import FlightSchemaLegendDialog from "./FlightSchemaLegendDialog";
+import ScenePreview from "./ScenePreview";
 
 import type { Point, Polygon, ImageData } from "../../../types/scene.types";
 import useNotifications from "../../../hooks/useNotifications/useNotifications";
@@ -97,6 +96,8 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
 }) => {
   const { confirm } = useDialogs();
   const notifications = useNotifications();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ width: 550, height: 400 });
 
   const [isEditorOpen, setEditorOpen] = React.useState(false);
   const [isViewerOpen, setViewerOpen] = React.useState(false);
@@ -140,15 +141,15 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
   const [image] = useImage(imageData.imageUrl);
 
   // Размеры для превью (как указано в условии)
-  const PREVIEW_WIDTH = 480;
-  const PREVIEW_HEIGHT = 340;
+  const PREVIEW_WIDTH = containerSize.width;
+  const PREVIEW_HEIGHT = containerSize.height;
 
-  // Вычисляем масштаб, чтобы изображение вписалось в 500x400
+  // Вычисляем масштаб, чтобы изображение вписалось
   const scaleToFit = image
     ? Math.min(
       1,
-      (PREVIEW_WIDTH / image.width) * 1,
-      (PREVIEW_HEIGHT / image.height) * 1,
+      (PREVIEW_WIDTH / image.width) * 0.9,
+      (PREVIEW_HEIGHT / image.height) * 0.9,
     )
     : 1;
 
@@ -222,60 +223,6 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
     return lines;
   }, [image, GRID_COLS, GRID_ROWS, imageX, imageY, scaleToFit]);
 
-
-  const buildSafeZoneForDownload = (poly: Polygon, metersToExpand: number): Point[] => {
-    if (!poly.points || poly.points.length < 3) return poly.points ?? [];
-
-    if (!image) return [];
-
-    // Используем те же pxPerMeterX и pxPerMeterY, что и в ObstaclesLayer
-    const pxPerMeterX = image.width / width_m
-    const pxPerMeterY = image.height / height_m;
-
-    const inMeters: Point[] = poly.points.map((p) => ({
-      x: p.x / pxPerMeterX,
-      y: p.y / pxPerMeterY,
-    }));
-
-    const hull = convexHull(inMeters);
-    if (hull.length < 3 || !metersToExpand) {
-      return hull.map((p) => ({
-        x: p.x * pxPerMeterX,
-        y: p.y * pxPerMeterY,
-      }));
-    }
-
-    const centroid: Point = {
-      x: hull.reduce((s, p) => s + p.x, 0) / hull.length,
-      y: hull.reduce((s, p) => s + p.y, 0) / hull.length,
-    };
-
-    const n = hull.length;
-    const expanded: Point[] = hull.map((v, i) => {
-      const prev = hull[(i - 1 + n) % n];
-      const next = hull[(i + 1) % n];
-      const nIn = outwardUnitNormal(prev, v, centroid);
-      const nOut = outwardUnitNormal(v, next, centroid);
-      const denom = 1 + nIn.x * nOut.x + nIn.y * nOut.y;
-      if (Math.abs(denom) < 1e-9) {
-        return {
-          x: v.x + metersToExpand * nIn.x,
-          y: v.y + metersToExpand * nIn.y,
-        };
-      }
-      const factor = metersToExpand / denom;
-      return {
-        x: v.x + factor * (nIn.x + nOut.x),
-        y: v.y + factor * (nIn.y + nOut.y),
-      };
-    });
-
-    return expanded.map((p) => ({
-      x: p.x * pxPerMeterX,
-      y: p.y * pxPerMeterY,
-    }));
-  };
-
   const handleDownload = async () => {
     setLoading(true);
 
@@ -306,6 +253,24 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
       "trajectory_schema.jpeg",
     );
   };
+
+  // Отслеживаем реальный размер контейнера
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        setContainerSize({
+          width: Math.floor(width),
+          height: Math.floor(height)
+        });
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   return (
     <Box sx={{ p: 2 }}>
@@ -395,15 +360,18 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
 
             <Divider />
             <Box
+              ref={containerRef}
               sx={{
                 width: "100%",
-                maxHeight: "400px",
+                height: "100%",
+                maxHeight: "500px",
+                minHeight: "300px", // минимальная высота чтобы не схлопывалось
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
                 mt: 1,
                 position: "relative",
-                overflow: "hidden"
+                overflow: "hidden",
               }}
             >
               <Tooltip
@@ -415,14 +383,31 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                 <Box
                   sx={{
                     cursor: "pointer",
-                    width: 'fit-content',
-                    mb: 1,
-                    mt: 1,
+                    width: "100%",
+                    height: "100%",
+                    p: "10px"
                   }}
-                  // Сохраняем функцию показа полного просмотра при клике на превью
                   onClick={() => setViewerOpen(true)}
                 >
-                  <SceneStage
+                  <ScenePreview
+                    imageData={imageData}
+                    droneParams={droneParams}
+                    points={points}
+                    obstacles={obstacles}
+                    flightLineY={flightLineY}
+                    weatherConditions={null}
+                    onShowView={() => setViewerOpen(true)}
+                    stageRef={scenePreviewRef}
+                    image={image}
+                    trajectoryData={null}
+                    showUserTrajectory={true}
+                    showTaxonTrajectory={false}
+                    isLoading={false || loading}
+                    PREVIEW_WIDTH={PREVIEW_WIDTH - 20}
+                    PREVIEW_HEIGHT={PREVIEW_HEIGHT - 20}
+                  />
+
+                  {/* <SceneStage
                     // Ref для доступа к stage (если нужен)
                     ref={scenePreviewRef}
                     draggable={false}
@@ -482,7 +467,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
                     }}
                     handleClick={() => { }}
                     setPoints={() => { }} // Заглушка, так как в превью не редактируем
-                  />
+                  /> */}
                 </Box>
               </Tooltip>
             </Box>
