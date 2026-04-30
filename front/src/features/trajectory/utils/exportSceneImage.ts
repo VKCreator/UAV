@@ -148,8 +148,10 @@ export const createKonvaScene = async (
   downloadStage.add(layer);
 
   // Кешируем вычисления
-  const uiScale =
-    Math.min(image.width / PREVIEW_WIDTH, image.height / PREVIEW_HEIGHT) * 0.5;
+  // const uiScale =
+  //   Math.min(image.width / PREVIEW_WIDTH, image.height / PREVIEW_HEIGHT) * 0.5;
+  const REFERENCE_SIZE = 1000;
+  const uiScale = Math.min(image.width, image.height) / REFERENCE_SIZE;
 
   const cache = {
     uiScale,
@@ -361,18 +363,22 @@ export const createKonvaScene = async (
       const centerY =
         poly.points.reduce((s, p) => s + p.y, 0) / poly.points.length;
       const labelText = (index + 1).toString();
-      const labelRadius = 12 * cache.uiScale;
+      const labelRadius = 14 * cache.uiScale;
 
       obstacleShapes.push(
-        createCircle(centerX, centerY, labelRadius, "rgba(0,0,0,0.55)"),
+        createCircle(centerX, centerY, labelRadius, "rgba(0,0,0,0.8)"),
         new Konva.Text({
-          x: centerX - labelRadius * 0.8 * labelText.length * 0.5,
-          y: centerY - cache.FONT_USER * 0.55,
+          x: centerX - labelRadius,
+          y: centerY - labelRadius,
           text: labelText,
-          fontSize: cache.FONT_USER,
+          fontSize: labelRadius,
           fontStyle: "bold",
           fill: "#fff",
           listening: false,
+          width: labelRadius * 2,
+          height: labelRadius * 2,
+          verticalAlign: "middle",
+          align: "center"
         }),
       );
     });
@@ -398,12 +404,16 @@ export const createKonvaScene = async (
 
     points.forEach((point, i) => {
       userShapes.push(
-        createCircle(point.x, point.y, cache.POINT_R_USER, "blue"),
+        createCircle(point.x, point.y, cache.POINT_R_USER, "blue", { stroke: "white", strokeWidth: cache.STROKE_W * 0.5 }),
         new Konva.Text({
-          x: point.x - cache.POINT_R_USER * 0.45,
-          y: point.y - cache.FONT_USER * 0.55,
+          x: point.x - cache.POINT_R_USER,
+          y: point.y - cache.POINT_R_USER,
+          width: cache.POINT_R_USER * 2,
+          height: cache.POINT_R_USER * 2,
           text: (i + 1).toString(),
           fontSize: cache.FONT_USER,
+          verticalAlign: "middle",
+          align: "center",
           fontStyle: "bold",
           fill: "white",
           listening: false,
@@ -653,15 +663,19 @@ export const createKonvaScene = async (
 
         taxonPoints.forEach((p: any, i: number) => {
           taxonPointShapes.push(
-            createCircle(p.x, p.y, cache.POINT_R_TAXON, color),
+            createCircle(p.x, p.y, cache.POINT_R_TAXON, color, { stroke: "black", strokeWidth: cache.STROKE_W * 0.5 }),
             new Konva.Text({
-              x: p.x - cache.POINT_R_TAXON * 0.45,
-              y: p.y - cache.FONT_TAXON * 0.55,
+              x: p.x - cache.POINT_R_TAXON,
+              y: p.y - cache.POINT_R_TAXON,
               text: (i + 1).toString(),
-              fontSize: cache.FONT_TAXON,
+              fontSize: cache.POINT_R_TAXON,
               fontStyle: "bold",
               fill: "black",
               listening: false,
+              width: cache.POINT_R_TAXON * 2,
+              height: cache.POINT_R_TAXON * 2,
+              verticalAlign: "middle",
+              align: "center"
             }),
           );
         });

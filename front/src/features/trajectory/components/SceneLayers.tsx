@@ -5,7 +5,7 @@ import NavigationTriangles from "./NavigationTriangles";
 import { Point, Polygon, TrajectoryPoint } from "../../../types/scene.types";
 import { convexHull, outwardUnitNormal } from "../utils/Geometry";
 
-const TAXON_POINT_RADIUS = 10;
+const TAXON_POINT_RADIUS = 12;
 const BASE_RADIUS = 4;
 const POINT_RADIUS = 14;
 
@@ -464,7 +464,8 @@ export const TrajectoryLayer = React.memo(({
                   width={TAXON_POINT_RADIUS * 2}
                   height={TAXON_POINT_RADIUS * 2}
                   text={`${i + 1}`}
-                  fontSize={12}
+                  fontSize={TAXON_POINT_RADIUS}
+                  fontStyle="bold"
                   fill="black"
                   verticalAlign="middle"
                   align="center"

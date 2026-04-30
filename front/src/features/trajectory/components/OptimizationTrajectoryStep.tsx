@@ -405,6 +405,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       const smallPromise = (async () => {
         try {
           setActiveImage(1);
+          setActiveTrajectory(1);
+
           // setOptimizationStatus(prev => ({ ...prev, small: 'running' }));
           // setLoadingOptimization(prev => ({ ...prev, small: true }));
 
@@ -437,6 +439,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             updateOptimization("small", { isLoading: false, status: "completed" });
 
           setActiveImage(1);
+          setActiveTrajectory(1);
+
         }
       })();
 
@@ -466,6 +470,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       const largePromise = (async () => {
         try {
           setActiveImage(2);
+          setActiveTrajectory(2);
+
           // setOptimizationStatus(prev => ({ ...prev, large: 'running' }));
           // setLoadingOptimization(prev => ({ ...prev, large: true }));
           updateOptimization("large", { isLoading: true, status: "running" });
@@ -496,6 +502,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
           // setOptimizationStatus(prev => ({ ...prev, large: 'completed' }));
           // setLoadingOptimization(prev => ({ ...prev, large: false }));
           setActiveImage(2);
+          setActiveTrajectory(2);
+
         }
       })();
 
@@ -525,6 +533,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       const combiPromise = (async () => {
         try {
           setActiveImage(3);
+          setActiveTrajectory(3);
+
           // setOptimizationStatus(prev => ({ ...prev, large: 'running' }));
           // setLoadingOptimization(prev => ({ ...prev, large: true }));
           updateOptimization("combi", { isLoading: true, status: "running" });
@@ -553,6 +563,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             updateOptimization("combi", { isLoading: false, status: "completed" });
 
           setActiveImage(3);
+          setActiveTrajectory(3);
+
         }
       })();
 
@@ -577,21 +589,21 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
   const [activeTrajectory, setActiveTrajectory] = React.useState(0);
 
-const handleNext = () => {
-  setActiveTrajectory((prev) => {
-    const next = (prev + 1) % trajectoryTitles.length;
-    return next;
-  });
-  setActiveImage((prev) => (prev + 1) % trajectoryTitles.length);
-};
+  const handleNext = () => {
+    setActiveTrajectory((prev) => {
+      const next = (prev + 1) % trajectoryTitles.length;
+      return next;
+    });
+    setActiveImage((prev) => (prev + 1) % trajectoryTitles.length);
+  };
 
-const handlePrev = () => {
-  setActiveTrajectory((prev) => {
-    const prev_ = (prev - 1 + trajectoryTitles.length) % trajectoryTitles.length;
-    return prev_;
-  });
-  setActiveImage((prev) => (prev - 1 + trajectoryTitles.length) % trajectoryTitles.length);
-};
+  const handlePrev = () => {
+    setActiveTrajectory((prev) => {
+      const prev_ = (prev - 1 + trajectoryTitles.length) % trajectoryTitles.length;
+      return prev_;
+    });
+    setActiveImage((prev) => (prev - 1 + trajectoryTitles.length) % trajectoryTitles.length);
+  };
 
   const [anchorEl, setAnchorEl] = React.useState(null);
   const openMenu = Boolean(anchorEl);
@@ -863,72 +875,72 @@ const handlePrev = () => {
               >              {renderImage(activeImage + 1)}
               </Box>
             </Box>
-{/* Добавьте этот блок после контейнера со сценой */}
-<Box
-  sx={{
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 2,
-    mt: 1,
-    px: 2,
-  }}
->
-  {/* Кнопка "Назад" */}
-  <IconButton
-    onClick={handlePrev}
-    // disabled={activeTrajectory === 0}
-    size="small"
-          color="primary"
+            {/* Добавьте этот блок после контейнера со сценой */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 2,
+                mt: 1,
+                px: 2,
+              }}
+            >
+              {/* Кнопка "Назад" */}
+              <IconButton
+                onClick={handlePrev}
+                // disabled={activeTrajectory === 0}
+                size="small"
+                color="primary"
 
-    sx={{
-      // border: "1px solid",
-      // borderColor: "divider",
-      "&:hover": {
-        backgroundColor: "action.hover",
-      },
-    }}
-  >
-    <Typography sx={{ fontSize: "18px", lineHeight: 1 }}>❮</Typography>
-  </IconButton>
+                sx={{
+                  // border: "1px solid",
+                  // borderColor: "divider",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                  },
+                }}
+              >
+                <Typography sx={{ fontSize: "18px", lineHeight: 1 }}>❮</Typography>
+              </IconButton>
 
-  {/* Информация о текущей траектории */}
-  <Box
-    sx={{
-      display: "flex",
-      alignItems: "center",
-      gap: 1,
-      minWidth: "130px",
-      justifyContent: "center",
-    }}
-  >
-    <Typography
-      variant="body2"
-      color="text.secondary"
-      sx={{ whiteSpace: "nowrap", minWidth: "120px" }}
-    >
-      Траектория: {activeTrajectory + 1} / {trajectoryTitles.length}
-    </Typography>
+              {/* Информация о текущей траектории */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  minWidth: "130px",
+                  justifyContent: "center",
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ whiteSpace: "nowrap", minWidth: "120px" }}
+                >
+                  Траектория: {activeTrajectory + 1} / {trajectoryTitles.length}
+                </Typography>
 
-  </Box>
+              </Box>
 
-  {/* Кнопка "Вперед" */}
-  <IconButton
-    onClick={handleNext}
-    // disabled={activeTrajectory === trajectoryTitles.length - 1}
-    size="small"
-    color="primary"
-    sx={{
-      // border: "1px solid",
-      // borderColor: "divider",
-      "&:hover": {
-        backgroundColor: "action.hover",
-      },
-    }}
-  >
-    <Typography sx={{ fontSize: "18px", lineHeight: 1 }}>❯</Typography>
-  </IconButton>
-</Box>
+              {/* Кнопка "Вперед" */}
+              <IconButton
+                onClick={handleNext}
+                // disabled={activeTrajectory === trajectoryTitles.length - 1}
+                size="small"
+                color="primary"
+                sx={{
+                  // border: "1px solid",
+                  // borderColor: "divider",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                  },
+                }}
+              >
+                <Typography sx={{ fontSize: "18px", lineHeight: 1 }}>❯</Typography>
+              </IconButton>
+            </Box>
           </Paper>
         </Grid>
 
@@ -1017,7 +1029,7 @@ const handlePrev = () => {
                         {...getChipProps(optimizationState.small.status)}
                         size="small"
                         variant="outlined"
-                        onClick={() => setActiveImage(1)}
+                        onClick={() => { setActiveImage(1); setActiveTrajectory(1); }}
                         sx={{
                           cursor: 'pointer',
                           ...(optimizationState.small.status == "running" ? { pl: 0.5 } : undefined)
@@ -1045,7 +1057,9 @@ const handlePrev = () => {
                         {...getChipProps(optimizationState.large.status)}
                         size="small"
                         variant="outlined"
-                        onClick={() => setActiveImage(2)}
+                        onClick={() => {
+                          setActiveImage(2); setActiveTrajectory(2);
+                        }}
                         sx={{
                           cursor: 'pointer',
                           ...(optimizationState.large.status == "running" ? { pl: 0.5 } : undefined)
@@ -1072,7 +1086,9 @@ const handlePrev = () => {
                         {...getChipProps(optimizationState.combi.status)}
                         size="small"
                         variant="outlined"
-                        onClick={() => setActiveImage(3)}
+                        onClick={() => {
+                          setActiveImage(3); setActiveTrajectory(3);
+                        }}
                         sx={{
                           cursor: 'pointer',
                           ...(optimizationState.combi.status == "running" ? { pl: 0.5 } : undefined)
