@@ -150,20 +150,20 @@ export const createKonvaScene = async (
   // Кешируем вычисления
   // const uiScale =
   //   Math.min(image.width / PREVIEW_WIDTH, image.height / PREVIEW_HEIGHT) * 0.5;
-  const REFERENCE_SIZE = 1000; // больше - меньше, меньше - крупнее
+  const REFERENCE_SIZE = 900; // больше - меньше, меньше - крупнее
   const uiScale = Math.min(image.width, image.height) / REFERENCE_SIZE;
 
   // если что тут изменять
   const cache = {
     uiScale,
-    POINT_R_USER: 14 * uiScale,
-    POINT_R_TAXON: 14 * uiScale,
+    POINT_R_USER: 18 * uiScale,
+    POINT_R_TAXON: 18 * uiScale,
     BASE_R_DL: 6 * uiScale,
-    ARROW_PTR_LEN: 14 * uiScale,
-    ARROW_PTR_WID: 10 * uiScale,
+    ARROW_PTR_LEN: 16 * uiScale,
+    ARROW_PTR_WID: 12 * uiScale,
     STROKE_W: 3 * uiScale,
-    FONT_USER: 16 * uiScale,
-    FONT_TAXON: 14 * uiScale,
+    FONT_USER: 18 * uiScale,
+    FONT_TAXON: 18 * uiScale,
     meterPerPixelX: width_m / image.width,
     meterPerPixelY: height_m / image.height,
   };
@@ -364,7 +364,7 @@ export const createKonvaScene = async (
       const centerY =
         poly.points.reduce((s, p) => s + p.y, 0) / poly.points.length;
       const labelText = (index + 1).toString();
-      const labelRadius = 14 * cache.uiScale;
+      const labelRadius = 18 * cache.uiScale;
 
       obstacleShapes.push(
         createCircle(centerX, centerY, labelRadius, "rgba(0,0,0,0.8)"),
@@ -691,7 +691,7 @@ export const createKonvaScene = async (
 
     // Недостижимые точки
     if (trajectoryData.C && trajectoryData.C.length > 0) {
-      const crossR = 7 * cache.uiScale;
+      const crossR = 18 * cache.uiScale;
       const unreachShapes: Konva.Shape[] = [];
 
       await processInChunks(

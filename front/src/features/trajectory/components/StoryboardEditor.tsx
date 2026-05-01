@@ -827,9 +827,10 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   const isDisabledApplyButton = () => {
     if (isPointBased) return points.length === 0;
     if (isRecommended) return !selection;
-    if (isOptimal1Method) return !trajectoryData;
-    if (isOptimal2Method) return !trajectoryData2;
-    if (isOptimal3Method) return !trajectoryData3;
+    // Подумать как быть при недостижимых точках!
+    if (isOptimal1Method) return !trajectoryData || trajectoryData.B.length === 0;
+    if (isOptimal2Method) return !trajectoryData2 || trajectoryData2.B.length === 0;
+    if (isOptimal3Method) return !trajectoryData3 || trajectoryData3.B.length === 0;
 
   };
 
