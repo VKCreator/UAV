@@ -1347,6 +1347,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
         open={openOptimizationDetailDialog}
         onClose={() => setOpenOptimizationDetailDialog(false)}
         trajectoryData={trajectoryData}
+        trajectoryData2={trajectoryData2}
+        trajectoryData3={trajectoryData3}
       />
       <FlightSchemaLegendDialog
         open={isLegendOpen}

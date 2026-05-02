@@ -16,13 +16,6 @@ import {
 import { TaxonCard } from "./TaxonCard";
 import CloseIcon from "@mui/icons-material/Close";
 
-interface TrajectoryPoint {
-  x: number;
-  y: number;
-  color?: string;
-  number?: number;
-}
-
 interface Taxon {
   region: number;
   base: [number, number];
@@ -41,12 +34,16 @@ interface OptimizationDetailDialogProps {
   open: boolean;
   onClose: () => void;
   trajectoryData: TrajectoryData | null;
+  trajectoryData2: TrajectoryData | null;
+  trajectoryData3: TrajectoryData | null;
 }
 
 const OptimizationDetailDialog: FC<OptimizationDetailDialogProps> = ({
   open,
   onClose,
   trajectoryData,
+  trajectoryData2,
+  trajectoryData3,
 }) => {
   const [tabIndex, setTabIndex] = useState(0);
 
@@ -85,19 +82,21 @@ const OptimizationDetailDialog: FC<OptimizationDetailDialogProps> = ({
           height: "70vh",
           display: "flex",
           flexDirection: "column",
-          p: 2,
+          p: 2
         }}
       >
         <Tabs value={tabIndex} onChange={handleTabChange}>
-          <Tab label="Метод 1" />
-          <Tab label="Метод 2" />
+          <Tab label="Метод 1 (НПТ)" />
+          <Tab label="Метод 2 (ВПТ)" />
+          <Tab label="Метод 3 (СПТ)" />
         </Tabs>
 
         <Box sx={{ flex: 1, overflowY: "auto", p: 1 }}>
           {tabIndex === 0 && (
             <TabContent data={trajectoryData} method="Метод 1" />
           )}
-          {tabIndex === 1 && <TabContent data={null} method="Метод 2" />}
+          {tabIndex === 1 && <TabContent data={trajectoryData2} method="Метод 2" />}
+          {tabIndex === 2 && <TabContent data={trajectoryData3} method="Метод 3" />}
         </Box>
 
         {/* <Box textAlign="right" mt={2}>

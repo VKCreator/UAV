@@ -1294,7 +1294,7 @@ const TrajectoryStepper = () => {
         );
       case 3:
         return (
-          <CompareOptimizationMethodsStep trajectoryData={opt1TrajectoryData} trajectoryData2={opt2TrajectoryData} trajectoryData3={opt3TrajectoryData} priorityMethod={priorityMethod} setPriorityMethod={setPriorityMethod} />
+          <CompareOptimizationMethodsStep trajectoryData={opt1TrajectoryData} trajectoryData2={opt2TrajectoryData} trajectoryData3={opt3TrajectoryData} storyboardsData={storyboardsData} priorityMethod={priorityMethod} setPriorityMethod={setPriorityMethod} />
         );
       default:
         return null;

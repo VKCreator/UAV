@@ -190,18 +190,10 @@ export const ObstaclesLayer = React.memo(({
   const buildSafeZone = (poly: Polygon, metersToExpand: number): Point[] => {
     if (!poly.points || poly.points.length < 3) return poly.points ?? [];
 
-    // Работаем в метрах, чтобы сдвиг был изотропным.
-    const inMeters: Point[] = poly.points.map((p) => ({
-      x: p.x / pxPerMeterX,
-      y: p.y / pxPerMeterY,
-    }));
-
-    const hull = convexHull(inMeters);
+    // Работаем НАПРЯМУЮ с пиксельными координатами
+    const hull = convexHull(poly.points);
     if (hull.length < 3 || !metersToExpand) {
-      return hull.map((p) => ({
-        x: p.x * pxPerMeterX,
-        y: p.y * pxPerMeterY,
-      }));
+      return hull;
     }
 
     const centroid: Point = {
@@ -209,6 +201,9 @@ export const ObstaclesLayer = React.memo(({
       y: hull.reduce((s, p) => s + p.y, 0) / hull.length,
     };
 
+    // Расширение в пикселях: metersToExpand * pxPerMeter
+    const expandPixels = metersToExpand * ((pxPerMeterX + pxPerMeterY) / 2);
+    
     const n = hull.length;
     const expanded: Point[] = hull.map((v, i) => {
       const prev = hull[(i - 1 + n) % n];
@@ -218,21 +213,18 @@ export const ObstaclesLayer = React.memo(({
       const denom = 1 + nIn.x * nOut.x + nIn.y * nOut.y;
       if (Math.abs(denom) < 1e-9) {
         return {
-          x: v.x + metersToExpand * nIn.x,
-          y: v.y + metersToExpand * nIn.y,
+          x: v.x + expandPixels * nIn.x,
+          y: v.y + expandPixels * nIn.y,
         };
       }
-      const factor = metersToExpand / denom;
+      const factor = expandPixels / denom;
       return {
         x: v.x + factor * (nIn.x + nOut.x),
         y: v.y + factor * (nIn.y + nOut.y),
       };
     });
 
-    return expanded.map((p) => ({
-      x: p.x * pxPerMeterX,
-      y: p.y * pxPerMeterY,
-    }));
+    return expanded;
   };
 
   return (

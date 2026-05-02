@@ -317,11 +317,6 @@ export default function TrajectoryList() {
         const frameWidthPlanned = frameHeightPlanned * (resW / resH);
 
         // ====== 2. Konva-сцена ======
-        // ВАЖНО: задаём пропорции под A4 landscape (с учётом полей):
-        // полезная область альбомной страницы ≈ 257мм × 170мм (соотношение ~1.51)
-        const SCENE_W = 1100;
-        const SCENE_H = 700;
-
         const params = {
           image: baseImageObj,
           width_m: frameWidthBase,
@@ -337,8 +332,6 @@ export default function TrajectoryList() {
           showUserTrajectory: false,
           showTaxonTrajectory: true,
           showNavTriangles: true,
-          PREVIEW_WIDTH: SCENE_W,
-          PREVIEW_HEIGHT: SCENE_H,
         };
 
         const stage = await createKonvaScene(params);
@@ -608,7 +601,7 @@ export default function TrajectoryList() {
             margin: PORTRAIT_MARGIN,
             filename: `Полётная карта_${safeName}.pdf`,
             image: { type: "png" },
-            html2canvas: { scale: 3, useCORS: true, backgroundColor: "#ffffff" },
+            html2canvas: { scale: 3, useCORS: true, backgroundColor: "#ffffff", logging: false },
             jsPDF: { unit: "mm", format: "a4", orientation: "portrait", compress: false },
             pagebreak: { mode: ['css', 'legacy', 'avoid-all'], avoid: ['tr', 'table', 'h3'] },
           })
@@ -629,9 +622,10 @@ export default function TrajectoryList() {
             scale: 3,
             useCORS: true,
             backgroundColor: "#ffffff",
+            logging: false,
             letterRendering: true,
           });
-          const imgData = canvas.toDataURL("image/png");
+          const imgData = canvas.toDataURL("image/jpeg");
           pdf.addPage("a4", "landscape");
 
           // Размеры листа A4 landscape
@@ -658,7 +652,7 @@ export default function TrajectoryList() {
           const offsetX = (PAGE_W - finalW) / 2;
           // const offsetY = (PAGE_H - finalH) / 2;
 
-          pdf.addImage(imgData, "JPEG", offsetX, MARGIN, finalW, finalH);
+          pdf.addImage(imgData, "JPEG", offsetX, MARGIN, finalW, finalH, undefined, 'FAST');
         } finally {
           document.body.removeChild(landscapeElement);
         }
@@ -983,7 +977,7 @@ export default function TrajectoryList() {
                   onClick={(e) => {
                     e.stopPropagation();
                     // Передаем id и название карты из params.row
-                    handleDownload(id, params.row.schemaName);
+                    handleDownload(id);
                   }}
                 >
                   <DownloadIcon fontSize="small" />

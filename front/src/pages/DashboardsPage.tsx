@@ -276,31 +276,34 @@ const DashboardsPage = () => {
   }, []);
 
   const popularMethod = useMemo(() => {
-    // 1. Проверка на пустой массив
-    if (!schemas || !schemas.length) return null;
+      // 1. Проверка на пустой массив
+      if (!schemas || !schemas.length) return null;
 
-    // 2. Подсчет вхождений каждого methodType
-    const methodCounts = schemas.reduce((acc, schema) => {
-      const method = schema.methodType;
-      if (method) {
-        acc[method] = (acc[method] || 0) + 1;
+      // 2. Подсчет вхождений каждого methodType
+      const methodCounts = schemas.reduce((acc, schema) => {
+        const method = schema.methodType;
+        if (method) {
+          acc[method] = (acc[method] || 0) + 1;
+        }
+        return acc;
+      }, {});
+
+      // 3. Поиск максимального счета
+      let maxCount = 0;
+      for (const count of Object.values(methodCounts)) {
+        if (count > maxCount) {
+          maxCount = count;
+        }
       }
-      return acc;
-    }, {});
 
-    // 3. Поиск метода с максимальным счетом
-    let maxCount = 0;
-    let mostPopular = null;
+      // 4. Сбор всех методов с максимальным счетом
+      const mostPopular = Object.entries(methodCounts)
+        .filter(([method, count]) => count === maxCount)
+        .map(([method]) => method)
+        .join(', ');
 
-    for (const [method, count] of Object.entries(methodCounts)) {
-      if (count > maxCount) {
-        maxCount = count;
-        mostPopular = method;
-      }
-    }
-
-    return mostPopular;
-  }, [schemas]);
+      return mostPopular || null;
+    }, [schemas]);
 
   return (
     <PageContainer
@@ -320,8 +323,8 @@ const DashboardsPage = () => {
         </Grid>
       }
       actions={null}
-      pr={25}
-      pl={25}
+      pr={20}
+      pl={20}
     >
       <Box>
         <Box>

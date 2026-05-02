@@ -46,8 +46,6 @@ interface ExportSceneParams {
   showUserTrajectory: boolean;
   showTaxonTrajectory: boolean;
   showNavTriangles: boolean;
-  PREVIEW_WIDTH: number;
-  PREVIEW_HEIGHT: number;
   setLoading?: (loading: boolean) => void;
 }
 
@@ -125,8 +123,6 @@ export const createKonvaScene = async (
     showUserTrajectory,
     showTaxonTrajectory,
     showNavTriangles,
-    PREVIEW_WIDTH,
-    PREVIEW_HEIGHT,
   } = params;
 
   // Создаём контейнер и Stage в памяти
@@ -792,7 +788,7 @@ export const exportSceneImage = async (
 // ─── 3. Экспорт в DataURL (для PDF) ────────────────────────────────────────
 
 export const exportSceneImageToDataURL = (stage: Konva.Stage): string | null => {
-  const dataUrl = stage.toDataURL({ pixelRatio: 1 });
+  const dataUrl = stage.toDataURL({ quality: 0.5, pixelRatio: 1 });
   stage.destroy();
   return dataUrl;
 };

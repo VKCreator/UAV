@@ -238,7 +238,7 @@ export const TaxonCard = ({ taxon, index }: Props) => {
         </Typography>
 
         <Typography>
-          <b>Количество точек съёмки:</b> {taxon.points.length} шт.
+          <b>Количество точек фиксирования:</b> {taxon.points.length} шт.
         </Typography>
       </Stack>
 

@@ -54,8 +54,8 @@ export default function PageContainer(props: PageContainerProps) {
     title,
     actions = null,
     centerContent = false,
-    pr = 25,
-    pl = 25,
+    pr = 10,
+    pl = 10,
   } = props;
 
   return (

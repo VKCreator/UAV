@@ -142,7 +142,7 @@ const formatTime = (sec: number | null | undefined): string => {
   if (sec == null) return "—";
   if (sec < 60) return `${sec.toFixed(1)} с`;
   const m = Math.floor(sec / 60);
-  const s = Math.round(sec % 60);
+  const s = Math.floor(sec % 60);
   return `${m} мин ${s} с`;
 };
 

@@ -31,6 +31,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { Storyboards, Storyboard } from "../../../types/storyboards.types";
 
 ChartJS.register(
   LineElement,
@@ -60,10 +61,23 @@ interface TrajectoryData {
   C: [number, number][];
 }
 
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  } else if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(2)} KB`;
+  } else if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  } else {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+};
+
 interface CompareOptimizationMethodsStepProps {
   trajectoryData: TrajectoryData | null;
   trajectoryData2: TrajectoryData | null;
   trajectoryData3: TrajectoryData | null;
+  storyboardsData: Storyboards | null;
   priorityMethod: string,
   setPriorityMethod: React.Dispatch<React.SetStateAction<any>>;
 }
@@ -73,7 +87,7 @@ interface CompareOptimizationMethodsStepProps {
 const formatTime = (seconds: number): string => {
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
-  return m > 0 ? `${m} мин ${s} с` : `${s} с`;
+  return m > 0 ? `${m} мин ${s} с` : `${seconds.toFixed(2)} с`;
 };
 
 const formatCoord = (v: number): string => v.toFixed(2);
@@ -86,8 +100,8 @@ const EmptyState: React.FC = () => (
   </Paper>
 );
 
-const SummaryCards: React.FC<{ taxonsCount: number; totalPoints: number; unreachableCount: number; totalTime: number }> = ({ 
-  taxonsCount, totalPoints, unreachableCount, totalTime 
+const SummaryCards: React.FC<{ taxonsCount: number; totalPoints: number; unreachableCount: number; totalTime: number }> = ({
+  taxonsCount, totalPoints, unreachableCount, totalTime
 }) => {
   const cards = [
     { label: "такcонов", value: taxonsCount },
@@ -240,9 +254,9 @@ const MethodTab: React.FC<{ data: TrajectoryData | null; methodLabel: string }> 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1, pl: 2, pb: 2, pr: 2, width: "100%" }}>
       <Typography variant="h6" fontWeight={600}>Расширенная аналитика результатов оптимизации по {methodLabel}</Typography>
-      
+
       <SummaryCards taxonsCount={taxons.length} totalPoints={totalPoints} unreachableCount={data.C.length} totalTime={totalTime} />
-      
+
       {taxons.length > 0 && (
         <>
           <Card variant="outlined" sx={{ p: 2 }}>
@@ -265,51 +279,73 @@ const MethodTab: React.FC<{ data: TrajectoryData | null; methodLabel: string }> 
   );
 };
 
-const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryData | null; data3: TrajectoryData | null;  priorityMethod: string; setPriorityMethod: React.Dispatch<React.SetStateAction<any>>; }> = ({ data1, data2, data3, priorityMethod, setPriorityMethod }) => {
+const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryData | null; data3: TrajectoryData | null; storyboardsData: Storyboards | null; priorityMethod: string; setPriorityMethod: React.Dispatch<React.SetStateAction<any>>; }> = ({ data1, data2, data3, storyboardsData, priorityMethod, setPriorityMethod }) => {
   // const [selectedMethod, setSelectedMethod] = useState("method1");
 
-  const methods = [
-    { id: "METHOD_1", name: "Метод 1 (НПТ)", data: data1 },
-    { id: "METHOD_2", name: "Метод 2 (ВПТ)", data: data2 },
-    { id: "METHOD_3", name: "Метод 3 (СПТ)", data: data3 },
-  ];
+const methods = [
+    { id: "METHOD_1", name: "Метод 1 (НПТ)", data: data1, storyboard: storyboardsData?.optimal },
+    { id: "METHOD_2", name: "Метод 2 (ВПТ)", data: data2, storyboard: storyboardsData?.optimal_big_density },
+    { id: "METHOD_3", name: "Метод 3 (СПТ)", data: data3, storyboard: storyboardsData?.optimal_combi },
+];
 
-  const metrics = [
-    { key: "time", label: "Время полёта", getValue: (data: TrajectoryData | null) => data?.B.reduce((s, t) => s + t.time_sec, 0) ?? null, format: formatTime },
-    { key: "points", label: "Количество кадров", getValue: (data: TrajectoryData | null) => data?.B.reduce((s, t) => s + t.points.length, 0) ?? null },
-    // { key: "infoVolume", label: "Объём информации", getValue: (data: TrajectoryData | null) => data?.B.reduce((s, t) => s + t.points.length, 0) ?? null },
-    { key: "taxons", label: "Количество таксонов", getValue: (data: TrajectoryData | null) => data?.B.length ?? null },
-    { key: "unreachable", label: "Недостижимые точки", getValue: (data: TrajectoryData | null) => data?.C.length ?? null },
-  ];
+const metrics = [
+    { 
+      key: "time", 
+      label: "Время полёта", 
+      getValue: (method: typeof methods[0]) => method.data?.B.reduce((s, t) => s + t.time_sec, 0) ?? null, 
+      format: formatTime 
+    },
+    { 
+      key: "points", 
+      label: "Количество кадров", 
+      getValue: (method: typeof methods[0]) => method.data?.B.reduce((s, t) => s + t.points.length, 0) ?? null 
+    },
+    { 
+      key: "infoVolume", 
+      label: "Объём информации", 
+      getValue: (method: typeof methods[0]) => method.storyboard?.disk_space ?? null,
+      format: formatFileSize
+    },
+    { 
+      key: "taxons", 
+      label: "Количество таксонов", 
+      getValue: (method: typeof methods[0]) => method.data?.B.length ?? null 
+    },
+    { 
+      key: "unreachable", 
+      label: "Недостижимые точки", 
+      getValue: (method: typeof methods[0]) => method.data?.C.length ?? null 
+    },
+];
 
-  const getMinValue = (metric: typeof metrics[0]) => {
-    const values = methods.map(m => metric.getValue(m.data)).filter(v => v !== null) as number[];
+const getMinValue = (metric: typeof metrics[0]) => {
+    const values = methods.map(m => metric.getValue(m)).filter(v => v !== null) as number[];
     return values.length ? Math.min(...values) : null;
-  };
+};
 
-  const recommendedMethod = useMemo(() => {
+const recommendedMethod = useMemo(() => {
     const scored = methods.map(method => {
-      const score = metrics.reduce((acc, metric) => {
-        const val = metric.getValue(method.data);
-        const minVal = getMinValue(metric);
-        return acc + (val !== null && val === minVal ? 1 : 0);
-      }, 0);
+        const score = metrics.reduce((acc, metric) => {
+            const val = metric.getValue(method);
+            const minVal = getMinValue(metric);
+            return acc + (val !== null && val === minVal ? 1 : 0);
+        }, 0);
 
-      return { ...method, score };
+        return { ...method, score };
     });
-    
+
     scored.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      const ua = a.data?.C.length ?? Infinity;
-      const ub = b.data?.C.length ?? Infinity;
-      if (ua !== ub) return ua - ub;
-      const ta = a.data?.B.reduce((s, t) => s + t.time_sec, 0) ?? Infinity;
-      const tb = b.data?.B.reduce((s, t) => s + t.time_sec, 0) ?? Infinity;
-      return ta - tb;
+        if (b.score !== a.score) return b.score - a.score;
+        const ua = a.data?.C.length ?? Infinity;
+        const ub = b.data?.C.length ?? Infinity;
+        if (ua !== ub) return ua - ub;
+        const ta = a.data?.B.reduce((s, t) => s + t.time_sec, 0) ?? Infinity;
+        const tb = b.data?.B.reduce((s, t) => s + t.time_sec, 0) ?? Infinity;
+        return ta - tb;
     });
-    
+
     return scored[0];
-  }, [data1, data2, data3]);
+}, [data1, data2, data3, storyboardsData]);
 
   React.useEffect(() => {
     if (recommendedMethod) {
@@ -319,7 +355,7 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
   }, [recommendedMethod]);
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 3, pl: 2, pt: 1, pr: 2 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pl: 2, pt: 1, pr: 2 }}>
       <Typography variant="h6" fontWeight={600}>Сравнение количественных показателей оптимизаций</Typography>
 
       <TableContainer component={Paper} variant="outlined">
@@ -335,7 +371,7 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
               <TableRow key={method.id} hover>
                 <TableCell><Typography variant="body2" fontWeight={500}>{method.name}</Typography></TableCell>
                 {metrics.map(metric => {
-                  const val = metric.getValue(method.data);
+                  const val = metric.getValue(method);
                   const minVal = getMinValue(metric);
                   const isMin = val !== null && minVal !== null && val === minVal;
                   return (
@@ -343,8 +379,8 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
                       backgroundColor: isMin ? "success.light" : "transparent",
                       fontWeight: isMin ? 600 : 400,
                     }}>
-                      {val === null ? <Typography variant="body2" color="text.disabled">—</Typography> : 
-                       metric.format ? metric.format(val as number) : val}
+                      {val === null ? <Typography variant="body2" color="text.disabled">—</Typography> :
+                        metric.format ? metric.format(val as number) : val}
                     </TableCell>
                   );
                 })}
@@ -375,7 +411,7 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
           Ознакомьтесь с полной информацией о карте полёта, нажав на кнопку <strong>Просмотр карты</strong>.
-          Данная информация будет сохранена, и вы сможете её увидеть при просмотре подробностей в таблице с полётными картами.
+          Данная информация будет сохранена и видна в таблице с полётными картами.
         </Typography>
       </Paper>
     </Box>
@@ -383,10 +419,11 @@ const ComparisonTab: React.FC<{ data1: TrajectoryData | null; data2: TrajectoryD
 };
 
 // Основной компонент 
-const CompareOptimizationMethodsStep: React.FC<CompareOptimizationMethodsStepProps> = ({ 
-  trajectoryData, 
+const CompareOptimizationMethodsStep: React.FC<CompareOptimizationMethodsStepProps> = ({
+  trajectoryData,
   trajectoryData2,
   trajectoryData3,
+  storyboardsData,
   priorityMethod,
   setPriorityMethod,
 }) => {
@@ -401,7 +438,7 @@ const CompareOptimizationMethodsStep: React.FC<CompareOptimizationMethodsStepPro
       case 2:
         return <MethodTab data={trajectoryData3} methodLabel="3 методу (Смешанная плотность точек)" />;
       case 3:
-        return <ComparisonTab data1={trajectoryData} data2={trajectoryData2} data3={trajectoryData3} priorityMethod={priorityMethod} setPriorityMethod={setPriorityMethod} />;
+        return <ComparisonTab data1={trajectoryData} data2={trajectoryData2} data3={trajectoryData3} storyboardsData={storyboardsData} priorityMethod={priorityMethod} setPriorityMethod={setPriorityMethod} />;
       default:
         return null;
     }
@@ -415,7 +452,7 @@ const CompareOptimizationMethodsStep: React.FC<CompareOptimizationMethodsStepPro
         <Tab label="Метод 3" sx={{ textTransform: "none" }} />
         <Tab label="Сравнение" sx={{ textTransform: "none" }} />
       </Tabs>
-      
+
       <Box sx={{ flex: 1, overflow: "auto", height: "100%" }}>
         {renderTabContent()}
       </Box>
