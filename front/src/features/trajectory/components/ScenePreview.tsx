@@ -24,6 +24,7 @@ interface ScenePreviewProps {
     showUserTrajectory: boolean;
     showTaxonTrajectory: boolean;
     isLoading?: boolean;
+    isShowView?: boolean;
 
     PREVIEW_WIDTH?: number;
     PREVIEW_HEIGHT?: number;
@@ -43,6 +44,7 @@ const ScenePreview: FC<ScenePreviewProps> = ({
     showUserTrajectory,
     showTaxonTrajectory,
     isLoading = false,
+    isShowView = true,
     PREVIEW_WIDTH = 700,
     PREVIEW_HEIGHT = 500
 }) => {
@@ -123,14 +125,15 @@ const ScenePreview: FC<ScenePreviewProps> = ({
     }, [image, GRID_COLS, GRID_ROWS, imageX, imageY, scaleToFit]);
 
     return (
-        <Tooltip
-            title="Нажмите для просмотра"
-            arrow
-            placement="top"
-            followCursor
-        >
+        // <Tooltip
+        //     title="Нажмите для просмотра"
+        //     arrow
+        //     placement="top"
+        //     followCursor
+        //     // open={isShowView}
+        // >
             <Box
-                sx={{ cursor: "pointer", width: "100%", height: "100%" }}
+                sx={{ cursor: isShowView ? 'pointer' : 'default', width: "100%", height: "100%" }}
                 onClick={onShowView}
             >
                 <SceneStage
@@ -151,7 +154,7 @@ const ScenePreview: FC<ScenePreviewProps> = ({
 
                     // Interaction (отключаем как в прошлом ответе)
                     draggable={false}
-                    handleWheel={(e) => e.evt.preventDefault()}
+                    handleWheel={() => {}}
                     handleDragMove={() => { }}
 
                     // Data
@@ -182,13 +185,13 @@ const ScenePreview: FC<ScenePreviewProps> = ({
                     lineY={null}
                     loading={isLoading} // Передаем статус загрузки
 
-                    getCursor={() => "pointer"}
+                    getCursor={() =>  isShowView ? 'pointer' : 'default'}
                     handleMouseMove={() => { }}
                     handleStageClick={(e) => e.cancelBubble = true}
                     handleClick={() => { }}
                 />
             </Box>
-        </Tooltip>
+        // </Tooltip>
     );
 };
 

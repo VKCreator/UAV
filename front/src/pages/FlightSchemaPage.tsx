@@ -21,7 +21,7 @@ import {
 import { IconButton, Tooltip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import FavoriteIcon from '@mui/icons-material/Favorite';
-
+import DownloadIcon from '@mui/icons-material/Download';
 import PageContainer from "../components/layout/PageContainer";
 import { ExifData } from "../types/common.types";
 import { DroneParams, Weather } from "../types/uav.types";
@@ -44,6 +44,7 @@ import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { downloadScene } from "../features/trajectory/utils/exportSceneImage";
 
 import {
   LineChart,
@@ -404,6 +405,7 @@ const FlightSchemaPage: React.FC<Props> = ({
   };
 
   const [expanded, setExpanded] = React.useState<string | false>('panel1');
+  const [loading, setLoading] = React.useState<boolean>(false);
 
   const handleChange =
     (panel: string) => (event: React.SyntheticEvent, newExpanded: boolean) => {
@@ -434,6 +436,51 @@ const FlightSchemaPage: React.FC<Props> = ({
         }
         : {},
     };
+  };
+
+  const handleDownload = async () => {
+    setLoading(true);
+
+    let exportImage = image;
+    if (imageData?.imageUrl) {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = imageData.imageUrl;
+      await new Promise((resolve, reject) => {
+        img.onload = () => {
+          exportImage = img;
+          resolve(img);
+        };
+        img.onerror = reject;
+      });
+    }
+
+    let params = {
+      image: exportImage,
+      width_m: droneParams.frameWidthBase,
+      height_m: droneParams.frameHeightBase,
+      GRID_COLS: droneParams.frameWidthBase / droneParams.frameWidthPlanned,
+      GRID_ROWS: droneParams.frameHeightBase / droneParams.frameHeightPlanned,
+
+      flightLineY: flightLineY,
+      obstacles: obstacles,
+      points: points,
+      trajectoryData: null,
+
+      showGrid: true,
+      showObstacles: true,
+      showUserTrajectory: true,
+      showTaxonTrajectory: false,
+      showNavTriangles: false,
+
+      PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
+      PREVIEW_HEIGHT: 400,
+    }
+
+    await downloadScene(
+      { ...params, setLoading },
+      "trajectory_schema.jpeg",
+    );
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -803,7 +850,16 @@ const FlightSchemaPage: React.FC<Props> = ({
         {/* ═══════════════════════════════════════════════════════════════════
             3. Пользовательская траектория
         ═══════════════════════════════════════════════════════════════════ */}
-        <SectionBox title="Пользовательская траектория">
+        <SectionBox title={<Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Typography variant="h6">Пользовательская траектория</Typography>
+            <Tooltip title="Скачать">
+              <IconButton component="span" size="small" color="primary" onClick={handleDownload}>
+                <DownloadIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>}>
           <Stack direction="row" spacing={2}>
             {/* Сцена */}
             <Box
@@ -824,7 +880,7 @@ const FlightSchemaPage: React.FC<Props> = ({
             >
               <Box
                 sx={{
-                  cursor: "pointer",
+                  cursor: "default",
                   width: "100%",
                   height: "100%",
                   p: "10px"
@@ -836,9 +892,10 @@ const FlightSchemaPage: React.FC<Props> = ({
                     trajectoryData={null}
                     showUserTrajectory={true}
                     showTaxonTrajectory={false}
-                    isLoading={false}
+                    isLoading={loading}
                     PREVIEW_WIDTH={PREVIEW_WIDTH - 20}
                     PREVIEW_HEIGHT={PREVIEW_HEIGHT - 20}
+                    isShowView={false}
                   />
                 ) : (
                   <Placeholder label="Нет данных" />
@@ -894,6 +951,11 @@ const FlightSchemaPage: React.FC<Props> = ({
                           <Chip
                             size="small"
                             label={`${obstacle.points.length} точ.`}
+                            variant="outlined"
+                          />
+                          <Chip
+                            size="small"
+                            label={`Зона: ${obstacle.safeZone} м`}
                             variant="outlined"
                           />
                         </Stack>
