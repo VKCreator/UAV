@@ -70,7 +70,7 @@ export default function FlightPlanningAccordion({
   flightLineY: number;
 }) {
   const [expanded, setExpanded] = React.useState<Set<string>>(
-    new Set(["panel1"]),
+    new Set(["panel1", "panel4"]),
   );
 
   const [loading, setLoading] = React.useState(drones.length === 0);

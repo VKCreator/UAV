@@ -337,6 +337,7 @@ export const TrajectoryLayer = React.memo(({
   scaleToFit,
   imageX,
   imageY,
+  showNavigationTriangles,
   colors
 }: any) => {
   if (!showTaxonTrajectory || !image || !trajectoryData?.B) return null;
@@ -438,6 +439,7 @@ export const TrajectoryLayer = React.memo(({
               imageX={imageX}
               imageY={imageY}
               taxonIdx={idx}
+              showNavigationTriangles={showNavigationTriangles}
             />
 
             {taxonPoints.map((p, i) => (

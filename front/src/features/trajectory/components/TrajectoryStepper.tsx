@@ -265,6 +265,8 @@ const TrajectoryStepper = () => {
     }
   });
 
+    const [showNavTriangles, setShowNavTriangles] = React.useState(false);
+
   const updateOptimization = (type, updates) => {
     setOptimizationState(prev => ({
       ...prev,
@@ -1290,6 +1292,8 @@ const TrajectoryStepper = () => {
             selection={selection}
             setSelection={setSelection}
             flightLineY={flightLineY}
+            showNavTriangles={showNavTriangles}
+            setShowNavTriangles={setShowNavTriangles}
           />
         );
       case 3:

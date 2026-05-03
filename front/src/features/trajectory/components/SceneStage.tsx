@@ -45,6 +45,7 @@ interface SceneStageProps {
     flightLineY: number | null;
     currentPolygon: Point[];
     draggable?: boolean;
+    showNavigationTriangles?: boolean;
 
     // Handlers
     handleDragMove: (e: any) => void;
@@ -88,6 +89,7 @@ export const SceneStage: FC<SceneStageProps> = ({
     flightLineY,
     currentPolygon,
     draggable,
+    showNavigationTriangles,
     handleDragMove,
     handleWheel,
     getCursor,
@@ -166,6 +168,7 @@ export const SceneStage: FC<SceneStageProps> = ({
                     imageX={imageX}
                     imageY={imageY}
                     colors={colors}
+                    showNavigationTriangles={showNavigationTriangles}
                 />
 
                 <UILayer

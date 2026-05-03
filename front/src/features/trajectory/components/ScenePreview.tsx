@@ -25,6 +25,7 @@ interface ScenePreviewProps {
     showTaxonTrajectory: boolean;
     isLoading?: boolean;
     isShowView?: boolean;
+    showNavigationTriangles?: boolean;
 
     PREVIEW_WIDTH?: number;
     PREVIEW_HEIGHT?: number;
@@ -45,6 +46,7 @@ const ScenePreview: FC<ScenePreviewProps> = ({
     showTaxonTrajectory,
     isLoading = false,
     isShowView = true,
+    showNavigationTriangles = false,
     PREVIEW_WIDTH = 700,
     PREVIEW_HEIGHT = 500
 }) => {
@@ -184,7 +186,7 @@ const ScenePreview: FC<ScenePreviewProps> = ({
                     toolMode="pan"
                     lineY={null}
                     loading={isLoading} // Передаем статус загрузки
-
+showNavigationTriangles={showNavigationTriangles}
                     getCursor={() =>  isShowView ? 'pointer' : 'default'}
                     handleMouseMove={() => { }}
                     handleStageClick={(e) => e.cancelBubble = true}

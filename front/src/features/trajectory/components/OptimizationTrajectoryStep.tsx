@@ -43,6 +43,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import ManageSearchIcon from "@mui/icons-material/ManageSearch";
 import InfoIcon from "@mui/icons-material/Info";
 import FlightSchemaLegendDialog from "./FlightSchemaLegendDialog";
+import BrushIcon from '@mui/icons-material/Brush';
 
 import type { Point, Polygon, ImageData } from "../../../types/scene.types";
 import type {
@@ -67,7 +68,7 @@ import { downloadScene } from "../utils/exportSceneImage";
 
 import { trajectoryApi } from "../../../api/trajectory.api";
 import { useDialogs } from '../../../hooks/useDialogs/useDialogs';
-
+import { SettingsDialog } from "./SettingsSceneDialog";
 interface OptimizationTrajectoryStepProps {
   imageData: ImageData;
 
@@ -116,25 +117,14 @@ interface OptimizationTrajectoryStepProps {
   selection: any;
   setSelection: React.Dispatch<React.SetStateAction<any>>;
 
+  showNavTriangles: any;
+  setShowNavTriangles: React.Dispatch<React.SetStateAction<any>>;
+
   flightLineY: number;
 
   optimizationState: any;
   setOptimizationState: (data: any) => void;
 }
-
-function createColorGenerator() {
-  let index = 0;
-  const goldenRatio = 0.618033988749895;
-
-  return function () {
-    const hue = (index * goldenRatio * 360) % 360;
-    const saturation = 55 + Math.floor(Math.random() * 20); // 55–75%
-    const lightness = 42 + Math.floor(Math.random() * 14);  // 42–56%
-    index++;
-    return `hsl(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.round(lightness)}%)`;
-  };
-}
-
 
 // 50 таксонов и повтор
 const colors = [
@@ -222,7 +212,9 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
   setSelection,
   flightLineY,
   optimizationState,
-  setOptimizationState
+  setOptimizationState,
+  showNavTriangles,
+  setShowNavTriangles
 }) => {
   const { confirm } = useDialogs();
   const notifications = useNotifications();
@@ -242,6 +234,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
 
   const [isLegendOpen, setIsLegendOpen] = React.useState(false);
   const [isLoadingUserScene, setLoadingUserScene] = React.useState(false);
+
+  const [openSettings, setOpenSettings] = React.useState(false);
 
   const updateOptimization = (type, updates) => {
     setOptimizationState(prev => ({
@@ -353,19 +347,19 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       updateOptimization("combi", { isLoading: loading });
   }
 
-    const isAnyLoading = React.useMemo(() => {
-      return (
-        isLoadingUserScene ||
-        optimizationState.small.isLoading ||
-        optimizationState.large.isLoading ||
-        optimizationState.combi.isLoading
-      );
-    }, [
-      isLoadingUserScene,
-      optimizationState.small.isLoading,
-      optimizationState.large.isLoading,
-      optimizationState.combi.isLoading,
-    ]);
+  const isAnyLoading = React.useMemo(() => {
+    return (
+      isLoadingUserScene ||
+      optimizationState.small.isLoading ||
+      optimizationState.large.isLoading ||
+      optimizationState.combi.isLoading
+    );
+  }, [
+    isLoadingUserScene,
+    optimizationState.small.isLoading,
+    optimizationState.large.isLoading,
+    optimizationState.combi.isLoading,
+  ]);
 
   const handleClearTrajectoryData = async () => {
 
@@ -654,6 +648,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       showUserTrajectory: activeImage == 0,
       showTaxonTrajectory: true,
       showNavTriangles: true, // Включаем треугольники
+      showFullNavTriangles: showNavTriangles,
 
       PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
       PREVIEW_HEIGHT: 400,
@@ -799,6 +794,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             isLoading={optimizationState.small.isLoading}
             PREVIEW_WIDTH={PREVIEW_WIDTH - 20}
             PREVIEW_HEIGHT={PREVIEW_HEIGHT - 20}
+            showNavigationTriangles={showNavTriangles}
+
           />
         );
       case 3:
@@ -811,6 +808,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             isLoading={optimizationState.large.isLoading}
             PREVIEW_WIDTH={PREVIEW_WIDTH - 20}
             PREVIEW_HEIGHT={PREVIEW_HEIGHT - 20}
+            showNavigationTriangles={showNavTriangles}
+
           />
         );
       case 4:
@@ -823,6 +822,8 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             isLoading={optimizationState.combi.isLoading}
             PREVIEW_WIDTH={PREVIEW_WIDTH - 20}
             PREVIEW_HEIGHT={PREVIEW_HEIGHT - 20}
+            showNavigationTriangles={showNavTriangles}
+
           />
         );
       default:
@@ -932,15 +933,33 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                       <ListItemText>Схема</ListItemText>
                     </MenuItem>
                     {(activeImage == 0 || activeImage == 3) && (
-                    <MenuItem onClick={() => handleDownload('heatmap')} disabled={activeImage == 3 && trajectoryData3 == null}>
-                      <ListItemIcon>
-                        <GridOnIcon fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText>Тепловая карта</ListItemText>
-                    </MenuItem>
+                      <MenuItem onClick={() => handleDownload('heatmap')} disabled={activeImage == 3 && trajectoryData3 == null}>
+                        <ListItemIcon>
+                          <GridOnIcon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText>Тепловая карта</ListItemText>
+                      </MenuItem>
                     )}
                   </Menu>
                 </>
+
+                <Divider orientation="vertical" flexItem />
+                {/* Настройки отображения */}
+                <Tooltip title="Настройки отображения" enterDelay={500}>
+                  <IconButton
+                    color="primary"
+                    onClick={() => setOpenSettings(true)}
+                    aria-label="Настройки"
+                  >
+                    <BrushIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <SettingsDialog
+                  open={openSettings}
+                  onClose={() => setOpenSettings(false)}
+                  showNavigationTriangles={showNavTriangles}
+                  setShowNavigationTriangles={setShowNavTriangles}
+                />
               </Box>
             </Box>
 
@@ -969,11 +988,12 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                   height: "100%",
                   p: "10px"
                 }}
-              >              {renderImage(activeImage + 1)}
+              >
+                {renderImage(activeImage + 1)}
               </Box>
             </Box>
 
-            {(isAnyLoading && <LinearProgress sx={{ml: "10px", mr: "10px"}} color="primary" aria-label="Loading…" />)}
+            {(isAnyLoading && <LinearProgress sx={{ ml: "10px", mr: "10px" }} color="primary" aria-label="Loading…" />)}
 
             {/* Добавьте этот блок после контейнера со сценой */}
             <Box

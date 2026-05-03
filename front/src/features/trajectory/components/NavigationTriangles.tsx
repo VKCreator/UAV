@@ -11,6 +11,7 @@ interface NavigationTrianglesProps {
   imageX: number;
   imageY: number;
   taxonIdx: number;
+  showNavigationTriangles?: boolean;
 }
 
 const NavigationTriangles = ({
@@ -22,6 +23,7 @@ const NavigationTriangles = ({
   imageX,
   imageY,
   taxonIdx,
+  showNavigationTriangles = false
 }: NavigationTrianglesProps) => {
   const navAngleToCanvasVec = (angleDeg: number, magnitude: number, distMeters: number) => {
     const rad = angleDeg * Math.PI / 180;
@@ -74,15 +76,7 @@ const NavigationTriangles = ({
 
         return (
           <Fragment key={`nav-triangle-${taxonIdx}-${segIdx}`}>
-            <Arrow
-              points={[triStartX, triStartY, triStartX + gsVec.x, triStartY + gsVec.y]}
-              pointerLength={8}
-              pointerWidth={5}
-              fill="red"
-              stroke="red"
-              strokeWidth={1.5}
-              opacity={0.9}
-            />
+            {/* Синяя стрелка (TAS) - ПОКАЗЫВАТЬ ВСЕГДА */}
             <Arrow
               points={[triStartX, triStartY, triStartX + tasVec.x, triStartY + tasVec.y]}
               pointerLength={8}
@@ -92,35 +86,50 @@ const NavigationTriangles = ({
               strokeWidth={2.5}
               opacity={0.9}
             />
-            <Arrow
-              points={[triStartX, triStartY, triStartX + windVec.x, triStartY + windVec.y]}
-              pointerLength={8}
-              pointerWidth={5}
-              fill="green"
-              stroke="green"
-              strokeWidth={2.5}
-              opacity={0.8}
-            />
-            <Line
-              points={[
-                triStartX + windVec.x, triStartY + windVec.y,
-                triStartX + windVec.x + tasVec.x, triStartY + windVec.y + tasVec.y,
-              ]}
-              stroke="blue"
-              strokeWidth={1.5}
-              dash={[6, 4]}
-              opacity={1}
-            />
-            <Line
-              points={[
-                triStartX + tasVec.x, triStartY + tasVec.y,
-                triStartX + tasVec.x + windVec.x, triStartY + tasVec.y + windVec.y,
-              ]}
-              stroke="green"
-              strokeWidth={1.5}
-              dash={[6, 4]}
-              opacity={1}
-            />
+
+            {/* Остальная часть треугольника - ТОЛЬКО ЕСЛИ showNavigationTriangles === true */}
+            {showNavigationTriangles && (
+              <>
+                <Arrow
+                  points={[triStartX, triStartY, triStartX + gsVec.x, triStartY + gsVec.y]}
+                  pointerLength={8}
+                  pointerWidth={5}
+                  fill="red"
+                  stroke="red"
+                  strokeWidth={1.5}
+                  opacity={0.9}
+                />
+                <Arrow
+                  points={[triStartX, triStartY, triStartX + windVec.x, triStartY + windVec.y]}
+                  pointerLength={8}
+                  pointerWidth={5}
+                  fill="green"
+                  stroke="green"
+                  strokeWidth={2.5}
+                  opacity={0.8}
+                />
+                <Line
+                  points={[
+                    triStartX + windVec.x, triStartY + windVec.y,
+                    triStartX + windVec.x + tasVec.x, triStartY + windVec.y + tasVec.y,
+                  ]}
+                  stroke="blue"
+                  strokeWidth={1.5}
+                  dash={[6, 4]}
+                  opacity={1}
+                />
+                <Line
+                  points={[
+                    triStartX + tasVec.x, triStartY + tasVec.y,
+                    triStartX + tasVec.x + windVec.x, triStartY + tasVec.y + windVec.y,
+                  ]}
+                  stroke="green"
+                  strokeWidth={1.5}
+                  dash={[6, 4]}
+                  opacity={1}
+                />
+              </>
+            )}
           </Fragment>
         );
       })}

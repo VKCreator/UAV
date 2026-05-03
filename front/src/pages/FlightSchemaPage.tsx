@@ -17,11 +17,13 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Button
 } from "@mui/material";
 import { IconButton, Tooltip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import DownloadIcon from '@mui/icons-material/Download';
+import GridOnIcon from '@mui/icons-material/GridOn';
 import PageContainer from "../components/layout/PageContainer";
 import { ExifData } from "../types/common.types";
 import { DroneParams, Weather } from "../types/uav.types";
@@ -45,6 +47,7 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { downloadScene } from "../features/trajectory/utils/exportSceneImage";
+import { trajectoryApi } from "../api/trajectory.api";
 
 import {
   LineChart,
@@ -436,6 +439,78 @@ const FlightSchemaPage: React.FC<Props> = ({
         }
         : {},
     };
+  };
+
+  const handleDownloadHeatmap = async () => {
+    // Защита: должны быть точки и параметры дрона
+    if (!points || points.length === 0) {
+      console.warn("Нет точек для построения тепловой карты");
+      return;
+    }
+
+    const GRID_COLS = droneParams.frameWidthBase / droneParams.frameWidthPlanned;
+    const GRID_ROWS = droneParams.frameHeightBase / droneParams.frameHeightPlanned;
+    const width_m = droneParams.frameWidthBase;
+    const height_m = droneParams.frameHeightBase;
+
+    // На всякий случай — валидация (деление на 0, NaN)
+    if (
+      !Number.isFinite(GRID_COLS) || !Number.isFinite(GRID_ROWS) ||
+      GRID_COLS <= 0 || GRID_ROWS <= 0 ||
+      width_m <= 0 || height_m <= 0
+    ) {
+      console.warn("Некорректные параметры сетки", { GRID_COLS, GRID_ROWS, width_m, height_m });
+      return;
+    }
+
+    try {
+      // points в твоём формате — приводим к [[x, y], ...] на всякий случай
+      const meterPerPixelX = width_m / imageData.width;
+      const meterPerPixelY = height_m / imageData.height;
+
+      const pointsPayload: number[][] = points.map((p: any) => [
+        p.x * meterPerPixelX,
+        (imageData.height - p.y) * meterPerPixelY,
+      ]);
+
+      setLoading(true);
+
+      const blob = await trajectoryApi.getDensityHeatmap({
+        points: pointsPayload,
+        L: width_m,
+        H: height_m,
+        n_cols: GRID_COLS,
+        n_rows: GRID_ROWS,
+        density_k: 0.5,
+        threshold_method: "median",
+        dpi: 200,
+      });
+
+      // Триггерим скачивание
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `density_heatmap_${Date.now()}.jpeg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // notifications.show("Тепловая карта сформирована", {
+      //   severity: "success",
+      //   autoHideDuration: 3000,
+      // })
+    } catch (e) {
+      console.error("Ошибка при получении тепловой карты:", e);
+      // notifications.show("Ошибка построения тепловой карты", {
+      //   severity: "error",
+      //   autoHideDuration: 3000,
+      // })
+      // здесь можно показать toast/alert юзеру
+    }
+    finally {
+      setLoading(false);
+    }
   };
 
   const handleDownload = async () => {
@@ -853,12 +928,20 @@ const FlightSchemaPage: React.FC<Props> = ({
         <SectionBox title={<Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
           <Box display="flex" alignItems="center" gap={1}>
             <Typography variant="h6">Пользовательская траектория</Typography>
-            <Tooltip title="Скачать">
+            <Tooltip title="Скачать схему">
               <IconButton component="span" size="small" color="primary" onClick={handleDownload}>
                 <DownloadIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>
+          <Button
+            size="small"
+            color="primary"
+            startIcon={<GridOnIcon fontSize="small" />}
+            onClick={handleDownloadHeatmap}
+          >
+            Скачать тепловую карту
+          </Button>
         </Box>}>
           <Stack direction="row" spacing={2}>
             {/* Сцена */}

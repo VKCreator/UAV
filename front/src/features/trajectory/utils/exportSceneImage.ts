@@ -46,6 +46,7 @@ interface ExportSceneParams {
   showUserTrajectory: boolean;
   showTaxonTrajectory: boolean;
   showNavTriangles: boolean;
+  showFullNavTriangles?: boolean;
   setLoading?: (loading: boolean) => void;
 }
 
@@ -123,6 +124,7 @@ export const createKonvaScene = async (
     showUserTrajectory,
     showTaxonTrajectory,
     showNavTriangles,
+    showFullNavTriangles = false
   } = params;
 
   // Создаём контейнер и Stage в памяти
@@ -581,69 +583,84 @@ export const createKonvaScene = async (
         const windX = windVec.x;
         const windY = windVec.y;
 
-        navShapes.push(
-          new Konva.Arrow({
-            points: [triStartX, triStartY, triStartX + gsX, triStartY + gsY],
-            pointerLength: navPointerLen,
-            pointerWidth: navPointerWid,
-            fill: "red",
-            stroke: "red",
-            strokeWidth: navStrokeThin,
-            opacity: 0.9,
-            listening: false,
-          }),
-          new Konva.Arrow({
-            points: [triStartX, triStartY, triStartX + tasX, triStartY + tasY],
-            pointerLength: navPointerLen,
-            pointerWidth: navPointerWid,
-            fill: "blue",
-            stroke: "blue",
-            strokeWidth: navStrokeThick,
-            opacity: 0.9,
-            listening: false,
-          }),
-          new Konva.Arrow({
-            points: [
-              triStartX,
-              triStartY,
-              triStartX + windX,
-              triStartY + windY,
-            ],
-            pointerLength: navPointerLen,
-            pointerWidth: navPointerWid,
-            fill: "green",
-            stroke: "green",
-            strokeWidth: navStrokeThick,
-            opacity: 0.8,
-            listening: false,
-          }),
-          new Konva.Line({
-            points: [
-              triStartX + windX,
-              triStartY + windY,
-              triStartX + windX + tasX,
-              triStartY + windY + tasY,
-            ],
-            stroke: "blue",
-            strokeWidth: navStrokeThin,
-            dash: navDash,
-            opacity: 1,
-            listening: false,
-          }),
-          new Konva.Line({
-            points: [
-              triStartX + tasX,
-              triStartY + tasY,
-              triStartX + tasX + windX,
-              triStartY + tasY + windY,
-            ],
-            stroke: "green",
-            strokeWidth: navStrokeThin,
-            dash: navDash,
-            opacity: 1,
-            listening: false,
-          }),
-        );
+        if (showFullNavTriangles) {
+          navShapes.push(
+            new Konva.Arrow({
+              points: [triStartX, triStartY, triStartX + gsX, triStartY + gsY],
+              pointerLength: navPointerLen,
+              pointerWidth: navPointerWid,
+              fill: "red",
+              stroke: "red",
+              strokeWidth: navStrokeThin,
+              opacity: 0.9,
+              listening: false,
+            }),
+            new Konva.Arrow({
+              points: [triStartX, triStartY, triStartX + tasX, triStartY + tasY],
+              pointerLength: navPointerLen,
+              pointerWidth: navPointerWid,
+              fill: "blue",
+              stroke: "blue",
+              strokeWidth: navStrokeThick,
+              opacity: 0.9,
+              listening: false,
+            }),
+            new Konva.Arrow({
+              points: [
+                triStartX,
+                triStartY,
+                triStartX + windX,
+                triStartY + windY,
+              ],
+              pointerLength: navPointerLen,
+              pointerWidth: navPointerWid,
+              fill: "green",
+              stroke: "green",
+              strokeWidth: navStrokeThick,
+              opacity: 0.8,
+              listening: false,
+            }),
+            new Konva.Line({
+              points: [
+                triStartX + windX,
+                triStartY + windY,
+                triStartX + windX + tasX,
+                triStartY + windY + tasY,
+              ],
+              stroke: "blue",
+              strokeWidth: navStrokeThin,
+              dash: navDash,
+              opacity: 1,
+              listening: false,
+            }),
+            new Konva.Line({
+              points: [
+                triStartX + tasX,
+                triStartY + tasY,
+                triStartX + tasX + windX,
+                triStartY + tasY + windY,
+              ],
+              stroke: "green",
+              strokeWidth: navStrokeThin,
+              dash: navDash,
+              opacity: 1,
+              listening: false,
+            }),
+          );
+        }
+        else {
+          navShapes.push(
+            new Konva.Arrow({
+              points: [triStartX, triStartY, triStartX + tasX, triStartY + tasY],
+              pointerLength: navPointerLen,
+              pointerWidth: navPointerWid,
+              fill: "blue",
+              stroke: "blue",
+              strokeWidth: navStrokeThick,
+              opacity: 0.9,
+              listening: false,
+            }))
+        }
       });
 
       layer.add(...navShapes);
