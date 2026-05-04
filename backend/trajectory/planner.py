@@ -1,13 +1,12 @@
 import math
 
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib
-from typing import List, Tuple
 
-# Настройка для максимального качества рендеринга текстов и линий
-matplotlib.rcParams['font.family'] = 'sans-serif'
-matplotlib.rcParams['text.antialiased'] = True
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import seaborn as sns
+
+from typing import List, Tuple, Optional
 
 # Ветер
 # https://www.betaenergy.ru/upload/medialibrary/6df/6dfd8840bcc2bd800edf271c98669f05.jpg
@@ -26,7 +25,6 @@ def wind_components(wind_speed: float, wind_dir_deg: float) -> tuple:
 
 # Навигационный треугольник
 def navigation_triangle(p_from, p_to, v_drone, wind_speed, wind_dir_deg):
-    print(p_from, p_to)
     """
     Вектор воздуха - воздушная скорость (v_drone)
     Вектор ветра (wind_speed, wind_dir_deg)
@@ -53,7 +51,6 @@ def navigation_triangle(p_from, p_to, v_drone, wind_speed, wind_dir_deg):
             DA = 90.0 if sin_DA > 0 else -90.0
         else:
             # ветер сильнее воздушной скорости 
-            print("DA", sin_DA) 
             return None
     else:
         # угол сноса
@@ -64,12 +61,10 @@ def navigation_triangle(p_from, p_to, v_drone, wind_speed, wind_dir_deg):
  
     # путевая скорость
     GS = v_drone * math.cos(math.radians(DA)) + wind_speed * math.cos(math.radians(WA))
-    print("in triangle", GS) 
 
     if GS <= 1e-6:
         return None
  
-    print({"TC": TC, "NW": NW, "WA": WA, "DA": DA, "TA": TA, "GS": GS})
     return {"TC": TC, "NW": NW, "WA": WA, "DA": DA, "TA": TA, "GS": GS}
 
 def segment_with_wind(p_from, p_to, v_drone, wind_speed, wind_dir_deg, t_js=5.0, is_hover=True):
@@ -175,7 +170,6 @@ def compensate_route(
 def time_between_with_wind(p_from, p_to, v, wind_speed, wind_dir_deg, t_js=5.0, hover=True):
     """Время перемещения между точками с учётом ветра"""
     nav = navigation_triangle(p_from, p_to, v, wind_speed, wind_dir_deg)
-    print("IN TIME. nav", nav)
 
     if nav is None:
         return float('inf')  # невозможно лететь
@@ -183,8 +177,6 @@ def time_between_with_wind(p_from, p_to, v, wind_speed, wind_dir_deg, t_js=5.0, 
     dist = math.hypot(p_to[0] - p_from[0], p_to[1] - p_from[1])
     GS = nav["GS"]
     
-    print("IN TIME. GS", GS)
-
     if abs(GS) < 1e-6: 
         return float('inf')
     
@@ -279,7 +271,6 @@ def two_opt_optimize(route, v, t_js=5.0, time_func=time_between):
 
 
 # Таксоны
-
 def build_taxons(
     L,
     H,
@@ -822,24 +813,27 @@ def build_taxons_hybrid(
     wind_dir_deg: float = 0.0,
     wind_resistance: float = 0.0,
     is_use_weather: bool = False,
-    density_threshold: int = 2  # если точек >= threshold, заменяем на центр кадра
+    density_k: float = 0.5  # коэффициент при сигме: порог = mean + k*std
 ) -> dict:
     """
     Комбинированный метод построения таксонов.
     
     Алгоритм:
-    1. Разбиваем область на сетку n_cols x n_rows
-    2. Распределяем точки по ячейкам
-    3. Если в ячейке точек >= density_threshold -> заменяем их на центр кадра
-    4. Если в ячейке точек < density_threshold -> оставляем все точки как есть
-    5. К полученному набору точек применяем метод 1 (жадный алгоритм)
+    1. Разбиваем область на сетку n_cols x n_rows.
+    2. Распределяем точки по ячейкам.
+    3. Для каждой непустой ячейки считаем плотность = N_points / area.
+    4. Автоматически определяем пороговую плотность:
+           threshold = mean(densities) + density_k * std(densities)
+       где densities — плотности непустых ячеек.
+    5. Если плотность ячейки >= threshold -> заменяем её точки на ЦЕНТР ТЯЖЕСТИ
+       (среднее координат точек в ячейке).
+       Иначе -> оставляем все точки как есть.
+    6. К полученному набору точек применяем метод 1 (жадный алгоритм + 2-opt).
     """
     
     use_wind = wind_speed > 1e-6 and is_use_weather
     
-    # ============================================================
-    # 1. РАЗБИЕНИЕ НА СЕТКУ
-    # ============================================================
+    # 1 Построение сетки
     
     n_cols_int = int(n_cols)
     n_rows_int = int(n_rows)
@@ -860,10 +854,6 @@ def build_taxons_hybrid(
         y_min = row * full_frame_height
         return (x_min, y_min, x_min + width, y_min + height)
     
-    def get_frame_center(col: int, row: int) -> tuple[float, float]:
-        x_min, y_min, x_max, y_max = get_frame_bounds(col, row)
-        return ((x_min + x_max) / 2, (y_min + y_max) / 2)
-    
     # Определяем все ячейки
     n_cols_total = n_cols_int + (1 if frac_cols > 0 else 0)
     n_rows_total = n_rows_int + (1 if frac_rows > 0 else 0)
@@ -874,35 +864,37 @@ def build_taxons_hybrid(
             x_min, y_min, x_max, y_max = get_frame_bounds(col, row)
             if x_max <= x_min or y_max <= y_min:
                 continue
-            
+ 
+            area = (x_max - x_min) * (y_max - y_min)
             cells[(col, row)] = {
                 "bounds": (x_min, y_min, x_max, y_max),
-                "center": get_frame_center(col, row),
+                "area": area,
                 "points": [],
                 "col": col,
-                "row": row
+                "row": row,
             }
+
     
     # Распределяем точки по ячейкам
     points_outside = []
     for point in points:
         x, y = point
-        
+ 
         # Определяем столбец
         if x >= n_cols_int * full_frame_width and frac_cols > 0:
             col = n_cols_int
         else:
             col = int(x / full_frame_width) if full_frame_width > 0 else 0
-        
+ 
         # Определяем строку
         if y >= n_rows_int * full_frame_height and frac_rows > 0:
             row = n_rows_int
         else:
             row = int(y / full_frame_height) if full_frame_height > 0 else 0
-        
+ 
         col = max(0, min(col, n_cols_total - 1))
         row = max(0, min(row, n_rows_total - 1))
-        
+ 
         if (col, row) in cells:
             bounds = cells[(col, row)]["bounds"]
             if bounds[0] <= x <= bounds[2] and bounds[1] <= y <= bounds[3]:
@@ -911,78 +903,119 @@ def build_taxons_hybrid(
                 points_outside.append(point)
         else:
             points_outside.append(point)
-    
+
+    # 2. РАСЧЁТ ПЛОТНОСТЕЙ И АВТО-ПОРОГА
+    # Плотности считаем для ВСЕХ ячеек (пустые имеют density = 0).
+    # Но для расчёта порога используем только НЕПУСТЫЕ ячейки —
+    # иначе много нулей искусственно занизят mean и std.
+    for cell_data in cells.values():
+        n_pts = len(cell_data["points"])
+        area = cell_data["area"]
+        cell_data["density"] = (n_pts / area) if area > 0 else 0.0
+ 
+    nonempty_densities = [
+        c["density"] for c in cells.values() if len(c["points"]) > 0
+    ]
+ 
+    if len(nonempty_densities) == 0:
+        density_threshold = float("inf")
+        density_mean = 0.0
+        density_std = 0.0
+    elif len(nonempty_densities) == 1:
+        # Одна непустая ячейка — std не определён, считаем её плотной.
+        density_mean = nonempty_densities[0]
+        density_std = 0.0
+        density_threshold = density_mean  # >= порога => плотная
+    else:
+        density_mean = sum(nonempty_densities) / len(nonempty_densities)
+        variance = sum((d - density_mean) ** 2 for d in nonempty_densities) / len(nonempty_densities)
+        density_std = math.sqrt(variance)
+        sorted_d = sorted(nonempty_densities)
+        n = len(sorted_d)  
+        density_threshold = (sorted_d[n // 2] if n % 2 else (sorted_d[n // 2 - 1] + sorted_d[n // 2]) / 2)
+        # density_threshold = density_mean + density_k * density_std
+ 
     # ============================================================
-    # 2. ПРЕОБРАЗОВАНИЕ ТОЧЕК В ЗАВИСИМОСТИ ОТ ПЛОТНОСТИ
+    # 3. ПРЕОБРАЗОВАНИЕ ТОЧЕК С УЧЁТОМ ПЛОТНОСТИ
+    #    (центр тяжести вместо центра кадра)
     # ============================================================
-    
+ 
     transformed_points = []
     cells_info = []
-    
+ 
     for cell_id, cell_data in cells.items():
-        point_count = len(cell_data["points"])
-        
+        pts = cell_data["points"]
+        point_count = len(pts)
+ 
         if point_count == 0:
             continue
-        
-        if point_count >= density_threshold:
-            # Плотная ячейка: заменяем все точки на центр кадра
-            center = cell_data["center"]
-            transformed_points.append(center)
+ 
+        is_dense = (
+            point_count >= 2  # один точкой не имеет смысла усреднять
+            and cell_data["density"] >= density_threshold - 1e-12
+        )
+
+        # print(cell_data["density"], density_threshold)  
+ 
+        if is_dense:
+            # Центр тяжести: среднее координат точек ячейки
+            cx = sum(p[0] for p in pts) / point_count
+            cy = sum(p[1] for p in pts) / point_count
+            centroid = (cx, cy)
+ 
+            transformed_points.append(centroid)
             cells_info.append({
                 "cell_id": cell_id,
                 "type": "dense",
-                "original_points": cell_data["points"],
-                "replaced_by": center,
-                "point_count": point_count
+                "original_points": pts,
+                "replaced_by": centroid,
+                "point_count": point_count,
+                "density": cell_data["density"],
             })
         else:
             # Разреженная ячейка: оставляем все точки как есть
-            for pt in cell_data["points"]:
+            for pt in pts:
                 transformed_points.append(pt)
             cells_info.append({
                 "cell_id": cell_id,
                 "type": "sparse",
-                "points": cell_data["points"],
-                "point_count": point_count
+                "points": pts,
+                "point_count": point_count,
+                "density": cell_data["density"],
             })
-    
-    # Добавляем точки, которые не попали ни в одну ячейку
+ 
+    # Точки, которые не попали ни в одну ячейку
     transformed_points.extend(points_outside)
-    
+ 
     if not transformed_points:
         return {
             "N_k": 0,
             "B": [],
-            "C": points,
+            "C": list(points),
             "method": "hybrid",
-            "errors": "No points after transformation"
+            "errors": "No points after transformation",
         }
-    
+ 
     # ============================================================
-    # 3. ПРИМЕНЯЕМ МЕТОД 1 К ПРЕОБРАЗОВАННОМУ НАБОРУ ТОЧЕК
+    # 4. ПРИМЕНЯЕМ МЕТОД 1 К ПРЕОБРАЗОВАННОМУ НАБОРУ ТОЧЕК
     # ============================================================
-    
-    # Сортируем точки по X для жадного алгоритма
+ 
     points_sorted = sorted(transformed_points, key=lambda pt: pt[0])
-    
+ 
     visited = set()
     B = []
     C = []
     v = v_min
-    
-    # Для отслеживания оригинальных точек в таксонах
-    taxon_to_original_points = {}
-    
+ 
     while len(visited) < len(points_sorted):
         for i, pt in enumerate(points_sorted):
             if i in visited:
                 continue
-            
+ 
             base_x, base_y = pt[0], initial_base_y
             route = [(base_x, base_y, 0)]
             current_time = 0.0
-            
+ 
             # Проверяем возможность долететь до точки и вернуться
             if use_wind:
                 t_to_pt = time_between_with_wind((base_x, base_y), pt, v, wind_speed, wind_dir_deg, t_js, hover=True)
@@ -992,23 +1025,23 @@ def build_taxons_hybrid(
             else:
                 t_to_pt = time_between((base_x, base_y), pt, v=v, t_js=t_js, hover=True)
                 t_back = time_between(pt, (base_x, base_y), v=v, t_js=t_js, hover=False)
-            
+ 
             t_direct = t_to_pt + t_back
-            
+ 
             if t_direct <= t_ak:
                 visited.add(i)
                 current_time += t_to_pt
                 route.append((pt[0], pt[1], current_time))
-                
+ 
                 # Жадный алгоритм
                 while len(visited) < len(points_sorted):
                     best_i = None
                     best_t = float("inf")
-                    
+ 
                     for j, cand in enumerate(points_sorted):
                         if j in visited:
                             continue
-                        
+ 
                         if use_wind:
                             t_to = time_between_with_wind((route[-1][0], route[-1][1]), cand, v, wind_speed, wind_dir_deg, t_js, hover=True)
                             t_back_cand = time_between_with_wind(cand, (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False)
@@ -1017,41 +1050,40 @@ def build_taxons_hybrid(
                         else:
                             t_to = time_between((route[-1][0], route[-1][1]), cand, v=v, t_js=t_js, hover=True)
                             t_back_cand = time_between(cand, (base_x, base_y), v=v, t_js=t_js, hover=False)
-                        
+ 
                         if current_time + t_to + t_back_cand <= t_ak:
                             if t_to < best_t:
                                 best_t = t_to
                                 best_i = j
-                    
+ 
                     if best_i is None:
                         break
-                    
+ 
                     cand_pt = points_sorted[best_i]
                     route.append((cand_pt[0], cand_pt[1], current_time + best_t))
                     current_time += best_t
                     visited.add(best_i)
-                
+ 
                 # Возврат на базу
                 if len(route) > 1:
                     if use_wind:
                         t_back_final = time_between_with_wind((route[-1][0], route[-1][1]), (base_x, base_y), v, wind_speed, wind_dir_deg, t_js, hover=False)
                     else:
                         t_back_final = time_between((route[-1][0], route[-1][1]), (base_x, base_y), v, t_js, hover=False)
-                    
+ 
                     route.append((base_x, base_y, current_time + t_back_final))
                     current_time += t_back_final
-                
+ 
                 # 2-opt оптимизация
                 time_func = time_between
                 if use_wind:
                     time_func = make_time_func_with_wind(v, wind_speed, wind_dir_deg, t_js)
-                
+ 
                 route_opt, time_opt = two_opt_optimize(route, v, t_js, time_func)
-                
+ 
                 # Собираем оригинальные точки для этого таксона
                 original_points_in_taxon = []
                 for point_on_route in route_opt[1:-1]:
-                    # Ищем, откуда взялась эта точка
                     point_xy = (point_on_route[0], point_on_route[1])
                     for cell_info in cells_info:
                         if cell_info["type"] == "dense" and cell_info["replaced_by"] == point_xy:
@@ -1061,18 +1093,17 @@ def build_taxons_hybrid(
                             original_points_in_taxon.append(point_xy)
                             break
                     else:
-                        # Если точка из points_outside
                         if point_xy in points_outside:
                             original_points_in_taxon.append(point_xy)
-                
+ 
                 trajectory = {
                     "base": (base_x, base_y),
-                    "points": route_opt[1:-1],  # преобразованные точки
-                    "original_points": original_points_in_taxon,  # оригинальные точки съёмки
+                    "points": route_opt[1:-1],
+                    "original_points": original_points_in_taxon,
                     "time_sec": time_opt,
                     "route": route_opt,
                 }
-                
+ 
                 if use_wind:
                     segments_data = compensate_route(route_opt, v, wind_speed, wind_dir_deg, t_js)
                     trajectory["wind"] = {
@@ -1081,15 +1112,14 @@ def build_taxons_hybrid(
                         "TAS": v,
                     }
                     trajectory["segments"] = segments_data
-                
+ 
                 B.append(trajectory)
                 break
-        
+ 
         else:
             # Недостижимые точки
             for i, pt in enumerate(points_sorted):
                 if i not in visited:
-                    # Находим оригинальные точки для недостижимой преобразованной точки
                     point_xy = (pt[0], pt[1])
                     for cell_info in cells_info:
                         if cell_info["type"] == "dense" and cell_info["replaced_by"] == point_xy:
@@ -1102,135 +1132,306 @@ def build_taxons_hybrid(
                         if point_xy in points_outside:
                             C.append(point_xy)
             break
-    
-    # Формируем статистику
-    stats = {
-        "total_cells": len(cells),
-        "dense_cells": sum(1 for ci in cells_info if ci["type"] == "dense"),
-        "sparse_cells": sum(1 for ci in cells_info if ci["type"] == "sparse"),
-        "original_points": len(points),
-        "transformed_points": len(transformed_points),
-        "density_threshold": density_threshold
-    }
-    
+
     return {
         "N_k": len(B),
         "B": B,
         "C": C,
-        "method": "hybrid",
-        "statistics": stats,
-        "errors": None
+        "errors": None,
     }
 
+def calculate_and_plot_density_heatmap(
+    points: List[Tuple[float, float]],
+    L: float,
+    H: float,
+    n_cols: float,
+    n_rows: float,
+    output_path: str = "density_heatmap.png",
+    dpi: int = 100,
+    density_k: float = 0.5,
+    threshold_method: str = "mean_std",  # "mean_std" | "median"
+    cmap: str = "Pastel1",
+    show_points: bool = True,
+) -> dict:
+    """
+    Строит тепловую карту плотности точек по сетке n_cols x n_rows и
+    сохраняет её в файл `output_path`.
+ 
+    Особенности:
+    - Корректно работает с дробными n_cols / n_rows: крайние ячейки
+      имеют меньший размер, и это отображается на карте честно
+      (через pcolormesh с реальными координатами в метрах).
+    - В каждой ячейке выводится численное значение плотности.
+    - Плотные ячейки (density >= threshold) обводятся жирной чёрной рамкой.
+    - Поверх карты опционально рисуются исходные точки (scatter).
+    - Цветовая шкала (легенда) — справа.
+ 
+    Возвращает словарь с рассчитанной статистикой (полезно для логирования).
+    """
+ 
+    # ------------------------------------------------------------
+    # 1. ГЕОМЕТРИЯ СЕТКИ (с поддержкой дробных n_cols / n_rows)
+    # ------------------------------------------------------------
+    n_cols_int = int(n_cols)
+    n_rows_int = int(n_rows)
+    frac_cols = n_cols - n_cols_int
+    frac_rows = n_rows - n_rows_int
+ 
+    full_w = L / n_cols if n_cols > 0 else 0.0
+    full_h = H / n_rows if n_rows > 0 else 0.0
+ 
+    n_cols_total = n_cols_int + (1 if frac_cols > 0 else 0)
+    n_rows_total = n_rows_int + (1 if frac_rows > 0 else 0)
+ 
+    # Границы ячеек по осям (для pcolormesh нужны N+1 точек)
+    x_edges = [i * full_w for i in range(n_cols_int + 1)]
+    if frac_cols > 0:
+        x_edges.append(x_edges[-1] + full_w * frac_cols)
+ 
+    y_edges = [j * full_h for j in range(n_rows_int + 1)]
+    if frac_rows > 0:
+        y_edges.append(y_edges[-1] + full_h * frac_rows)
+ 
+    x_edges_np = np.array(x_edges, dtype=float)
+    y_edges_np = np.array(y_edges, dtype=float)
+ 
+    # ------------------------------------------------------------
+    # 2. РАСПРЕДЕЛЕНИЕ ТОЧЕК ПО ЯЧЕЙКАМ И РАСЧЁТ ПЛОТНОСТЕЙ
+    # ------------------------------------------------------------
+    counts = np.zeros((n_rows_total, n_cols_total), dtype=int)
+ 
+    for x, y in points:
+        if x < 0 or y < 0 or x > L or y > H:
+            continue  # точка вне области — игнорируем для матрицы
+ 
+        if x >= n_cols_int * full_w and frac_cols > 0:
+            col = n_cols_int
+        else:
+            col = int(x / full_w) if full_w > 0 else 0
+ 
+        if y >= n_rows_int * full_h and frac_rows > 0:
+            row = n_rows_int
+        else:
+            row = int(y / full_h) if full_h > 0 else 0
+ 
+        col = max(0, min(col, n_cols_total - 1))
+        row = max(0, min(row, n_rows_total - 1))
+        counts[row, col] += 1
+ 
+    # Площади ячеек (могут различаться у крайних)
+    areas = np.zeros((n_rows_total, n_cols_total), dtype=float)
+    for r in range(n_rows_total):
+        for c in range(n_cols_total):
+            w = x_edges_np[c + 1] - x_edges_np[c]
+            h = y_edges_np[r + 1] - y_edges_np[r]
+            areas[r, c] = w * h
+ 
+    density = np.where(areas > 0, counts / np.where(areas > 0, areas, 1), 0.0)
+ 
+    # ------------------------------------------------------------
+    # 3. РАСЧЁТ ПОРОГОВОЙ ПЛОТНОСТИ (по непустым ячейкам)
+    # ------------------------------------------------------------
+    nonempty = density[counts > 0]
+ 
+    if nonempty.size == 0:
+        density_threshold = float("inf")
+        density_mean = 0.0
+        density_std = 0.0
+    elif nonempty.size == 1:
+        density_mean = float(nonempty[0])
+        density_std = 0.0
+        density_threshold = density_mean
+    else:
+        if threshold_method == "median":
+            density_mean = float(np.mean(nonempty))
+            density_std = float(np.std(nonempty))
+            density_threshold = float(np.median(nonempty))
+        else:  # mean_std
+            density_mean = float(np.mean(nonempty))
+            density_std = float(np.std(nonempty))
+            density_threshold = density_mean + density_k * density_std
+ 
+    # ------------------------------------------------------------
+    # 4. ОТРИСОВКА
+    # ------------------------------------------------------------
+    sns.set_theme(style="white")
+ 
+    # Размер фигуры пропорционален реальной геометрии области,
+    # но ограничиваем разумными пределами.
+    aspect = H / L if L > 0 else 1.0
+    base_w = 12.0
+    fig_w = base_w
+    fig_h = max(4.0, min(20.0, base_w * aspect + 1.5))  # +1.5 на заголовок/оси
+ 
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=dpi)
+ 
+    # Тепловая карта через pcolormesh — честная геометрия
+    mesh = ax.pcolormesh(
+        x_edges_np,
+        y_edges_np,
+        density,
+        cmap=cmap,
+        shading="flat",
+        edgecolors="white",
+        linewidth=0.5,
+    )
+ 
+    # Аннотации в каждой ячейке: значение плотности
+    # Выбираем формат: научная нотация если значения слишком мелкие/крупные
+    max_d = density.max() if density.size else 0.0
+    if max_d == 0:
+        fmt = "{:.0f}"
+    elif max_d < 0.01 or max_d >= 1000:
+        fmt = "{:.2e}"
+    elif max_d < 1:
+        fmt = "{:.4f}"
+    else:
+        fmt = "{:.2f}"
+ 
+    # Порог для выбора цвета текста — половина диапазона
+    text_threshold = max_d * 0.5
 
-# def calculate_and_plot_density_heatmap(
-#     points: List[Tuple[float, float]], 
-#     L: float,          # Ширина области (м)
-#     H: float,          # Высота области (м)
-#     n_cols: int,       # Количество столбцов (m)
-#     n_rows: int,       # Количество строк (n)
-#     output_path: str = "density_heatmap.png",
-#     dpi: int = 300     # DPI для высокого разрешения (300 - стандарт полиграфии, 600 - ультра)
-# ):
-#     """
-#     Считает плотность точек по ячейкам и сохраняет Heatmap в PNG.
-#     """
-#     if not points:
-#         print("Ошибка: Список точек пуст.")
-#         return
+    # Размер шрифта пропорционален размеру ячейки.
+    # Ориентируемся на МИНИМАЛЬНУЮ ячейку (крайние тонкие при дробной сетке),
+    # чтобы текст влез везде. Берём минимум по ширине и высоте.
+    # fig_w_inch, fig_h_inch = fig.get_size_inches()
+    # ax_bbox = ax.get_position()  # доля фигуры, занятая осями
+    # ax_w_inch = fig_w_inch * ax_bbox.width
+    # ax_h_inch = fig_h_inch * ax_bbox.height
 
-#     S_kadr = L * H
-    
-#     if S_kadr <= 0:
-#         print("Ошибка: Площадь области должна быть больше 0.")
-#         return
+    # min_cell_w_m = float(np.min(np.diff(x_edges_np)))
+    # min_cell_h_m = float(np.min(np.diff(y_edges_np)))
 
-#     # Извлекаем X и Y координаты
-#     x_coords = np.array([p[0] for p in points])
-#     y_coords = np.array([p[1] for p in points])
+    # # Размер ячейки в дюймах на фигуре
+    # cell_w_inch = ax_w_inch * (min_cell_w_m / L)
+    # cell_h_inch = ax_h_inch * (min_cell_h_m / H)
 
-#     # 1. Подсчет N_(i,j) - количества точек в каждой ячейке
-#     # np.histogram2d автоматически разбивает область на корзины (bins)
-#     # Обратите внимание: результат имеет форму (n_cols, n_rows), 
-#     # поэтому мы транспонируем (.T), чтобы получить матрицу (n_rows, n_cols),
-#     # где строки - это Y, а столбцы - это X (стандарт для матриц и изображений)
-#     N_matrix, x_edges, y_edges = np.histogram2d(
-#         x_coords, 
-#         y_coords, 
-#         bins=[n_cols, n_rows], 
-#         range=[[0, L], [0, H]]
-#     )
-#     N_matrix = N_matrix.T 
+    # # Длина строки (в символах) — учитываем формат аннотации
+    # sample_text = fmt.format(max_d if max_d > 0 else 0)
+    # n_chars = max(len(sample_text), 4)
 
-#     # 2. Вычисление плотности rho_(i,j) по формуле
-#     # rho = (N * n_cols * n_rows) / S_kadr
-#     density_matrix = (N_matrix * n_cols * n_rows) / S_kadr
+    # # Эмпирические коэффициенты:
+    # #  - ширина символа ≈ 0.6 высоты шрифта (в pt) → font_pt = (cell_w_inch * 72) / (n_chars * 0.6)
+    # #  - высота строки ≈ 1.2 размера шрифта     → font_pt = (cell_h_inch * 72) / 1.2
+    # font_by_w = (cell_w_inch * 72) / (n_chars * 0.6)
+    # font_by_h = (cell_h_inch * 72) / 1.5  # 1.5 даёт небольшой воздух
+    # font_size = max(5.0, min(14.0, min(font_by_w, font_by_h)))
 
-#     # 3. Визуализация
-#     # Задаем большой размер фигуры в дюймах (при dpi=300 это даст изображение 4800x3600 пикселей)
-#     fig_width = 16
-#     fig_height = fig_width * (H / L) if L > 0 else 12 # Сохраняем пропорции области
-#     fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=dpi)
+    fig_w_inch, fig_h_inch = fig.get_size_inches()
 
-#     # Рисуем heatmap
-#     # origin='lower' важен, чтобы ось Y (0) была внизу, а не вверху
-#     im = ax.imshow(
-#         density_matrix, 
-#         origin='lower', 
-#         extent=[0, L, 0, H], 
-#         cmap='viridis', # Можно заменить на 'jet', 'plasma' или 'inferno'
-#         aspect='auto',
-#         interpolation='nearest' # Четкие границы ячеек без размытия
-#     )
+    # Размер ячейки на КАРТИНКЕ в дюймах (а не в метрах!).
+    # В дробях фигуры: ширина одной ячейки = (доля осей по X) / n_cols_total
+    ax_bbox = ax.get_position()
+    ax_w_inch = fig_w_inch * ax_bbox.width
+    ax_h_inch = fig_h_inch * ax_bbox.height
 
-#     # Добавляем сетку по границам ячеек
-#     ax.set_xticks(x_edges, minor=True)
-#     ax.set_yticks(y_edges, minor=True)
-#     ax.grid(which='minor', color='white', linestyle='-', linewidth=1.5)
-#     # Убираем основные тики, оставляя только сетку
-#     ax.tick_params(which='minor', size=0)
-    
-#     # Настройка осей и заголовка
-#     ax.set_xlabel('X (м)', fontsize=14, fontweight='bold')
-#     ax.set_ylabel('Y (м)', fontsize=14, fontweight='bold')
-#     ax.set_title('Плотность точек фиксации информации $\\rho_{i,j}$', fontsize=18, fontweight='bold', pad=15)
+    cell_w_inch = ax_w_inch / n_cols_total
+    cell_h_inch = ax_h_inch / n_rows_total
 
-#     # Цветовая панель (Colorbar)
-#     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-#     cbar.set_label('Плотность (точек / м²)', fontsize=14, fontweight='bold')
-#     cbar.ax.tick_params(labelsize=12)
+    sample_text = fmt.format(max_d if max_d > 0 else 0)
+    n_chars = max(len(sample_text), 4)
 
-#     # Убираем лишние отступы и сохраняем
-#     plt.tight_layout()
-#     plt.savefig(output_path, dpi=dpi, bbox_inches='tight', pad_inches=0.2)
-#     plt.close(fig)
-    
-#     print(f"Heatmap успешно сохранен: {output_path}")
-#     print(f"Разрешение: {fig_width * dpi}x{int(fig_height * dpi)} пикселей")
-#     print(f"Мин. плотность: {density_matrix.min():.4f}, Макс. плотность: {density_matrix.max():.4f} точек/м²")
+    font_by_w = (cell_w_inch * 72) / (n_chars * 0.6)
+    font_by_h = (cell_h_inch * 72) / 1.5
+    font_size = max(5.0, min(14.0, min(font_by_w, font_by_h)))
 
+    for r in range(n_rows_total):
+        for c in range(n_cols_total):
+            cx = (x_edges_np[c] + x_edges_np[c + 1]) / 2
+            cy = (y_edges_np[r] + y_edges_np[r + 1]) / 2
+            val = density[r, c]
+            text_color = "white" if val > text_threshold else "black"
+            ax.text(
+                cx, cy,
+                fmt.format(val),
+                ha="center", va="center",
+                fontsize=font_size,
+                color="black",
+                fontweight="bold" if counts[r, c] > 0 else "normal",
+            )
+ 
+    # Рамки вокруг плотных ячеек
+    for r in range(n_rows_total):
+        for c in range(n_cols_total):
+            if counts[r, c] >= 2 and density[r, c] >= (density_threshold - 1e-12):
+                rect = mpatches.Rectangle(
+                    (x_edges_np[c], y_edges_np[r]),
+                    x_edges_np[c + 1] - x_edges_np[c],
+                    y_edges_np[r + 1] - y_edges_np[r],
+                    linewidth=2.5,
+                    edgecolor="black",
+                    facecolor="none",
+                    zorder=5,
+                )
+                ax.add_patch(rect)
+ 
+    # Точки поверх
+    if show_points and points:
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        ax.scatter(
+            xs, ys,
+            s=18,
+            c="blue",
+            edgecolors="white",
+            linewidths=0.7,
+            zorder=10,
+            alpha=0.85,
+        )
+ 
+    # Оси и заголовок
+    ax.set_xlim(0, L)
+    ax.set_ylim(0, H)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlabel("Ширина базового кадра, м", fontsize=11)
+    ax.set_ylabel("Высота базового кадра, м", fontsize=11)
+ 
+    threshold_label = (
+        f"медиана = {density_threshold:.4g}"
+        if threshold_method == "median"
+        else f"mean + {density_k}·σ = {density_threshold:.4g}"
+    )
+    # ax.set_title(
+    #     f"Тепловая карта плотности точек\n"
+    #     f"Сетка {n_cols}×{n_rows}  •  точек: {len(points)}  •  порог: {threshold_label}",
+    #     fontsize=12,
+    #     pad=12,
+    # )
+ 
+    # Колорбар (легенда)
+    # cbar = fig.colorbar(mesh, ax=ax, fraction=0.046, pad=0.02)
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-
-# # Генерируем случайные точки для теста (создаем "пятно" высокой плотности)
-# np.random.seed(42)
-
-# # 1000 точек разбросаны равномерно
-# pts_x = np.random.uniform(0, 100, 1000)
-# pts_y = np.random.uniform(0, 80, 1000)
-
-# # Добавляем 2000 точек в зону высокой плотности (например, в центре)
-# pts_x = np.concatenate([pts_x, np.random.normal(50, 5, 2000)])
-# pts_y = np.concatenate([pts_y, np.random.normal(40, 5, 2000)])
-
-# test_points = list(zip(pts_x, pts_y))
-
-# # Вызываем функцию 
-# calculate_and_plot_density_heatmap(
-#     points=test_points,
-#     L=100.0,     # 100 метров ширина
-#     H=80.0,      # 80 метров высота
-#     n_cols=10,    # 10 столбцов
-#     n_rows=8,     # 8 строк
-#     output_path="my_density_map.png",
-#     dpi=300       # Установите 600 для максимального качества (но файл будет тяжелым)
-# )
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="3%", pad=0.3)
+    cbar = fig.colorbar(mesh, cax=cax) 
+    cbar.set_label("Плотность, точек/м²", fontsize=11)
+ 
+    # Линия порога на колорбаре
+    if math.isfinite(density_threshold) and max_d > 0:
+        cbar.ax.axhline(density_threshold, color="black", linewidth=1.8)
+        cbar.ax.text(
+            1.5, density_threshold,
+            "", # порог текст
+            va="center", ha="left",
+            fontsize=9, fontweight="bold",
+            transform=cbar.ax.get_yaxis_transform(),
+        ) 
+ 
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+ 
+    return {
+        "output_path": output_path,
+        "density_matrix": density.tolist(),
+        "counts_matrix": counts.tolist(),
+        "n_cols_total": n_cols_total,
+        "n_rows_total": n_rows_total,
+        "density_mean": density_mean,
+        "density_std": density_std,
+        "density_threshold": density_threshold,
+        "threshold_method": threshold_method,
+        "nonempty_cells": int(nonempty.size),
+        "dense_cells": int(np.sum((counts >= 2) & (density >= density_threshold))),
+    }

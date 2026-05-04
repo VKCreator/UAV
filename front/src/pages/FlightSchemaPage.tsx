@@ -251,10 +251,15 @@ const FlightSchemaPage: React.FC<Props> = ({
 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = React.useState({ width: 550, height: 400 });
+  const containerOptimizationRef = React.useRef<HTMLDivElement>(null);
+  const [containerOptSize, setContainerOptSize] = React.useState({ width: 550, height: 400 });
 
   // Размеры для превью (как указано в условии)
   const PREVIEW_WIDTH = containerSize.width;
   const PREVIEW_HEIGHT = containerSize.height;
+
+  const PREVIEW_OPT_WIDTH = containerOptSize.width;
+  const PREVIEW_OPT_HEIGHT = containerOptSize.height;
 
   // ── Хелпер для выбора данных оптимизации ────────────────────────────────
   const getOptimizationData = (tab: number): Opt1TrajectoryData | null => {
@@ -283,7 +288,6 @@ const FlightSchemaPage: React.FC<Props> = ({
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const { width, height } = entry.contentRect;
-        console.log(width, height)
         setContainerSize({
           width: Math.floor(width),
           height: Math.floor(height)
@@ -292,6 +296,24 @@ const FlightSchemaPage: React.FC<Props> = ({
     });
 
     resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  // Отслеживаем реальный размер контейнера
+  React.useEffect(() => {
+    if (!containerOptimizationRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        setContainerOptSize({
+          width: Math.floor(width),
+          height: Math.floor(height)
+        });
+      }
+    });
+
+    resizeObserver.observe(containerOptimizationRef.current);
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -1310,28 +1332,19 @@ const FlightSchemaPage: React.FC<Props> = ({
                 {/* Сцена */}
                 <Box
                   flex={1}
-                  height={400}
-                  sx={{ borderRadius: 2, overflow: "hidden" }}
+                  minHeight={400}
+                  sx={{ width: "100%", height: "100%", p: "10px", cursor: "default" }}
+                  ref={containerOptimizationRef}
                 >
-                  {imageData ? (
-                    <SceneShower
-                      imageData={imageData}
-                      droneParams={droneParams}
-                      points={points}
-                      obstacles={obstacles}
-                      trajectoryData={currentOptimizationData}
-                      showView={() => { }}
-                      ref={null}
-                      showGrid={true}
-                      showUserTrajectory={false}
-                      showObstacles={true}
-                      showTaxonTrajectory={true}
-                      flightLineY={flightLineY ?? 0}
-                      weatherConditions={weatherConditions}
-                    />
-                  ) : (
-                    <Placeholder label="Нет изображения" />
-                  )}
+                  <ScenePreview
+                    {...commonProps}
+                    trajectoryData={currentOptimizationData}
+                    showUserTrajectory={false}
+                    showTaxonTrajectory={true}
+                    isLoading={!imageData}
+                    PREVIEW_WIDTH={PREVIEW_OPT_WIDTH}
+                    PREVIEW_HEIGHT={PREVIEW_OPT_HEIGHT}
+                  />
                 </Box>
 
                 {/* Метрики (логика та же, но берем из currentOptimizationData) */}
