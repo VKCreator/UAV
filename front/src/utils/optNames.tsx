@@ -56,11 +56,11 @@ export const getMethodFullRussian = (code: string): string => {
 export const getMethodFullRussianFromEnglish = (code: string): string => {
   switch (code) {
     case "low-d":
-      return "Низкой плотности точек";
+      return "Низкая плотность точек";
     case "high-d":
-      return "Высокой плотности точек";
+      return "Высокая плотность точек";
     case "mixed-d":
-      return "Смешанной плотности точек";
+      return "Смешанная плотности точек";
     default:
       return code; // Возвращаем исходный код, если совпадений нет
   }

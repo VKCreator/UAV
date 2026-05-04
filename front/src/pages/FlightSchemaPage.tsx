@@ -17,11 +17,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Button
+  Button,
+  Checkbox,
+  ToggleButton
 } from "@mui/material";
 import { IconButton, Tooltip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import FavoriteIcon from '@mui/icons-material/Favorite';
 import DownloadIcon from '@mui/icons-material/Download';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import PageContainer from "../components/layout/PageContainer";
@@ -29,13 +30,14 @@ import { ExifData } from "../types/common.types";
 import { DroneParams, Weather } from "../types/uav.types";
 
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import SceneShower from "../features/trajectory/components/SceneShower";
 import { Point, Polygon } from "../types/scene.types";
 import { Opt1TrajectoryData } from "../types/optTrajectory.types";
 import SceneViewer from "../features/storyboard/components/SceneStoryboardViewer";
 import { Storyboards } from "../types/storyboards.types";
 import { HelpIconTooltip } from "../components/ui/HelpIconTooltip";
 import StoryboardTimeline from "../features/storyboard/components/StoryboardTimeline";
+
+import ChangeHistoryIcon from '@mui/icons-material/ChangeHistory';
 
 import { DateToPrettyLocalDateTime } from "../utils/dateUtils";
 
@@ -68,9 +70,9 @@ function Placeholder({ label }: { label: string }) {
   return (
     <Box
       sx={{
-        border: "1px dashed",
-        borderColor: "divider",
-        borderRadius: 1,
+        // border: "1px dashed",
+        // borderColor: "divider",
+        // borderRadius: 1,
         height: "100%",
         minHeight: 160,
         display: "flex",
@@ -254,12 +256,20 @@ const FlightSchemaPage: React.FC<Props> = ({
   const containerOptimizationRef = React.useRef<HTMLDivElement>(null);
   const [containerOptSize, setContainerOptSize] = React.useState({ width: 550, height: 400 });
 
+  const containerLayerRef = React.useRef<HTMLDivElement>(null);
+  const [containerLayerSize, setContainerLayerSize] = React.useState({ width: 550, height: 350 });
+
+  const [showNavTriangles, setShowNavTriangles] = React.useState(false);
+
   // Размеры для превью (как указано в условии)
   const PREVIEW_WIDTH = containerSize.width;
   const PREVIEW_HEIGHT = containerSize.height;
 
   const PREVIEW_OPT_WIDTH = containerOptSize.width;
   const PREVIEW_OPT_HEIGHT = containerOptSize.height;
+
+  const PREVIEW_LAYER_WIDTH = containerLayerSize.width;
+  const PREVIEW_LAYER_HEIGHT = containerLayerSize.height;
 
   // ── Хелпер для выбора данных оптимизации ────────────────────────────────
   const getOptimizationData = (tab: number): Opt1TrajectoryData | null => {
@@ -314,6 +324,23 @@ const FlightSchemaPage: React.FC<Props> = ({
     });
 
     resizeObserver.observe(containerOptimizationRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  React.useEffect(() => {
+    if (!containerLayerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        setContainerLayerSize({
+          width: Math.floor(width),
+          height: Math.floor(height)
+        });
+      }
+    });
+
+    resizeObserver.observe(containerLayerRef.current);
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -430,7 +457,13 @@ const FlightSchemaPage: React.FC<Props> = ({
   };
 
   const [expanded, setExpanded] = React.useState<string | false>('panel1');
-  const [loading, setLoading] = React.useState<boolean>(false);
+
+  const [loadings, setLoadings] = React.useState<any>({
+    userScene: false,
+    optimal1Scene: false,
+    optimal2Scene: false,
+    optimal3Scene: false
+  });
 
   const handleChange =
     (panel: string) => (event: React.SyntheticEvent, newExpanded: boolean) => {
@@ -461,6 +494,13 @@ const FlightSchemaPage: React.FC<Props> = ({
         }
         : {},
     };
+  };
+
+  const handleLoadingChange = (key: string, value: boolean) => {
+    setLoadings(prev => ({
+      ...prev,
+      [key]: value
+    }));
   };
 
   const handleDownloadHeatmap = async () => {
@@ -495,7 +535,7 @@ const FlightSchemaPage: React.FC<Props> = ({
         (imageData.height - p.y) * meterPerPixelY,
       ]);
 
-      setLoading(true);
+      handleLoadingChange("userScene", true);
 
       const blob = await trajectoryApi.getDensityHeatmap({
         points: pointsPayload,
@@ -531,12 +571,14 @@ const FlightSchemaPage: React.FC<Props> = ({
       // здесь можно показать toast/alert юзеру
     }
     finally {
-      setLoading(false);
+      handleLoadingChange("userScene", false);
     }
   };
 
   const handleDownload = async () => {
-    setLoading(true);
+    const setLoadingUser = (val: boolean) => setLoadings(prev => ({ ...prev, userScene: val }));
+
+    setLoadingUser(true);
 
     let exportImage = image;
     if (imageData?.imageUrl) {
@@ -569,18 +611,84 @@ const FlightSchemaPage: React.FC<Props> = ({
       showUserTrajectory: true,
       showTaxonTrajectory: false,
       showNavTriangles: false,
-
-      PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
-      PREVIEW_HEIGHT: 400,
     }
 
     await downloadScene(
-      { ...params, setLoading },
+      { ...params, setLoadingUser },
       "trajectory_schema.jpeg",
     );
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
+  const getOptimizationLoadingSetter = (tab: number) => {
+    // tab 0 -> 'optimal1Scene'
+    // tab 1 -> 'optimal2Scene'
+    // tab 2 -> 'optimal3Scene'
+    const key = `optimal${tab + 1}Scene`;
+
+    return (val: boolean) => setLoadings(prev => ({
+      ...prev,
+      [key]: val // Обновляем нужный ключ
+    }));
+  };
+
+  const getOptimizationLoading = (tab: number) => {
+    // tab 0 -> 'optimal1Scene'
+    // tab 1 -> 'optimal2Scene'
+    // tab 2 -> 'optimal3Scene'
+    const key = `optimal${tab + 1}Scene`;
+
+    return loadings[key];
+  };
+
+  const handleDownloadOptSchema = async () => {
+    const currentData = getOptimizationData(optimizationTab);
+
+    if (!currentData) return; // Если данных нет, выходим
+
+    // 2. Получаем сеттер лоадера для ЭТОЙ ЖЕ вкладки
+    const setLoading = getOptimizationLoadingSetter(optimizationTab);
+
+    setLoading(true); // Включаем лоадер (например, для optimal2Scene)
+
+    let exportImage = image;
+    if (imageData?.imageUrl) {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = imageData.imageUrl;
+      await new Promise((resolve, reject) => {
+        img.onload = () => {
+          exportImage = img;
+          resolve(img);
+        };
+        img.onerror = reject;
+      });
+    }
+
+    let params = {
+      image: exportImage,
+      width_m: droneParams.frameWidthBase,
+      height_m: droneParams.frameHeightBase,
+      GRID_COLS: droneParams.frameWidthBase / droneParams.frameWidthPlanned,
+      GRID_ROWS: droneParams.frameHeightBase / droneParams.frameHeightPlanned,
+
+      flightLineY: flightLineY,
+      obstacles: obstacles,
+      points: points,
+      trajectoryData: currentOptimizationData,
+
+      showGrid: true,
+      showObstacles: true,
+      showUserTrajectory: false,
+      showTaxonTrajectory: true,
+      showNavTriangles: true,
+      showFullNavTriangles: showNavTriangles
+    }
+
+    await downloadScene(
+      { ...params, setLoading },
+      "opt_trajectory_schema.jpeg",
+    );
+  };
 
   return (
     <PageContainer
@@ -626,7 +734,7 @@ const FlightSchemaPage: React.FC<Props> = ({
               {`Дата создания: ${DateToPrettyLocalDateTime(createdAt) || "-"}`}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {`Автор: ${author.last_name} ${author.first_name[0]}. ${author.middle_name[0]}.`}
+              {`Автор: ${author.last_name ?? ''} ${author.first_name?.[0] ?? ''}. ${author.middle_name?.[0] ?? ''}.`}
             </Typography>
           </Box>
         </Box>
@@ -637,49 +745,68 @@ const FlightSchemaPage: React.FC<Props> = ({
             1. Информация о базовом слое
         ═══════════════════════════════════════════════════════════════════ */}
         <SectionBox title="Информация о базовом слое">
-          <Stack direction="row" spacing={2}>
-            <Box
-              flex={1}
-              sx={{
-                borderRadius: 1,
-                height: 300,
-                backgroundColor: "#D3D3D399",
-              }}
-            >
-              {imageData ? (
-                <img
-                  src={imageData.imageUrl}
-                  alt="Фото базового слоя"
-                  style={{
+          <Grid container spacing={2}>
+            {/* Левая колонка: Сцена */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box
+                flex={1}
+                sx={{
+                  width: "100%",
+                  minHeight: 350,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  position: "relative",
+                  overflow: "hidden"
+                }}
+                ref={containerLayerRef}
+              >
+                <Box
+                  sx={{
+                    cursor: "default",
                     width: "100%",
                     height: "100%",
-                    objectFit: "contain",
+                    p: "10px"
                   }}
-                />
-              ) : (
-                <Placeholder label="Нет данных" />
-              )}
-            </Box>
-
-            <Box flex={1}>
+                >
+                  {imageData ? (
+                    <ScenePreview
+                      {...commonProps}
+                      trajectoryData={null}
+                      showUserTrajectory={false}
+                      showTaxonTrajectory={false}
+                      showObstacles={false}
+                      showLine={false}
+                      showGrid={false}
+                      isLoading={false}
+                      PREVIEW_WIDTH={PREVIEW_LAYER_WIDTH - 20}
+                      PREVIEW_HEIGHT={PREVIEW_LAYER_HEIGHT - 20}
+                      isShowView={false}
+                      weatherConditions={null}
+                    />
+                  ) : (
+                    <Placeholder label="Нет данных" />
+                  )}
+                </Box>
+              </Box>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Paper
                 elevation={1}
                 variant="outlined"
-                sx={{ p: 2, height: "100%", background: "transparent" }}
+                sx={{ p: 2, height: "100%", background: "transparent", display: 'flex', flexDirection: 'column' }}
               >
-                <Stack spacing={2} height="100%">
-                  <Typography variant="subtitle1">
-                    Метаданные изображения
-                  </Typography>
+                <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                  Метаданные изображения
+                </Typography>
+                <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
                   {hasExifData ? (
-                    <Grid container spacing={10} height="100%">
-                      <Grid size={{ xs: 6 }}>
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
                         <Box
                           display="flex"
                           flexDirection="column"
-                          height="100%"
-                          justifyContent="space-between"
-                          gap={1}
+                          gap={2}
                         >
                           <Typography
                             variant="body2"
@@ -717,20 +844,19 @@ const FlightSchemaPage: React.FC<Props> = ({
                             <strong>Производитель:</strong>{" "}
                             {renderValue(exifData[0]?.make)}
                           </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        <Box
-                          display="flex"
-                          flexDirection="column"
-                          height="100%"
-                          justifyContent="space-between"
-                          gap={1}
-                        >
                           <Typography variant="body2">
                             <strong>Модель:</strong>{" "}
                             {renderValue(exifData[0]?.model)}
                           </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Box
+                          display="flex"
+                          flexDirection="column"
+                          gap={2}
+                        >
+
                           <Typography variant="body2">
                             <strong>Фокусное расстояние:</strong>{" "}
                             {renderValue(exifData[0]?.focalLength, "мм")}
@@ -754,16 +880,24 @@ const FlightSchemaPage: React.FC<Props> = ({
                             <strong>Ориентация:</strong>{" "}
                             {renderValue(exifData[0]?.orientation)}
                           </Typography>
+                          <Typography variant="body2">
+                            <strong>Относ. высота:</strong>{" "}
+                            {renderValue(exifData[0]?.relativeAltitude, "м")}
+                          </Typography>
+                          <Typography variant="body2">
+                            <strong>Расст. до объекта:</strong>{" "}
+                            {renderValue(exifData[0]?.subjectDistance, "м")}
+                          </Typography>
                         </Box>
                       </Grid>
                     </Grid>
                   ) : (
                     <Placeholder label="Нет данных" />
                   )}
-                </Stack>
+                </Box>
               </Paper>
-            </Box>
-          </Stack>
+            </Grid>
+          </Grid>
         </SectionBox>
 
         <Divider />
@@ -997,7 +1131,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                     trajectoryData={null}
                     showUserTrajectory={true}
                     showTaxonTrajectory={false}
-                    isLoading={loading}
+                    isLoading={loadings.userScene}
                     PREVIEW_WIDTH={PREVIEW_WIDTH - 20}
                     PREVIEW_HEIGHT={PREVIEW_HEIGHT - 20}
                     isShowView={false}
@@ -1293,7 +1427,35 @@ const FlightSchemaPage: React.FC<Props> = ({
         <SectionBox
           title={
             <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
-              <Typography variant="h6">Оптимизация траектории</Typography>
+              <Box display="flex" alignItems="center" gap={1}>
+                <Typography variant="h6">Оптимизация траектории</Typography>
+                {weatherConditions.isUse && (<Tooltip title="Навигационные треугольники">
+                  <ToggleButton
+                    value="triangles"
+                    selected={showNavTriangles}
+                    onChange={() => setShowNavTriangles(!showNavTriangles)}
+                    size="small"
+                    sx={{
+                      p: 0.5,
+                      border: 'none', // Убираем рамку, чтобы выглядело как иконка
+                      '&.Mui-selected': {
+                        backgroundColor: 'primary.dark', // Подсветка при выборе (опционально)
+                        color: 'white',
+                      }
+                    }}
+                    disabled={!weatherConditions.isUse}
+                  >
+                    <ChangeHistoryIcon fontSize="small" />
+                  </ToggleButton>
+                </Tooltip>
+                )}
+                <Tooltip title="Скачать схему">
+                  <IconButton component="span" size="small" color="primary" onClick={handleDownloadOptSchema} disabled={!currentOptimizationData}>
+                    <DownloadIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+
               <Chip
                 label={`Приоритетная траектория: ${getMethodFullRussianFromEnglish(priorityMethod) || 'Не выбран'}`}
                 color="success"
@@ -1306,7 +1468,7 @@ const FlightSchemaPage: React.FC<Props> = ({
           <Tabs
             value={optimizationTab}
             onChange={(_, v) => setOptimizationTab(v)}
-            sx={{ borderBottom: 1, borderColor: "divider" }}
+            sx={{ borderBottom: 1, borderColor: "divider", overflowX: "auto" }}
           >
             {/* Оптимальная (НПТ) */}
             <Tab
@@ -1325,47 +1487,39 @@ const FlightSchemaPage: React.FC<Props> = ({
 
           </Tabs>
 
-          <Box mt={2} minHeight={400} maxHeight={400}>
+          <Box mt={2} minHeight={340}>
             {/* Отрисовка активной вкладки оптимизации */}
             {currentOptimizationData ? (
-              <Stack direction="row" spacing={2}>
-                {/* Сцена */}
-                <Box
-                  flex={1}
-                  minHeight={400}
-                  sx={{ width: "100%", height: "100%", p: "10px", cursor: "default" }}
-                  ref={containerOptimizationRef}
-                >
-                  <ScenePreview
-                    {...commonProps}
-                    trajectoryData={currentOptimizationData}
-                    showUserTrajectory={false}
-                    showTaxonTrajectory={true}
-                    isLoading={!imageData}
-                    PREVIEW_WIDTH={PREVIEW_OPT_WIDTH}
-                    PREVIEW_HEIGHT={PREVIEW_OPT_HEIGHT}
-                  />
-                </Box>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Box ref={containerOptimizationRef} sx={{ height: { xs: 400, md: 450 } }}>
+                    <ScenePreview
+                      {...commonProps}
+                      trajectoryData={currentOptimizationData}
+                      showUserTrajectory={false}
+                      showTaxonTrajectory={true}
+                      isLoading={getOptimizationLoading(optimizationTab)}
+                      PREVIEW_WIDTH={PREVIEW_OPT_WIDTH}
+                      PREVIEW_HEIGHT={PREVIEW_OPT_HEIGHT}
+                      isShowView={false}
+                      showNavigationTriangles={showNavTriangles}
 
+                    />
+                  </Box>
+                </Grid>
                 {/* Метрики (логика та же, но берем из currentOptimizationData) */}
-                <Box
-                  flex={1}
-                  component={Paper}
-                  elevation={1}
-                  variant="outlined"
-                  sx={{
-                    p: 2, background: "transparent", height: 400, // Фиксированная высота
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <Stack spacing={1}> {/* Stack для отступа между двумя аккордеонами */}
-
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Box
+                    sx={{
+                      height: "100%",         // Занимает всю высоту ячейки Grid
+                      display: "flex",
+                      flexDirection: "column", // Аккордеоны друг под другом
+                      overflow: "hidden",      // Важно: чтобы скролл был внутри, а не всей страницы
+                    }}
+                  >
                     {/* 1. Результаты оптимизации */}
                     <Accordion defaultExpanded={true} expanded={expanded === 'panel1'} onChange={handleChange('panel1')} elevation={0}
                       sx={{
-                        mt: 1,
                         '&:not(:last-of-type)': {
                           borderBottom: '1px solid',
                           borderColor: '#ddd',
@@ -1377,8 +1531,8 @@ const FlightSchemaPage: React.FC<Props> = ({
                         </Typography>
                       </AccordionSummary>
                       <AccordionDetails sx={{
-                        overflowY: 'scroll', // Включаем скролл
-                        maxHeight: 230,   // Максимальная высота контента (подберите нужную цифру)
+                        flex: 1,
+                        overflowY: 'auto', // Включаем скролл
                       }}>
                         {/* Ваш старый контент */}
                         <Stack spacing={2}>
@@ -1430,7 +1584,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                           <TableContainer
                             component={Paper}
                             variant="outlined"
-                            sx={{ background: "transparent" }}
+                            sx={{ background: "transparent", maxHeight: 100 }}
                           >
                             <Table size="small">
                               <TableHead>
@@ -1556,11 +1710,9 @@ const FlightSchemaPage: React.FC<Props> = ({
                       </AccordionDetails>
                     </Accordion>
 
-                  </Stack>
-
-
-                </Box>
-              </Stack>
+                  </Box>
+                </Grid>
+              </Grid>
             ) : (
               <Placeholder label="Нет данных" />
             )}
@@ -1613,12 +1765,24 @@ const FlightSchemaPage: React.FC<Props> = ({
             <Tab label="Оптимальная (Комби)" disabled={!storyboardsData?.optimal_combi?.applied} /> */}
           </Tabs>
 
-          <Box mt={2} height={400}>
 
-            {/* ── Точечная ── */}
-            {storyboardTab === 0 && storyboardsData?.point?.applied && (
-              <Box display="flex" flexDirection="row" gap={2} height="100%">
-                <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} justifyContent="center" alignItems="center" display="flex" sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }}>
+          {/* ── Точечная ── */}
+          {storyboardTab === 0 && storyboardsData?.point?.applied && (
+            <Grid container spacing={2}>
+              <Grid
+                size={{ xs: 12, md: 6 }}
+                sx={{ display: 'flex', flexDirection: 'column' }}
+              >
+                <Box sx={{
+                  flexGrow: 1,
+                  background: "#D3D3D399",
+                  borderRadius: 1,
+                  overflow: "hidden",
+                  minHeight: { xs: 300, md: 400 }, // Адаптивная высота
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center"
+                }}>
                   <SceneViewer
                     imageData={imageData}
                     points={points}
@@ -1632,151 +1796,173 @@ const FlightSchemaPage: React.FC<Props> = ({
                     width_m={droneParams?.frameWidthBase || 0}
                     height_m={droneParams?.frameHeightBase || 0}
                   />
+
                 </Box>
-                <Box flex={1} p={2} borderRadius={1} component={Paper} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
-                  <Stack spacing={2}>
-                    <Typography variant="subtitle1">Свойства раскадровки</Typography>
-                    <StoryboardMetrics data={storyboardsData.point} />
-                  </Stack>
-                  <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                    <StoryboardTimeline frames={framesUrlsPointBased ?? []} />
+              </Grid>
+              <Grid
+                size={{ xs: 12, md: 6 }}
+                sx={{ display: 'flex', flexDirection: 'column' }}
+              >
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 1,
+                    background: "transparent",
+                    height: { xs: 'auto', md: 400 }, // На десктопе фиксированная, на моб. авто
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden"
+                  }}
+                >
+                  <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+                    <Stack spacing={2}>
+                      <Typography variant="subtitle1">Свойства раскадровки</Typography>
+                      <StoryboardMetrics data={storyboardsData.point} />
+                    </Stack>
                   </Box>
+
+                  <Box sx={{ mt: 2, pt: 1 }}>
+                    <Box sx={{ overflowX: "auto", overflowY: "hidden" }}>
+                      <StoryboardTimeline frames={framesUrlsPointBased ?? []} />
+                    </Box>
+                  </Box>
+                </Paper>
+              </Grid>
+            </Grid>
+          )}
+
+          {/* ── Рекомендуемая ── */}
+          {storyboardTab === 1 && storyboardsData?.recommended?.applied && (
+            <Box display="flex" flexDirection="row" gap={2} height="100%">
+              <Box flex={0.5} minHeight={400} maxHeight={400} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} minWidth={550} justifyContent="center" alignItems="center" display="flex">
+                <SceneViewer
+                  imageData={imageData}
+                  pointsRecommended={pointsRecommended}
+                  obstacles={obstacles}
+                  trajectoryData={trajectoryData}
+                  showPoints={true} showObstacles={false} showTaxons={false}
+                  frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
+                  applyPointBasedStoryboard={false}
+                  applyRecommendedStoryboard={true}
+                  applyOptimalStoryboard={false}
+                  width_m={droneParams?.frameWidthBase || 0}
+                  height_m={droneParams?.frameHeightBase || 0}
+                />
+              </Box>
+              <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
+                <Stack spacing={2}>
+                  <Typography variant="subtitle1">Свойства раскадровки</Typography>
+                  <StoryboardMetrics data={storyboardsData.recommended} />
+                </Stack>
+                <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
+                  <StoryboardTimeline frames={framesUrlsRecommended ?? []} />
                 </Box>
               </Box>
-            )}
+            </Box>
+          )}
 
-            {/* ── Рекомендуемая ── */}
-            {storyboardTab === 1 && storyboardsData?.recommended?.applied && (
-              <Box display="flex" flexDirection="row" gap={2} height="100%">
-                <Box flex={0.5} minHeight={400} maxHeight={400} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} minWidth={550} justifyContent="center" alignItems="center" display="flex">
-                  <SceneViewer
-                    imageData={imageData}
-                    pointsRecommended={pointsRecommended}
-                    obstacles={obstacles}
-                    trajectoryData={trajectoryData}
-                    showPoints={true} showObstacles={false} showTaxons={false}
-                    frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
-                    applyPointBasedStoryboard={false}
-                    applyRecommendedStoryboard={true}
-                    applyOptimalStoryboard={false}
-                    width_m={droneParams?.frameWidthBase || 0}
-                    height_m={droneParams?.frameHeightBase || 0}
-                  />
-                </Box>
-                <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
-                  <Stack spacing={2}>
-                    <Typography variant="subtitle1">Свойства раскадровки</Typography>
-                    <StoryboardMetrics data={storyboardsData.recommended} />
-                  </Stack>
-                  <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                    <StoryboardTimeline frames={framesUrlsRecommended ?? []} />
-                  </Box>
+          {/* ── Оптимальная ── */}
+          {storyboardTab === 2 && storyboardsData?.optimal?.applied && (
+            <Box display="flex" flexDirection="row" gap={2} height="100%">
+              <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
+                <SceneViewer
+                  imageData={imageData}
+                  pointsOptimal={pointsOptimal ?? []}
+                  obstacles={obstacles}
+                  trajectoryData={trajectoryData}
+                  showPoints={true} showObstacles={false} showTaxons={true}
+                  frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
+                  applyPointBasedStoryboard={false}
+                  applyRecommendedStoryboard={false}
+                  applyOptimalStoryboard={true}
+                  width_m={droneParams?.frameWidthBase || 0}
+                  height_m={droneParams?.frameHeightBase || 0}
+                />
+              </Box>
+              <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
+                <Stack spacing={2}>
+                  <Typography variant="subtitle1">Свойства раскадровки (НПТ)</Typography>
+                  <StoryboardMetrics data={storyboardsData.optimal} />
+                </Stack>
+                <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
+                  <StoryboardTimeline frames={framesUrlsOptimal ?? []} />
                 </Box>
               </Box>
-            )}
+            </Box>
+          )}
 
-            {/* ── Оптимальная ── */}
-            {storyboardTab === 2 && storyboardsData?.optimal?.applied && (
-              <Box display="flex" flexDirection="row" gap={2} height="100%">
-                <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
-                  <SceneViewer
-                    imageData={imageData}
-                    pointsOptimal={pointsOptimal ?? []}
-                    obstacles={obstacles}
-                    trajectoryData={trajectoryData}
-                    showPoints={true} showObstacles={false} showTaxons={true}
-                    frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
-                    applyPointBasedStoryboard={false}
-                    applyRecommendedStoryboard={false}
-                    applyOptimalStoryboard={true}
-                    width_m={droneParams?.frameWidthBase || 0}
-                    height_m={droneParams?.frameHeightBase || 0}
-                  />
-                </Box>
-                <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
-                  <Stack spacing={2}>
-                    <Typography variant="subtitle1">Свойства раскадровки (НПТ)</Typography>
-                    <StoryboardMetrics data={storyboardsData.optimal} />
-                  </Stack>
-                  <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                    <StoryboardTimeline frames={framesUrlsOptimal ?? []} />
-                  </Box>
+          {/* ── Оптимальная (Плотная) ── */}
+          {storyboardTab === 3 && storyboardsData?.optimal_big_density?.applied && (
+            <Box display="flex" flexDirection="row" gap={2} height="100%">
+              <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
+                <SceneViewer
+                  imageData={imageData}
+                  pointsOptimal={pointsOptimal2 ?? []}
+                  obstacles={obstacles}
+                  trajectoryData={trajectoryData2} // Используем приоритетный или соответствующий
+                  showPoints={true} showObstacles={false} showTaxons={true}
+                  frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
+                  applyPointBasedStoryboard={false}
+                  applyRecommendedStoryboard={false}
+                  applyOptimalStoryboard={true} // Флаг визуализации прямоугольников
+                  width_m={droneParams?.frameWidthBase || 0}
+                  height_m={droneParams?.frameHeightBase || 0}
+                />
+              </Box>
+              <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
+                <Stack spacing={2}>
+                  <Typography variant="subtitle1">Свойства раскадровки (ВПТ)</Typography>
+                  <StoryboardMetrics data={storyboardsData.optimal_big_density} />
+                </Stack>
+                <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
+                  <StoryboardTimeline frames={framesUrlsOptimal2 ?? []} />
                 </Box>
               </Box>
-            )}
+            </Box>
+          )}
 
-            {/* ── Оптимальная (Плотная) ── */}
-            {storyboardTab === 3 && storyboardsData?.optimal_big_density?.applied && (
-              <Box display="flex" flexDirection="row" gap={2} height="100%">
-                <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
-                  <SceneViewer
-                    imageData={imageData}
-                    pointsOptimal={pointsOptimal2 ?? []}
-                    obstacles={obstacles}
-                    trajectoryData={trajectoryData2} // Используем приоритетный или соответствующий
-                    showPoints={true} showObstacles={false} showTaxons={true}
-                    frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
-                    applyPointBasedStoryboard={false}
-                    applyRecommendedStoryboard={false}
-                    applyOptimalStoryboard={true} // Флаг визуализации прямоугольников
-                    width_m={droneParams?.frameWidthBase || 0}
-                    height_m={droneParams?.frameHeightBase || 0}
-                  />
-                </Box>
-                <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
-                  <Stack spacing={2}>
-                    <Typography variant="subtitle1">Свойства раскадровки (ВПТ)</Typography>
-                    <StoryboardMetrics data={storyboardsData.optimal_big_density} />
-                  </Stack>
-                  <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                    <StoryboardTimeline frames={framesUrlsOptimal2 ?? []} />
-                  </Box>
+          {/* ── Оптимальная (Комби) ── */}
+          {storyboardTab === 4 && storyboardsData?.optimal_combi?.applied && (
+            <Box display="flex" flexDirection="row" gap={2} height="100%">
+              <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
+                <SceneViewer
+                  imageData={imageData}
+                  pointsOptimal={pointsOptimal3 ?? []}
+                  obstacles={obstacles}
+                  trajectoryData={trajectoryData3}
+                  showPoints={true} showObstacles={false} showTaxons={true}
+                  frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
+                  applyPointBasedStoryboard={false}
+                  applyRecommendedStoryboard={false}
+                  applyOptimalStoryboard={true}
+                  width_m={droneParams?.frameWidthBase || 0}
+                  height_m={droneParams?.frameHeightBase || 0}
+                />
+              </Box>
+              <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display=" flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
+                <Stack spacing={2}>
+                  <Typography variant="subtitle1">Свойства раскадровки (СПТ)</Typography>
+                  <StoryboardMetrics data={storyboardsData.optimal_combi} />
+                </Stack>
+                <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
+                  <StoryboardTimeline frames={framesUrlsOptimal3 ?? []} />
                 </Box>
               </Box>
+
+            </Box>
+          )}
+
+          {/* Placeholder if tab not active or no data */}
+          {!(
+            (storyboardTab === 0 && storyboardsData?.point?.applied) ||
+            (storyboardTab === 1 && storyboardsData?.recommended?.applied) ||
+            (storyboardTab === 2 && storyboardsData?.optimal?.applied) ||
+            (storyboardTab === 3 && storyboardsData?.optimal_big_density?.applied) ||
+            (storyboardTab === 4 && storyboardsData?.optimal_combi?.applied)
+          ) && (
+              <Placeholder label="Нет данных" />
             )}
-
-            {/* ── Оптимальная (Комби) ── */}
-            {storyboardTab === 4 && storyboardsData?.optimal_combi?.applied && (
-              <Box display="flex" flexDirection="row" gap={2} height="100%">
-                <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
-                  <SceneViewer
-                    imageData={imageData}
-                    pointsOptimal={pointsOptimal3 ?? []}
-                    obstacles={obstacles}
-                    trajectoryData={trajectoryData3}
-                    showPoints={true} showObstacles={false} showTaxons={true}
-                    frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
-                    applyPointBasedStoryboard={false}
-                    applyRecommendedStoryboard={false}
-                    applyOptimalStoryboard={true}
-                    width_m={droneParams?.frameWidthBase || 0}
-                    height_m={droneParams?.frameHeightBase || 0}
-                  />
-                </Box>
-                <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display=" flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
-                  <Stack spacing={2}>
-                    <Typography variant="subtitle1">Свойства раскадровки (СПТ)</Typography>
-                    <StoryboardMetrics data={storyboardsData.optimal_combi} />
-                  </Stack>
-                  <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                    <StoryboardTimeline frames={framesUrlsOptimal3 ?? []} />
-                  </Box>
-                </Box>
-
-              </Box>
-            )}
-
-            {/* Placeholder if tab not active or no data */}
-            {!(
-              (storyboardTab === 0 && storyboardsData?.point?.applied) ||
-              (storyboardTab === 1 && storyboardsData?.recommended?.applied) ||
-              (storyboardTab === 2 && storyboardsData?.optimal?.applied) ||
-              (storyboardTab === 3 && storyboardsData?.optimal_big_density?.applied) ||
-              (storyboardTab === 4 && storyboardsData?.optimal_combi?.applied)
-            ) && (
-                <Placeholder label="Нет данных" />
-              )}
-          </Box>
         </SectionBox>
 
         <Divider />

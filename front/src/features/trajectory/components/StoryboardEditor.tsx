@@ -2,14 +2,11 @@ import { FC, useState, JSX, useEffect, useMemo } from "react";
 import {
   Box,
   Typography,
-  Divider,
   Button,
   IconButton,
   Stack,
   CircularProgress,
-  TextField,
   ToggleButton,
-  Paper,
   Alert,
   Tooltip,
 } from "@mui/material";
@@ -142,7 +139,7 @@ const cropFrameKonva = (
       },
       "image/jpeg",
       1,
-    ); // or png?
+    );
   });
 };
 
@@ -205,7 +202,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   const isOptimal1Method = activeType === "optimal";
   const isOptimal2Method = activeType === "optimal_big_density";
   const isOptimal3Method = activeType === "optimal_combi";
-  const isOptimal = isOptimal1Method || isOptimal2Method || isOptimal3Method;
   const isPointBased = activeType === "point";
 
   const activeStoryboardData = activeType
@@ -260,7 +256,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   };
 
   const extractRecommendedFrames = async () => {
-    // console.error(img);
     if (!img) return;
 
     if (pointsRecommended.length === 0) {
@@ -302,7 +297,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   };
 
   const extractOptimalFrames = async () => {
-    // console.error(img);
     if (!img || !trajectoryData) return;
 
     const metersToPxWidth = imageData.width / droneParams.frameWidthBase;
@@ -324,10 +318,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
 
     const totalBytes = blobs.reduce((sum, b) => sum + b.size, 0);
 
-    console.log("Размер одного кадра (пример):", blobs[0]?.size, "байт");
-    console.log("Общий размер:", totalBytes, "байт");
-    console.log("Общий размер (MB):", (totalBytes / 1024 / 1024).toFixed(2));
-
     setStoryboardsData((prev) => ({
       ...prev,
       optimal: {
@@ -344,7 +334,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   };
 
   const extractOptimal2Frames = async () => {
-    // console.error(img);
     if (!img || !trajectoryData2) return;
 
     const metersToPxWidth = imageData.width / droneParams.frameWidthBase;
@@ -366,10 +355,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
 
     const totalBytes = blobs.reduce((sum, b) => sum + b.size, 0);
 
-    console.log("Размер одного кадра (пример):", blobs[0]?.size, "байт");
-    console.log("Общий размер:", totalBytes, "байт");
-    console.log("Общий размер (MB):", (totalBytes / 1024 / 1024).toFixed(2));
-
     setStoryboardsData((prev) => ({
       ...prev,
       optimal_big_density: {
@@ -386,7 +371,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   };
 
   const extractOptimal3Frames = async () => {
-    // console.error(img);
     if (!img || !trajectoryData3) return;
 
     const metersToPxWidth = imageData.width / droneParams.frameWidthBase;
@@ -407,10 +391,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     );
 
     const totalBytes = blobs.reduce((sum, b) => sum + b.size, 0);
-
-    console.log("Размер одного кадра (пример):", blobs[0]?.size, "байт");
-    console.log("Общий размер:", totalBytes, "байт");
-    console.log("Общий размер (MB):", (totalBytes / 1024 / 1024).toFixed(2));
 
     setStoryboardsData((prev) => ({
       ...prev,
@@ -481,7 +461,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
         const pointsArray = pointsRecommended.map((p: any) => {
           const xMeters = p.x / metersToPxWidth;
 
-          // // инвертируем Y и переводим в метры
+          // инвертируем Y и переводим в метры
           const yMeters = (imageData.height - p.y) / metersToPxHeight;
 
           return [xMeters, yMeters];
@@ -784,13 +764,11 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
 
   useEffect(() => {
     if (!selection) {
-      // setPointsRecommended([]);
       return;
     }
 
     const normalizedSelection = normalizeSelection(selection);
     if (!normalizedSelection) {
-      // setPointsRecommended([]);
       return;
     }
 
@@ -809,29 +787,14 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
       setIsNeedUpdateRecommended(true);
   }, [selection, framesUrlsRecommended.length]);
 
-  // const pointsRecommended = useMemo(() => {
-  //   if (!selection) return [];
-
-  //   const normalizedSelection = normalizeSelection(selection);
-  //   if (!normalizedSelection) return [];
-
-  //   return generateRecommendedGridInSelection(normalizedSelection);
-  // }, [
-  //   selection,
-  //   frameWidthPx,
-  //   frameHeightPx,
-  //   storyboardsData?.recommended?.step_x,
-  //   storyboardsData?.recommended?.step_y,
-  // ]);
 
   const isDisabledApplyButton = () => {
     if (isPointBased) return points.length === 0;
     if (isRecommended) return !selection;
-    // Подумать как быть при недостижимых точках!
+
     if (isOptimal1Method) return !trajectoryData || trajectoryData.B.length === 0;
     if (isOptimal2Method) return !trajectoryData2 || trajectoryData2.B.length === 0;
     if (isOptimal3Method) return !trajectoryData3 || trajectoryData3.B.length === 0;
-
   };
 
 
@@ -885,15 +848,15 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            backgroundColor: "rgba(255, 255, 255, 0.7)", // Полупрозрачный фон
-            zIndex: 9999, // Спиннер будет поверх всего контента
+            backgroundColor: "rgba(255, 255, 255, 0.7)",
+            zIndex: 9999,
             flexDirection: "column",
           }}
         >
           <CircularProgress />
           <Typography
             variant="h6"
-            sx={{ mt: 2, color: "#014488ff", fontWeight: 500 }} // отступ сверху, цвет и жирность
+            sx={{ mt: 2, color: "#014488ff", fontWeight: 500 }}
           >
             Пожалуйста, подождите...
           </Typography>
@@ -941,13 +904,12 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                   alignItems: "center",
                   cursor: "pointer",
                   userSelect: "none",
-                  // bgcolor: isActive ? "primary.dark" : "transparent",
                   color: isActive ? "primary.dark" : "text.primary",
                   borderRadius: 2,
                   py: 1,
                   px: 0.5,
                   "&:hover": {
-                    color: isActive ? "primary.dark" : "text.primary", // при наведении тоже меняем цвет текста
+                    color: isActive ? "primary.dark" : "text.primary",
                     bgcolor: isActive
                       ? "transparent"
                       : "          rgba(0, 78, 158, 0.08)",
@@ -1009,14 +971,14 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
             <Box
               sx={{
                 overflowY: "auto",
-                pr: 1, // чтобы скролл не прилипал к контенту
+                pr: 1,
               }}
               // flex={1}
               display="flex"
               flexDirection="column"
               gap={2}
             >
-              {/* ---------------- Размер кадра ---------------- */}
+              {/*  Размер кадра */}
               <Box
                 sx={{
                   p: 2,
@@ -1136,31 +1098,12 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                             selected={isSelecting}
                             onChange={() => {
                               setIsSelecting((prev) => !prev);
-
-                              // setStoryboardsData((prev) => ({
-                              //   ...prev,
-                              //   recommended: {
-                              //     ...prev.recommended,
-                              //     applied: false,
-                              //   },
-                              // }));
                             }}
                           >
                             <HighlightAltIcon />
                           </ToggleButton>
                         </span>
                       </Tooltip>
-
-                      {/* Кнопка сброса */}
-                      {/* <Tooltip title="Очистить область">
-                      <IconButton
-                        color="error"
-                        onClick={handleResetInterestArea}
-                        disabled={!selection}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip> */}
                     </Stack>
 
                     {/* Текст инструкции при включенном режиме выбора */}
@@ -1170,9 +1113,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                         severity="info"
                         sx={{
                           mt: 3,
-                          fontSize: "0.7rem", // мелкий текст
+                          fontSize: "0.7rem",
                           borderRadius: 1,
-                          p: 1.5, // паддинг
+                          p: 1.5,
                           alignItems: "center",
                         }}
                       >
@@ -1188,9 +1131,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                 <Alert
                   severity="info"
                   sx={{
-                    fontSize: "0.7rem", // мелкий текст
+                    fontSize: "0.7rem",
                     borderRadius: 1,
-                    p: 1.5, // паддинг
+                    p: 1.5,
                     alignItems: "center",
                   }}
                 >
@@ -1206,9 +1149,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                   <Alert
                     severity="warning"
                     sx={{
-                      fontSize: "0.7rem", // мелкий текст
+                      fontSize: "0.7rem",
                       borderRadius: 1,
-                      p: 1.5, // паддинг
+                      p: 1.5,
                       alignItems: "center",
                     }}
                   >
@@ -1216,7 +1159,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                   </Alert>
                 )}
 
-              {/* ---------------- Свойства раскадровки ---------------- */}
+              {/* Свойства раскадровки  */}
               <Box
                 sx={{
                   p: 2,
@@ -1311,9 +1254,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                       >
                         Время полёта
                         <HelpIconTooltip title="Время полёта от кадра к кадру с зависанием без учёта погоды." />
-                        {/* <Tooltip title="Время от кадра к кадру" arrow>
-                        <HelpIcon fontSize="small" sx={{ cursor: "help" }} />
-                      </Tooltip> */}
                       </Typography>
                     </Box>
 
@@ -1328,7 +1268,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                 </Stack>
               </Box>
 
-              {/* ---------------- Параметры БПЛА ---------------- */}
+              {/*  Параметры БПЛА  */}
               <Box
                 sx={{
                   p: 2,
@@ -1430,9 +1370,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                 <Alert
                   severity="warning"
                   sx={{
-                    fontSize: "0.7rem", // мелкий текст
+                    fontSize: "0.7rem",
                     borderRadius: 1,
-                    p: 1.5, // паддинг
+                    p: 1.5,
                     alignItems: "center",
                   }}
                 >
@@ -1445,9 +1385,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                 <Alert
                   severity="warning"
                   sx={{
-                    fontSize: "0.7rem", // мелкий текст
+                    fontSize: "0.7rem",
                     borderRadius: 1,
-                    p: 1.5, // паддинг
+                    p: 1.5,
                     alignItems: "center",
                   }}
                 >
@@ -1460,9 +1400,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                 <Alert
                   severity="warning"
                   sx={{
-                    fontSize: "0.7rem", // мелкий текст
+                    fontSize: "0.7rem",
                     borderRadius: 1,
-                    p: 1.5, // паддинг
+                    p: 1.5,
                     alignItems: "center",
                   }}
                 >
@@ -1471,7 +1411,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                 </Alert>
               )}
             </Box>
-            {/* ---------------- Кнопки ---------------- */}
+            {/*  Кнопки  */}
             <Stack
               direction="row"
               // spacing={2}

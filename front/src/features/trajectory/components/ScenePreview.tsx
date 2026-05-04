@@ -23,8 +23,11 @@ interface ScenePreviewProps {
     trajectoryData: any;
     showUserTrajectory: boolean;
     showTaxonTrajectory: boolean;
+    showObstacles?: boolean;
+    showLine?: boolean;
     isLoading?: boolean;
     isShowView?: boolean;
+    showGrid?: boolean;
     showNavigationTriangles?: boolean;
 
     PREVIEW_WIDTH?: number;
@@ -47,6 +50,9 @@ const ScenePreview: FC<ScenePreviewProps> = ({
     isLoading = false,
     isShowView = true,
     showNavigationTriangles = false,
+    showObstacles = true,
+    showLine = true,
+    showGrid = true,
     PREVIEW_WIDTH = 700,
     PREVIEW_HEIGHT = 500
 }) => {
@@ -73,7 +79,7 @@ const ScenePreview: FC<ScenePreviewProps> = ({
         droneParams.frameHeightBase / droneParams.frameHeightPlanned;
 
     const gridLines = useMemo(() => {
-        if (!image) return null;
+        if (!image || !showGrid) return null;
 
         const lines: JSX.Element[] = [];
         const imgWidth = image.width * scaleToFit;
@@ -124,7 +130,7 @@ const ScenePreview: FC<ScenePreviewProps> = ({
         }
 
         return lines;
-    }, [image, GRID_COLS, GRID_ROWS, imageX, imageY, scaleToFit]);
+    }, [image, GRID_COLS, GRID_ROWS, imageX, imageY, scaleToFit, showGrid]);
 
     return (
         // <Tooltip
@@ -134,65 +140,64 @@ const ScenePreview: FC<ScenePreviewProps> = ({
         //     followCursor
         //     // open={isShowView}
         // >
-            <Box
-                sx={{ cursor: isShowView ? 'pointer' : 'default', width: "100%", height: "100%" }}
-                onClick={onShowView}
-            >
-                <SceneStage
-                    ref={stageRef}
+        <Box
+            sx={{ cursor: isShowView ? 'pointer' : 'default', width: "100%", height: "100%" }}
+            onClick={onShowView}
+        >
+            <SceneStage
+                ref={stageRef}
 
-                    // Layout
-                    STAGE_WIDTH={PREVIEW_WIDTH}
-                    STAGE_HEIGHT={PREVIEW_HEIGHT}
-                    scale={1}
-                    position={{ x: 0, y: 0 }}
+                // Layout
+                STAGE_WIDTH={PREVIEW_WIDTH}
+                STAGE_HEIGHT={PREVIEW_HEIGHT}
+                scale={1}
+                position={{ x: 0, y: 0 }}
 
-                    // Image Props
-                    image={image}
-                    imageX={imageX}
-                    imageY={imageY}
-                    scaleToFit={scaleToFit}
-                    gridLines={gridLines}
+                // Image Props
+                image={image}
+                imageX={imageX}
+                imageY={imageY}
+                scaleToFit={scaleToFit}
+                gridLines={gridLines}
 
-                    // Interaction (отключаем как в прошлом ответе)
-                    draggable={false}
-                    handleWheel={() => {}}
-                    handleDragMove={() => { }}
+                draggable={false}
+                handleWheel={() => { }}
+                handleDragMove={() => { }}
 
-                    // Data
-                    points={points}
-                    showUserTrajectory={showUserTrajectory}
-                    setPoints={() => { }} // Заглушка
+                // Data
+                points={points}
+                showUserTrajectory={showUserTrajectory}
+                setPoints={() => { }} // Заглушка
 
-                    obstacles={obstacles}
-                    showObstacles={true} // Во всех кейсах true
-                    hoveredObstacleId={null}
-                    setHoveredObstacleId={() => { }}
-                    pxPerMeterX={pxPerMeterX}
-                    pxPerMeterY={pxPerMeterY}
+                obstacles={obstacles}
+                showObstacles={showObstacles}
+                hoveredObstacleId={null}
+                setHoveredObstacleId={() => { }}
+                pxPerMeterX={pxPerMeterX}
+                pxPerMeterY={pxPerMeterY}
 
-                    trajectoryData={trajectoryData}
-                    showTaxonTrajectory={showTaxonTrajectory}
-                    width_m={width_m}
-                    height_m={height_m}
-                    colors={[]}
+                trajectoryData={trajectoryData}
+                showTaxonTrajectory={showTaxonTrajectory}
+                width_m={width_m}
+                height_m={height_m}
+                colors={[]}
 
-                    weatherConditions={weatherConditions}
-                    showUavLine={true}
-                    flightLineY={flightLineY}
-                    currentPolygon={[]}
+                weatherConditions={weatherConditions}
+                showUavLine={showLine}
+                flightLineY={flightLineY}
+                currentPolygon={[]}
 
-                    // State
-                    toolMode="pan"
-                    lineY={null}
-                    loading={isLoading} // Передаем статус загрузки
-showNavigationTriangles={showNavigationTriangles}
-                    getCursor={() =>  isShowView ? 'pointer' : 'default'}
-                    handleMouseMove={() => { }}
-                    handleStageClick={(e) => e.cancelBubble = true}
-                    handleClick={() => { }}
-                />
-            </Box>
+                // State
+                toolMode="pan"
+                lineY={null}
+                loading={isLoading} // Передаем статус загрузки
+                showNavigationTriangles={showNavigationTriangles}
+                getCursor={() => isShowView ? 'pointer' : 'default'}
+                handleMouseMove={() => { }}
+                handleStageClick={(e) => e.cancelBubble = true}
+                handleClick={() => { }}
+            />
+        </Box>
         // </Tooltip>
     );
 };
