@@ -50,7 +50,8 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { downloadScene } from "../features/trajectory/utils/exportSceneImage";
 import { trajectoryApi } from "../api/trajectory.api";
-
+import { SceneStoryboardStage } from "../features/trajectory/components/SceneStoryboardStage";
+import { downloadStoryboard } from "../features/trajectory/utils/SceneStoryboardExport";
 import {
   LineChart,
   Line,
@@ -211,7 +212,8 @@ interface Props {
   createdAt: string;
   author: any;
 }
-
+const STAGE_WIDTH = 550;
+const STAGE_HEIGHT = 400;
 // ─── Компонент ───────────────────────────────────────────────────────────────
 
 const FlightSchemaPage: React.FC<Props> = ({
@@ -271,9 +273,28 @@ const FlightSchemaPage: React.FC<Props> = ({
   const PREVIEW_LAYER_WIDTH = containerLayerSize.width;
   const PREVIEW_LAYER_HEIGHT = containerLayerSize.height;
 
+  const stageRef = React.useRef<any>(null);
+
+  // const [scale] = useState(1);
+  // const [position] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = React.useState(1);
+  const [position, setPosition] = React.useState({ x: 0, y: 0 });
+  const [image] = useImage(imageData?.imageUrl);
+
+  const scaleToFit = image
+    ? Math.min(
+      1,
+      (STAGE_WIDTH / image.width) * 0.9,
+      (STAGE_HEIGHT / image.height) * 0.9,
+    )
+    : 1;
+
+  const imageX = image ? (STAGE_WIDTH - image.width * scaleToFit) / 2 : 0;
+  const imageY = image ? (STAGE_HEIGHT - image.height * scaleToFit) / 2 : 0;
+
   // Функция для безопасной проверки наличия данных оптимизации
   const hasValidOptimizationData = (data: Opt1TrajectoryData | null): boolean => {
-    return !!(data && data.B && Array.isArray(data.B) && data.B.length > 0);
+    return !!(data && data.B && Array.isArray(data.B));
   };
 
   // ── Хелпер для выбора данных оптимизации ────────────────────────────────
@@ -458,7 +479,6 @@ const FlightSchemaPage: React.FC<Props> = ({
   const sceneUserTrajectoryShower = React.useRef<any>(null);
 
   // 2. Загружаем изображение
-  const [image] = useImage(imageData?.imageUrl);
 
   // 3. Определяем общие пропсы
   const commonProps = {
@@ -473,18 +493,18 @@ const FlightSchemaPage: React.FC<Props> = ({
     image: image,
   };
 
-React.useEffect(() => {
-  // Принудительно обновляем размеры после загрузки изображения
-  if (image && containerOptimizationRef.current) {
-    const rect = containerOptimizationRef.current.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      setContainerOptSize({
-        width: Math.floor(rect.width),
-        height: Math.floor(rect.height)
-      });
+  React.useEffect(() => {
+    // Принудительно обновляем размеры после загрузки изображения
+    if (image && containerOptimizationRef.current) {
+      const rect = containerOptimizationRef.current.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setContainerOptSize({
+          width: Math.floor(rect.width),
+          height: Math.floor(rect.height)
+        });
+      }
     }
-  }
-}, [image]);
+  }, [image]);
 
 
   // ── Эффект для автоматического переключения ─────────────────────────────
@@ -661,6 +681,70 @@ React.useEffect(() => {
       { ...params, setLoadingUser },
       "trajectory_schema.jpeg",
     );
+  };
+
+  const handleDownloadStoryboard = async () => {
+    if (!image) return;
+
+    // setLoadings(prev => ({ ...prev, storyboardDownload: true }));
+
+    try {
+      let exportImage = image;
+      if (imageData?.imageUrl) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = imageData.imageUrl;
+        await new Promise((resolve, reject) => {
+          img.onload = () => {
+            exportImage = img;
+            resolve(img);
+          };
+          img.onerror = reject;
+        });
+      }
+
+      const activeTrajectoryData =
+        storyboardTab === 2 ? trajectoryData :
+          storyboardTab === 3 ? trajectoryData2 :
+            storyboardTab === 4 ? trajectoryData3 :
+              null;
+
+      const isPointBased = storyboardTab === 0;
+      const isRecommended = storyboardTab === 1;
+      const isOptimal = storyboardTab === 2 || storyboardTab === 3 || storyboardTab === 4;
+
+      await downloadStoryboard(
+        {
+          image: exportImage,
+          width_m: droneParams.frameWidthBase,
+          height_m: droneParams.frameHeightBase,
+          GRID_COLS: droneParams.frameWidthBase / droneParams.frameWidthPlanned,
+          GRID_ROWS: droneParams.frameHeightBase / droneParams.frameHeightPlanned,
+          points,
+          pointsRecommended: pointsRecommended || [],
+          obstacles,
+          trajectoryData: activeTrajectoryData,
+          frameWidthPx,
+          frameHeightPx,
+          showGrid: true,
+          showObstacles: true,
+          showPoints: isPointBased,
+          showRecommended: isRecommended,
+          showOptimal: isOptimal,
+          showUAVLine: isOptimal,
+          flightLineY: flightLineY,
+          applyOptimal: isOptimal,
+          applyPoint: isPointBased,
+          applyRecommended: isRecommended,
+        },
+        `storyboard_${storyboardTab}_${Date.now()}.jpeg`,
+        0.5,
+      );
+    } catch (err) {
+      console.error('Ошибка скачивания раскадровки:', err);
+    } finally {
+      // setLoadings(prev => ({ ...prev, storyboardDownload: false }));
+    }
   };
 
   const getOptimizationLoadingSetter = (tab: number) => {
@@ -1473,7 +1557,7 @@ React.useEffect(() => {
             <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
               <Box display="flex" alignItems="center" gap={1}>
                 <Typography variant="h6">Оптимизация траектории</Typography>
-                {weatherConditions.isUse && currentOptimizationData && (<Tooltip title="Навигационные треугольники">
+                {weatherConditions.isUse && currentOptimizationData && currentOptimizationData.B.length > 0 && (<Tooltip title="Навигационные треугольники">
                   <ToggleButton
                     value="triangles"
                     selected={showNavTriangles}
@@ -1655,7 +1739,7 @@ React.useEffect(() => {
                           </Grid>
 
                           {/* Таблица по таксонам */}
-                          <TableContainer
+                          {currentOptimizationData.B?.length > 0 && (<TableContainer
                             component={Paper}
                             variant="outlined"
                             sx={{ background: "transparent" }}
@@ -1706,7 +1790,7 @@ React.useEffect(() => {
                                 })}
                               </TableBody>
                             </Table>
-                          </TableContainer>
+                          </TableContainer>)}
 
                           {/* Недостижимые точки */}
                           {currentOptimizationData.C?.length > 0 && (
@@ -1739,7 +1823,7 @@ React.useEffect(() => {
                     </Accordion>
 
                     {/* 2. Полный маршрут */}
-                    <Accordion sx={{ flexShrink: 0 }} expanded={expanded === 'panel2'} onChange={handleChange('panel2')}>
+                    <Accordion sx={{ flexShrink: 0 }} expanded={expanded === 'panel2'} onChange={handleChange('panel2')} disabled={currentOptimizationData?.B.length == 0}>
                       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
                           Полный маршрут
@@ -1801,7 +1885,26 @@ React.useEffect(() => {
         <SectionBox
           title={
             <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
-              <Typography variant="h6">Раскадровка</Typography>
+              <Box display="flex" alignItems="center" gap={1}>
+                <Typography variant="h6">Раскадровка</Typography>
+                <Tooltip title="Скачать раскадровку">
+                  <IconButton
+                    component="span"
+                    size="small"
+                    color="primary"
+                    onClick={handleDownloadStoryboard}
+                    disabled={!(
+                      (storyboardTab === 0 && storyboardsData?.point?.applied) ||
+                      (storyboardTab === 1 && storyboardsData?.recommended?.applied) ||
+                      (storyboardTab === 2 && storyboardsData?.optimal?.applied) ||
+                      (storyboardTab === 3 && storyboardsData?.optimal_big_density?.applied) ||
+                      (storyboardTab === 4 && storyboardsData?.optimal_combi?.applied)
+                    )}
+                  >
+                    <DownloadIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
               <Chip
                 label={`Приоритетная раскадровка: ${getMethodFullRussianFromEnglish(priorityMethod) || 'Не выбрана'}`}
                 color="success"
@@ -1818,72 +1921,71 @@ React.useEffect(() => {
           >
             <Tab label="Точечная" />
             <Tab label="Рекомендуемая" />
-            {/* Оптимальная (НПТ) */}
-            <Tab
-              {...getPriorityTabProps("Оптимальная (НПТ)", "low-d", priorityMethod)}
-            />
-
-            {/* Оптимальная (ВПТ) */}
-            <Tab
-              {...getPriorityTabProps("Оптимальная (ВПТ)", "high-d", priorityMethod)}
-            />
-
-            {/* Оптимальная (СПТ) */}
-            <Tab
-              {...getPriorityTabProps("Оптимальная (СПТ)", "mixed-d", priorityMethod)}
-            />
-            {/* <Tab label="Точечная" disabled={!storyboardsData?.point?.applied} />
-            <Tab label="Рекомендуемая" disabled={!storyboardsData?.recommended?.applied} />
-            <Tab label="Оптимальная (НПТ)" disabled={!storyboardsData?.optimal?.applied} />
-            <Tab label="Оптимальная (ВПТ)" disabled={!storyboardsData?.optimal_big_density?.applied} />
-            <Tab label="Оптимальная (Комби)" disabled={!storyboardsData?.optimal_combi?.applied} /> */}
+            <Tab {...getPriorityTabProps("Оптимальная (НПТ)", "low-d", priorityMethod)} />
+            <Tab {...getPriorityTabProps("Оптимальная (ВПТ)", "high-d", priorityMethod)} />
+            <Tab {...getPriorityTabProps("Оптимальная (СПТ)", "mixed-d", priorityMethod)} />
           </Tabs>
-
 
           {/* ── Точечная ── */}
           {storyboardTab === 0 && storyboardsData?.point?.applied && (
             <Grid container spacing={2}>
-              <Grid
-                size={{ xs: 12, md: 6 }}
-                sx={{ display: 'flex', flexDirection: 'column' }}
-              >
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{
                   flexGrow: 1,
-                  background: "#D3D3D399",
-                  borderRadius: 1,
                   overflow: "hidden",
-                  minHeight: { xs: 300, md: 400 }, // Адаптивная высота
+                  minHeight: { xs: 300, md: 400 },
                   display: "flex",
                   justifyContent: "center",
-                  alignItems: "center"
+                  alignItems: "center",
+                  p: "10px"
                 }}>
-                  <SceneViewer
-                    imageData={imageData}
+                  <SceneStoryboardStage
+                    stageRef={stageRef}
+                    STAGE_WIDTH={STAGE_WIDTH}
+                    STAGE_HEIGHT={STAGE_HEIGHT}
+                    scale={scale}
+                    position={position}
+                    image={image}
+                    imageX={imageX}
+                    imageY={imageY}
+                    scaleToFit={scaleToFit}
+                    gridLines={null}
                     points={points}
+                    pointsRecommended={[]}
                     obstacles={obstacles}
-                    trajectoryData={trajectoryData}
-                    showPoints={true} showObstacles={false} showTaxons={false}
-                    frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
+                    trajectoryData={null}
+                    showPoints={true}
+                    showObstacles={true}
+                    showTaxons={false}
+                    frameWidthPx={frameWidthPx}
+                    frameHeightPx={frameHeightPx}
                     applyPointBasedStoryboard={true}
                     applyRecommendedStoryboard={false}
                     applyOptimalStoryboard={false}
-                    width_m={droneParams?.frameWidthBase || 0}
-                    height_m={droneParams?.frameHeightBase || 0}
+                    droneParams={droneParams}
+                    isSelecting={false}
+                    selection={null}
+                    pxPerMeterX={(image?.width || 1) / (droneParams?.frameWidthBase || 1)}
+                    pxPerMeterY={(image?.height || 1) / (droneParams?.frameHeightBase || 1)}
+                    handleDragMove={() => { }}
+                    handleWheel={() => { }}
+                    handleMouseDown={() => { }}
+                    handleMouseMove={() => { }}
+                    handleMouseUp={() => { }}
+                    handleClick={() => { }}
+                    showUavLine={false}
+                    flightLineY={null}
                   />
-
                 </Box>
               </Grid>
-              <Grid
-                size={{ xs: 12, md: 6 }}
-                sx={{ display: 'flex', flexDirection: 'column' }}
-              >
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
                 <Paper
                   variant="outlined"
                   sx={{
                     p: 2,
                     borderRadius: 1,
                     background: "transparent",
-                    height: { xs: 'auto', md: 400 }, // На десктопе фиксированная, на моб. авто
+                    height: { xs: 'auto', md: 400 },
                     display: "flex",
                     flexDirection: "column",
                     overflow: "hidden"
@@ -1895,7 +1997,6 @@ React.useEffect(() => {
                       <StoryboardMetrics data={storyboardsData.point} />
                     </Stack>
                   </Box>
-
                   <Box sx={{ mt: 2, pt: 1 }}>
                     <Box sx={{ overflowX: "auto", overflowY: "hidden" }}>
                       <StoryboardTimeline frames={framesUrlsPointBased ?? []} />
@@ -1908,126 +2009,329 @@ React.useEffect(() => {
 
           {/* ── Рекомендуемая ── */}
           {storyboardTab === 1 && storyboardsData?.recommended?.applied && (
-            <Box display="flex" flexDirection="row" gap={2} height="100%">
-              <Box flex={0.5} minHeight={400} maxHeight={400} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} minWidth={550} justifyContent="center" alignItems="center" display="flex">
-                <SceneViewer
-                  imageData={imageData}
-                  pointsRecommended={pointsRecommended}
-                  obstacles={obstacles}
-                  trajectoryData={trajectoryData}
-                  showPoints={true} showObstacles={false} showTaxons={false}
-                  frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
-                  applyPointBasedStoryboard={false}
-                  applyRecommendedStoryboard={true}
-                  applyOptimalStoryboard={false}
-                  width_m={droneParams?.frameWidthBase || 0}
-                  height_m={droneParams?.frameHeightBase || 0}
-                />
-              </Box>
-              <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
-                <Stack spacing={2}>
-                  <Typography variant="subtitle1">Свойства раскадровки</Typography>
-                  <StoryboardMetrics data={storyboardsData.recommended} />
-                </Stack>
-                <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                  <StoryboardTimeline frames={framesUrlsRecommended ?? []} />
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{
+                  flexGrow: 1,
+                  overflow: "hidden",
+                  minHeight: { xs: 300, md: 400 },
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  p: "10px"
+                }}>
+                  <SceneStoryboardStage
+                    stageRef={stageRef}
+                    STAGE_WIDTH={STAGE_WIDTH}
+                    STAGE_HEIGHT={STAGE_HEIGHT}
+                    scale={scale}
+                    position={position}
+                    image={image}
+                    imageX={imageX}
+                    imageY={imageY}
+                    scaleToFit={scaleToFit}
+                    gridLines={null}
+                    points={[]}
+                    pointsRecommended={pointsRecommended}
+                    obstacles={obstacles}
+                    trajectoryData={null}
+                    showPoints={false}
+                    showObstacles={true}
+                    showTaxons={false}
+                    frameWidthPx={frameWidthPx}
+                    frameHeightPx={frameHeightPx}
+                    applyPointBasedStoryboard={false}
+                    applyRecommendedStoryboard={true}
+                    applyOptimalStoryboard={false}
+                    droneParams={droneParams}
+                    isSelecting={false}
+                    selection={null}
+                    pxPerMeterX={(image?.width || 1) / (droneParams?.frameWidthBase || 1)}
+                    pxPerMeterY={(image?.height || 1) / (droneParams?.frameHeightBase || 1)}
+                    handleDragMove={() => { }}
+                    handleWheel={() => { }}
+                    handleMouseDown={() => { }}
+                    handleMouseMove={() => { }}
+                    handleMouseUp={() => { }}
+                    handleClick={() => { }}
+                    showUavLine={false}
+                    flightLineY={null}
+                  />
                 </Box>
-              </Box>
-            </Box>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 1,
+                    background: "transparent",
+                    height: { xs: 'auto', md: 400 },
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden"
+                  }}
+                >
+                  <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+                    <Stack spacing={2}>
+                      <Typography variant="subtitle1">Свойства раскадровки</Typography>
+                      <StoryboardMetrics data={storyboardsData.recommended} />
+                    </Stack>
+                  </Box>
+                  <Box sx={{ mt: 2, pt: 1 }}>
+                    <Box sx={{ overflowX: "auto", overflowY: "hidden" }}>
+                      <StoryboardTimeline frames={framesUrlsRecommended ?? []} />
+                    </Box>
+                  </Box>
+                </Paper>
+              </Grid>
+            </Grid>
           )}
 
-          {/* ── Оптимальная ── */}
+          {/* ── Оптимальная (НПТ) ── */}
           {storyboardTab === 2 && storyboardsData?.optimal?.applied && (
-            <Box display="flex" flexDirection="row" gap={2} height="100%">
-              <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
-                <SceneViewer
-                  imageData={imageData}
-                  pointsOptimal={pointsOptimal ?? []}
-                  obstacles={obstacles}
-                  trajectoryData={trajectoryData}
-                  showPoints={true} showObstacles={false} showTaxons={true}
-                  frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
-                  applyPointBasedStoryboard={false}
-                  applyRecommendedStoryboard={false}
-                  applyOptimalStoryboard={true}
-                  width_m={droneParams?.frameWidthBase || 0}
-                  height_m={droneParams?.frameHeightBase || 0}
-                />
-              </Box>
-              <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
-                <Stack spacing={2}>
-                  <Typography variant="subtitle1">Свойства раскадровки (НПТ)</Typography>
-                  <StoryboardMetrics data={storyboardsData.optimal} />
-                </Stack>
-                <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                  <StoryboardTimeline frames={framesUrlsOptimal ?? []} />
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{
+                  flexGrow: 1,
+                  overflow: "hidden",
+                  minHeight: { xs: 300, md: 400 },
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  p: "10px"
+                }}>
+                  <SceneStoryboardStage
+                    stageRef={stageRef}
+                    STAGE_WIDTH={STAGE_WIDTH}
+                    STAGE_HEIGHT={STAGE_HEIGHT}
+                    scale={scale}
+                    position={position}
+                    image={image}
+                    imageX={imageX}
+                    imageY={imageY}
+                    scaleToFit={scaleToFit}
+                    gridLines={null}
+                    points={pointsOptimal}
+                    pointsRecommended={[]}
+                    obstacles={obstacles}
+                    trajectoryData={trajectoryData}
+                    showPoints={false}
+                    showObstacles={true}
+                    showTaxons={true}
+                    frameWidthPx={frameWidthPx}
+                    frameHeightPx={frameHeightPx}
+                    applyPointBasedStoryboard={false}
+                    applyRecommendedStoryboard={false}
+                    applyOptimalStoryboard={true}
+                    droneParams={droneParams}
+                    isSelecting={false}
+                    selection={null}
+                    pxPerMeterX={(image?.width || 1) / (droneParams?.frameWidthBase || 1)}
+                    pxPerMeterY={(image?.height || 1) / (droneParams?.frameHeightBase || 1)}
+                    handleDragMove={() => { }}
+                    handleWheel={() => { }}
+                    handleMouseDown={() => { }}
+                    handleMouseMove={() => { }}
+                    handleMouseUp={() => { }}
+                    handleClick={() => { }}
+                    showUavLine={true}
+                    flightLineY={flightLineY}
+                  />
                 </Box>
-              </Box>
-            </Box>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 1,
+                    background: "transparent",
+                    height: { xs: 'auto', md: 400 },
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden"
+                  }}
+                >
+                  <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+                    <Stack spacing={2}>
+                      <Typography variant="subtitle1">Свойства раскадровки (НПТ)</Typography>
+                      <StoryboardMetrics data={storyboardsData.optimal} />
+                    </Stack>
+                  </Box>
+                  <Box sx={{ mt: 2, pt: 1 }}>
+                    <Box sx={{ overflowX: "auto", overflowY: "hidden" }}>
+                      <StoryboardTimeline frames={framesUrlsOptimal ?? []} />
+                    </Box>
+                  </Box>
+                </Paper>
+              </Grid>
+            </Grid>
           )}
 
-          {/* ── Оптимальная (Плотная) ── */}
+          {/* ── Оптимальная (ВПТ) ── */}
           {storyboardTab === 3 && storyboardsData?.optimal_big_density?.applied && (
-            <Box display="flex" flexDirection="row" gap={2} height="100%">
-              <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
-                <SceneViewer
-                  imageData={imageData}
-                  pointsOptimal={pointsOptimal2 ?? []}
-                  obstacles={obstacles}
-                  trajectoryData={trajectoryData2} // Используем приоритетный или соответствующий
-                  showPoints={true} showObstacles={false} showTaxons={true}
-                  frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
-                  applyPointBasedStoryboard={false}
-                  applyRecommendedStoryboard={false}
-                  applyOptimalStoryboard={true} // Флаг визуализации прямоугольников
-                  width_m={droneParams?.frameWidthBase || 0}
-                  height_m={droneParams?.frameHeightBase || 0}
-                />
-              </Box>
-              <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display="flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
-                <Stack spacing={2}>
-                  <Typography variant="subtitle1">Свойства раскадровки (ВПТ)</Typography>
-                  <StoryboardMetrics data={storyboardsData.optimal_big_density} />
-                </Stack>
-                <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                  <StoryboardTimeline frames={framesUrlsOptimal2 ?? []} />
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{
+                  flexGrow: 1,
+                  overflow: "hidden",
+                  minHeight: { xs: 300, md: 400 },
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  p: "10px"
+                }}>
+                  <SceneStoryboardStage
+                    stageRef={stageRef}
+                    STAGE_WIDTH={STAGE_WIDTH}
+                    STAGE_HEIGHT={STAGE_HEIGHT}
+                    scale={scale}
+                    position={position}
+                    image={image}
+                    imageX={imageX}
+                    imageY={imageY}
+                    scaleToFit={scaleToFit}
+                    gridLines={null}
+                    points={pointsOptimal2}
+                    pointsRecommended={[]}
+                    obstacles={obstacles}
+                    trajectoryData={trajectoryData2}
+                    showPoints={false}
+                    showObstacles={true}
+                    showTaxons={true}
+                    frameWidthPx={frameWidthPx}
+                    frameHeightPx={frameHeightPx}
+                    applyPointBasedStoryboard={false}
+                    applyRecommendedStoryboard={false}
+                    applyOptimalStoryboard={true}
+                    droneParams={droneParams}
+                    isSelecting={false}
+                    selection={null}
+                    pxPerMeterX={(image?.width || 1) / (droneParams?.frameWidthBase || 1)}
+                    pxPerMeterY={(image?.height || 1) / (droneParams?.frameHeightBase || 1)}
+                    handleDragMove={() => { }}
+                    handleWheel={() => { }}
+                    handleMouseDown={() => { }}
+                    handleMouseMove={() => { }}
+                    handleMouseUp={() => { }}
+                    handleClick={() => { }}
+                    showUavLine={true}
+                    flightLineY={flightLineY}
+                  />
                 </Box>
-              </Box>
-            </Box>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 1,
+                    background: "transparent",
+                    height: { xs: 'auto', md: 400 },
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden"
+                  }}
+                >
+                  <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+                    <Stack spacing={2}>
+                      <Typography variant="subtitle1">Свойства раскадровки (ВПТ)</Typography>
+                      <StoryboardMetrics data={storyboardsData.optimal_big_density} />
+                    </Stack>
+                  </Box>
+                  <Box sx={{ mt: 2, pt: 1 }}>
+                    <Box sx={{ overflowX: "auto", overflowY: "hidden" }}>
+                      <StoryboardTimeline frames={framesUrlsOptimal2 ?? []} />
+                    </Box>
+                  </Box>
+                </Paper>
+              </Grid>
+            </Grid>
           )}
 
-          {/* ── Оптимальная (Комби) ── */}
+          {/* ── Оптимальная (СПТ) ── */}
           {storyboardTab === 4 && storyboardsData?.optimal_combi?.applied && (
-            <Box display="flex" flexDirection="row" gap={2} height="100%">
-              <Box flex={0.5} minHeight={400} maxHeight={400} minWidth={550} sx={{ background: "#D3D3D399", borderRadius: 1, overflow: "hidden" }} justifyContent="center" alignItems="center" display="flex">
-                <SceneViewer
-                  imageData={imageData}
-                  pointsOptimal={pointsOptimal3 ?? []}
-                  obstacles={obstacles}
-                  trajectoryData={trajectoryData3}
-                  showPoints={true} showObstacles={false} showTaxons={true}
-                  frameWidthPx={frameWidthPx} frameHeightPx={frameHeightPx}
-                  applyPointBasedStoryboard={false}
-                  applyRecommendedStoryboard={false}
-                  applyOptimalStoryboard={true}
-                  width_m={droneParams?.frameWidthBase || 0}
-                  height_m={droneParams?.frameHeightBase || 0}
-                />
-              </Box>
-              <Box flex={1} p={2} borderRadius={1} component={Paper} elevation={1} variant="outlined" display=" flex" flexDirection="column" justifyContent="space-between" overflow="auto" sx={{ background: "transparent" }}>
-                <Stack spacing={2}>
-                  <Typography variant="subtitle1">Свойства раскадровки (СПТ)</Typography>
-                  <StoryboardMetrics data={storyboardsData.optimal_combi} />
-                </Stack>
-                <Box sx={{ overflowX: "auto", overflowY: "hidden", mt: 2 }}>
-                  <StoryboardTimeline frames={framesUrlsOptimal3 ?? []} />
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{
+                  flexGrow: 1,
+                  overflow: "hidden",
+                  minHeight: { xs: 300, md: 400 },
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  p: "10px"
+                }}>
+                  <SceneStoryboardStage
+                    stageRef={stageRef}
+                    STAGE_WIDTH={STAGE_WIDTH}
+                    STAGE_HEIGHT={STAGE_HEIGHT}
+                    scale={scale}
+                    position={position}
+                    image={image}
+                    imageX={imageX}
+                    imageY={imageY}
+                    scaleToFit={scaleToFit}
+                    gridLines={null}
+                    points={pointsOptimal3}
+                    pointsRecommended={[]}
+                    obstacles={obstacles}
+                    trajectoryData={trajectoryData3}
+                    showPoints={false}
+                    showObstacles={true}
+                    showTaxons={true}
+                    frameWidthPx={frameWidthPx}
+                    frameHeightPx={frameHeightPx}
+                    applyPointBasedStoryboard={false}
+                    applyRecommendedStoryboard={false}
+                    applyOptimalStoryboard={true}
+                    droneParams={droneParams}
+                    isSelecting={false}
+                    selection={null}
+                    pxPerMeterX={(image?.width || 1) / (droneParams?.frameWidthBase || 1)}
+                    pxPerMeterY={(image?.height || 1) / (droneParams?.frameHeightBase || 1)}
+                    handleDragMove={() => { }}
+                    handleWheel={() => { }}
+                    handleMouseDown={() => { }}
+                    handleMouseMove={() => { }}
+                    handleMouseUp={() => { }}
+                    handleClick={() => { }}
+                    showUavLine={true}
+                    flightLineY={flightLineY}
+                  />
                 </Box>
-              </Box>
-
-            </Box>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 1,
+                    background: "transparent",
+                    height: { xs: 'auto', md: 400 },
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden"
+                  }}
+                >
+                  <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+                    <Stack spacing={2}>
+                      <Typography variant="subtitle1">Свойства раскадровки (СПТ)</Typography>
+                      <StoryboardMetrics data={storyboardsData.optimal_combi} />
+                    </Stack>
+                  </Box>
+                  <Box sx={{ mt: 2, pt: 1 }}>
+                    <Box sx={{ overflowX: "auto", overflowY: "hidden" }}>
+                      <StoryboardTimeline frames={framesUrlsOptimal3 ?? []} />
+                    </Box>
+                  </Box>
+                </Paper>
+              </Grid>
+            </Grid>
           )}
 
-          {/* Placeholder if tab not active or no data */}
+          {/* Placeholder если нет данных */}
           {!(
             (storyboardTab === 0 && storyboardsData?.point?.applied) ||
             (storyboardTab === 1 && storyboardsData?.recommended?.applied) ||

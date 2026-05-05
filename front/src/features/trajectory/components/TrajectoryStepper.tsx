@@ -265,7 +265,7 @@ const TrajectoryStepper = () => {
     }
   });
 
-    const [showNavTriangles, setShowNavTriangles] = React.useState(false);
+  const [showNavTriangles, setShowNavTriangles] = React.useState(false);
 
   const updateOptimization = (type, updates) => {
     setOptimizationState(prev => ({
@@ -725,28 +725,42 @@ const TrajectoryStepper = () => {
     clearOptimalStoryboard3();
   }, [opt3TrajectoryData, clearOptimalStoryboard2]);
 
+  /**
+   * Проверяет, что оптимизация завершена, но все точки недостижимы.
+   * В таком случае раскадровка считается выполненной априори.
+   */
+  const isAllPointsUnreachable = (trajectoryData: any): boolean => {
+    if (!trajectoryData) return false;
+
+    const hasTaxons = trajectoryData.B && trajectoryData.B.length > 0;
+    const hasUnreachable = trajectoryData.C && trajectoryData.C.length > 0;
+
+    // Все точки в C, в B ничего нет — всё недостижимо
+    return !hasTaxons && hasUnreachable;
+  };
 
   const isAllStoryboardCompleted = React.useMemo(() => {
-    // Определяем маппинг ключей
     const mappings = [
-      { optKey: 'small', sbKey: 'optimal' },             // Метод 1 (НПТ)
-      { optKey: 'large', sbKey: 'optimal_big_density' }, // Метод 2 (ВПТ)
-      { optKey: 'combi', sbKey: 'optimal_combi' },        // Метод 3 (СПТ)
+      { optKey: 'small', sbKey: 'optimal', trajectoryData: opt1TrajectoryData },
+      { optKey: 'large', sbKey: 'optimal_big_density', trajectoryData: opt2TrajectoryData },
+      { optKey: 'combi', sbKey: 'optimal_combi', trajectoryData: opt3TrajectoryData },
     ];
 
-    // 1. Проверка: Все ВЫПОЛНЕННЫЕ оптимизации имеют раскадровки
-    const allCompleted = mappings.every(({ optKey, sbKey }) => {
+    const allCompleted = mappings.every(({ optKey, sbKey, trajectoryData }) => {
       const optStatus = optimizationState[optKey].status;
 
-      // Если оптимизация еще не выполнена, она не учитывается в "All"
+      // Оптимизация ещё не выполнена — не учитываем
       if (optStatus !== 'completed') return true;
 
-      // Если оптимизация выполнена, проверяем наличие раскадровки
+      // Все точки недостижимы — раскадровка не требуется
+      if (isAllPointsUnreachable(trajectoryData)) return true;
+
+      // Оптимизация выполнена — проверяем наличие раскадровки
       return storyboardsData[sbKey].applied === true;
     });
 
-    return allCompleted
-  }, [optimizationState, storyboardsData]);
+    return allCompleted;
+  }, [optimizationState, storyboardsData, opt1TrajectoryData, opt2TrajectoryData, opt3TrajectoryData]);
 
   // Загрузка дронов
 
