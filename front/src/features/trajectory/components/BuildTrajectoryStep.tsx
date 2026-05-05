@@ -136,92 +136,12 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
     droneParams.uavCameraParams.resolutionHeight === imageData.height;
 
 
-  const [previewScale, setPreviewScale] = useState(1);
-  const [previewPosition, setPreviewPosition] = useState({ x: 0, y: 0 });
   const [image] = useImage(imageData.imageUrl);
 
   // Размеры для превью (как указано в условии)
   const PREVIEW_WIDTH = containerSize.width;
   const PREVIEW_HEIGHT = containerSize.height;
 
-  // Вычисляем масштаб, чтобы изображение вписалось
-  const scaleToFit = image
-    ? Math.min(
-      1,
-      (PREVIEW_WIDTH / image.width) * 0.9,
-      (PREVIEW_HEIGHT / image.height) * 0.9,
-    )
-    : 1;
-
-  // Центрируем изображение
-  const imageX = image ? (PREVIEW_WIDTH - image.width * scaleToFit) / 2 : 0;
-  const imageY = image ? (PREVIEW_HEIGHT - image.height * scaleToFit) / 2 : 0;
-
-  // Параметры для сетки (упрощенно, берем из droneParams)
-  const width_m = droneParams.frameWidthBase;
-  const height_m = droneParams.frameHeightBase;
-  const pxPerMeterX = image ? image.width / width_m : 1;
-  const pxPerMeterY = image ? image.height / height_m : 1;
-  const GRID_COLS = droneParams.frameWidthBase / droneParams.frameWidthPlanned;
-  const GRID_ROWS =
-    droneParams.frameHeightBase / droneParams.frameHeightPlanned;
-
-  // Если вам нужна сетка в превью, нужно сгенерировать gridLines.
-  // Если сетка не критична или сложна для переноса, можно передать null.
-  // Для примера передаем null, или можно перенести логику useMemo из SceneEditor.
-  const gridLines = React.useMemo(() => {
-    if (!image) return null;
-
-    const lines: JSX.Element[] = [];
-    const imgWidth = image.width * scaleToFit;
-    const imgHeight = image.height * scaleToFit;
-
-    const cellWidth = imgWidth / GRID_COLS;
-    const cellHeight = imgHeight / GRID_ROWS;
-    const lineStyle = {
-      width: 2,
-      height: 2,
-      fill: "rgba(255, 255, 255, 0.8)",
-      stroke: "rgb(0, 0, 0, 1)",
-      strokeWidth: 0.1
-    };
-
-    // Вертикальные линии
-    for (let i = 1; i < GRID_COLS; i++) {
-      const x = imageX + cellWidth * i;
-      lines.push(
-        <Rect
-          key={`v-${i}`}
-          x={x}
-          y={imageY}
-          width={lineStyle.width}
-          height={imgHeight}
-          fill={lineStyle.fill}
-          stroke={lineStyle.stroke}
-          strokeWidth={lineStyle.strokeWidth}
-        />
-      );
-    }
-
-    // Горизонтальные линии
-    for (let i = 1; i < GRID_ROWS; i++) {
-      const y = imageY + imgHeight - cellHeight * i;
-      lines.push(
-        <Rect
-          key={`h-${i}`}
-          x={imageX}
-          y={y}
-          width={imgWidth}
-          height={lineStyle.height}
-          fill={lineStyle.fill}
-          stroke={lineStyle.stroke}
-          strokeWidth={lineStyle.strokeWidth}
-        />
-      );
-    }
-
-    return lines;
-  }, [image, GRID_COLS, GRID_ROWS, imageX, imageY, scaleToFit]);
 
   const handleDownload = async () => {
     setLoading(true);
@@ -244,7 +164,7 @@ const BuildTrajectoryStep: React.FC<BuildTrajectoryStepProps> = ({
       showTaxonTrajectory: false,
       showNavTriangles: false,
 
-      PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
+      PREVIEW_WIDTH: 500,  // Размер вашего превью
       PREVIEW_HEIGHT: 400,
     }
 

@@ -30,8 +30,7 @@ const getArrowPoints = (
   ];
 };
 
-// СТАТИЧЕСКИЙ СЛОЙ (не меняется)
-// SceneLayers.tsx
+// СТАТИЧЕСКИЙ СЛОЙ
 export const StaticLayer = React.memo(({
   image,
   imageX,
@@ -42,6 +41,10 @@ export const StaticLayer = React.memo(({
   STAGE_WIDTH,
   STAGE_HEIGHT
 }: any) => {
+    if (!STAGE_WIDTH || !STAGE_HEIGHT || STAGE_WIDTH <= 0 || STAGE_HEIGHT <= 0) {
+    return null;
+  }
+  
   return (
     <Layer>
       {image ? (

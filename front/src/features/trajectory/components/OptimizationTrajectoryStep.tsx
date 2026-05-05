@@ -650,7 +650,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
       showNavTriangles: true, // Включаем треугольники
       showFullNavTriangles: showNavTriangles,
 
-      PREVIEW_WIDTH: 500,  // Размер вашего превью (SceneShower)
+      PREVIEW_WIDTH: 500,  // Размер вашего превью
       PREVIEW_HEIGHT: 400,
     }
 
@@ -1140,7 +1140,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                           }}
                         />
                       }
-                      label="Низкой плотности точек"
+                      label="Низкая плотность точек"
                       disabled={isAnyRunning}
                     />
                     <Tooltip title="Показать схему" arrow placement="left">
@@ -1167,7 +1167,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                           onChange={(e) => updateOptimization('large', { flag: e.target.checked })}
                         />
                       }
-                      label="Высокой плотности точек"
+                      label="Высокая плотность точек"
                       disabled={isAnyRunning}
 
                     />
@@ -1197,7 +1197,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
                           onChange={(e) => updateOptimization('combi', { flag: e.target.checked })}
                         />
                       }
-                      label="Смешанной плотности точек"
+                      label="Смешанная плотность точек"
                       disabled={isAnyRunning}
 
                     />
@@ -1429,6 +1429,7 @@ const OptimizationTrajectoryStep: React.FC<OptimizationTrajectoryStepProps> = ({
             setPointsRecommended={setPointsRecommended}
             selection={selection}
             setSelection={setSelection}
+            flightLineY={flightLineY}
           />
         </DialogContent>
       </Dialog>

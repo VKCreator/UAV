@@ -1,4 +1,4 @@
-import { FC, useState, JSX, useEffect, useMemo } from "react";
+import { FC, useState, JSX, useEffect, useMemo, useRef } from "react";
 import {
   Box,
   Typography,
@@ -10,6 +10,9 @@ import {
   Alert,
   Tooltip,
 } from "@mui/material";
+import {
+  Rect
+} from "react-konva";
 
 import CircleIcon from "@mui/icons-material/Circle";
 import RecommendIcon from "@mui/icons-material/Recommend";
@@ -23,53 +26,49 @@ import StoryboardTimeline from "../../storyboard/components/StoryboardTimeline";
 import { DroneParams } from "../../../types/uav.types";
 import { Storyboards } from "../../../types/storyboards.types";
 import useImage from "use-image";
-import { ImageData, Point } from "../../../types/scene.types";;
+import { ImageData, Point } from "../../../types/scene.types";
 import Konva from "konva";
 
 import useNotifications from "../../../hooks/useNotifications/useNotifications";
 import { HelpIconTooltip } from "../../../components/ui/HelpIconTooltip";
 import { trajectoryApi } from "../../../api/trajectory.api";
 import { FloatInput } from "../../../components/ui/FloatInput";
+import { SceneStoryboardStage } from "./SceneStoryboardStage";
 
 interface StoryboardEditorProps {
   onClose: () => void;
-
   imageData: ImageData;
   points: any[];
   obstacles: any[];
-
   trajectoryData?: any;
   trajectoryData2?: any;
   trajectoryData3?: any;
-
   droneParams: DroneParams;
-
   storyboardsData: Storyboards;
   setStoryboardsData: React.Dispatch<React.SetStateAction<Storyboards>>;
-
   framesUrlsPointBased: string[];
   setFramesUrlsPointBased: React.Dispatch<React.SetStateAction<string[]>>;
-
   framesUrlsRecommended: string[];
   setFramesUrlsRecommended: React.Dispatch<React.SetStateAction<string[]>>;
-
   framesUrlsOptimal: string[];
   setFramesUrlsOptimal: React.Dispatch<React.SetStateAction<string[]>>;
-
   framesUrlsOptimal2: string[];
   setFramesUrlsOptimal2: React.Dispatch<React.SetStateAction<string[]>>;
-
   framesUrlsOptimal3: string[];
   setFramesUrlsOptimal3: React.Dispatch<React.SetStateAction<string[]>>;
-
   pointsRecommended: Point[];
   setPointsRecommended: React.Dispatch<React.SetStateAction<Point[]>>;
-
   selection: any;
   setSelection: React.Dispatch<React.SetStateAction<any>>;
+  flightLineY: number;
 }
 
-type StoryboardType = "point" | "recommended" | "optimal" | "optimal_big_density" | "optimal_combi";
+type StoryboardType =
+  | "point"
+  | "recommended"
+  | "optimal"
+  | "optimal_big_density"
+  | "optimal_combi";
 
 const typeConfigs: Record<
   StoryboardType,
@@ -112,13 +111,13 @@ const cropFrameKonva = (
   centerX: number,
   centerY: number,
   frameWidth: number,
-  frameHeight: number,
+  frameHeight: number
 ): Promise<Blob> => {
   return new Promise((resolve) => {
     const stage = new Konva.Stage({
       width: frameWidth,
       height: frameHeight,
-      container: document.createElement("div"), // временный контейнер
+      container: document.createElement("div"),
     });
 
     const layer = new Konva.Layer();
@@ -133,27 +132,59 @@ const cropFrameKonva = (
     layer.add(konvaImage);
     layer.draw();
 
-    stage.toCanvas().toBlob(
-      (blob: any) => {
-        if (blob) resolve(blob);
-      },
-      "image/jpeg",
-      1,
-    );
+    stage.toCanvas().toBlob((blob: any) => {
+      if (blob) resolve(blob);
+    }, "image/jpeg");
   });
 };
 
 const formatFileSize = (bytes: number): string => {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  } else if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(2)} KB`;
-  } else if (bytes < 1024 * 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  } else {
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  }
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 };
+
+// Вспомогательные функции для устранения дублирования
+
+/** Конвертирует пиксельные координаты в метровые (инвертирует Y) */
+const convertPointsToMeters = (
+  points: Point[],
+  imageData: ImageData,
+  metersToPxWidth: number,
+  metersToPxHeight: number
+): number[][] => {
+  return points.map((p) => {
+    const xMeters = p.x / metersToPxWidth;
+    const yMeters = (imageData.height - p.y) / metersToPxHeight;
+    return [xMeters, yMeters];
+  });
+};
+
+/** Вычисляет сумму времени полёта для всех сегментов оптимальной траектории */
+const calculateOptimalFlightTime = async (
+  trajectoryData: any,
+  droneParams: DroneParams
+): Promise<number> => {
+  const flightTimes = await Promise.all(
+    trajectoryData.B.map((bItem: any) => {
+      const pointsArray = bItem.points.map((p: any) => [p[0], p[1]]);
+      return trajectoryApi.getFlightTime(
+        pointsArray,
+        droneParams.speed,
+        droneParams.hoverTime
+      );
+    })
+  );
+
+  return flightTimes.reduce(
+    (sum, result) => sum + (result?.flight_time_sec ?? 0),
+    0
+  );
+};
+
+const STAGE_WIDTH = 1000;
+const STAGE_HEIGHT = 600;
 
 const StoryboardEditor: FC<StoryboardEditorProps> = ({
   onClose,
@@ -180,13 +211,13 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   setPointsRecommended,
   selection,
   setSelection,
+  flightLineY
 }) => {
   const notifications = useNotifications();
 
   const [activeType, setActiveType] = useState<StoryboardType | null>("point");
   const [loading, setLoading] = useState(false);
-  const [isSelecting, setIsSelecting] = useState(false); // Управление режимом выбора области
-
+  const [isSelecting, setIsSelecting] = useState(false);
   const [needUpdateRecommended, setIsNeedUpdateRecommended] = useState(false);
 
   const frameWidthPx =
@@ -212,6 +243,167 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   const [stepXInput, setStepXInput] = useState("");
   const [stepYInput, setStepYInput] = useState("");
 
+  const stageRef = useRef<any>(null);
+
+  // const [scale] = useState(1);
+  // const [position] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  const scaleToFit = img
+    ? Math.min(
+      1,
+      (STAGE_WIDTH / img.width) * 0.9,
+      (STAGE_HEIGHT / img.height) * 0.9,
+    )
+    : 1;
+
+  const imageX = img ? (STAGE_WIDTH - img.width * scaleToFit) / 2 : 0;
+  const imageY = img ? (STAGE_HEIGHT - img.height * scaleToFit) / 2 : 0;
+
+  const GRID_COLS = droneParams.frameWidthBase / droneParams.frameWidthPlanned;
+  const GRID_ROWS =
+    droneParams.frameHeightBase / droneParams.frameHeightPlanned;
+
+  const width_m = droneParams.frameWidthBase;
+  const height_m = droneParams.frameHeightBase;
+
+  const [isClickSelecting, setIsClickSelecting] = useState(false);
+
+  const handleMouseDown = (e: any) => {
+    if (!isSelecting || activeType != "recommended") return;
+
+    const stage = e.target.getStage();
+    const pointer = stage.getRelativePointerPosition();
+
+    if (!pointer) return;
+
+    const imageXCoord = (pointer.x - imageX) / scaleToFit;
+    const imageYCoord = (pointer.y - imageY) / scaleToFit;
+
+    setIsClickSelecting(true);
+    setSelection({
+      x: imageXCoord,
+      y: imageYCoord,
+      width: 0,
+      height: 0,
+    });
+  };
+
+  const handleMouseMove = (e: any) => {
+    if (!isSelecting) return;
+
+    if (!isClickSelecting || !selection) return;
+
+    const stage = e.target.getStage();
+    const pointer = stage.getRelativePointerPosition();
+
+    if (!pointer) return;
+
+    const imageXCoord = (pointer.x - imageX) / scaleToFit;
+    const imageYCoord = (pointer.y - imageY) / scaleToFit;
+
+    setSelection({
+      ...selection,
+      width: imageXCoord - selection.x,
+      height: imageYCoord - selection.y,
+    });
+  };
+
+  const handleMouseUp = () => {
+    if (!isSelecting) return;
+
+    setIsClickSelecting(false);
+  };
+
+  const handleDragMove = (e: any) => {
+    const stage = e.target;
+    setPosition({
+      x: stage.x(),
+      y: stage.y(),
+    });
+  };
+
+
+  const handleWheel = (e: any) => {
+    e.evt.preventDefault();
+
+    const scaleBy = 1.1;
+    const stage = e.target.getStage();
+    const oldScale = scale;
+
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+
+    const mousePointTo = {
+      x: (pointer.x - position.x) / oldScale,
+      y: (pointer.y - position.y) / oldScale,
+    };
+
+    const direction = e.evt.deltaY > 0 ? -1 : 1;
+    const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
+
+    setScale(newScale);
+    setPosition({
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    });
+  };
+
+  const gridLines = useMemo(() => {
+    if (!img) return null;
+
+    const lines: JSX.Element[] = [];
+    const imgWidth = img.width * scaleToFit;
+    const imgHeight = img.height * scaleToFit;
+
+    const cellWidth = imgWidth / GRID_COLS;
+    const cellHeight = imgHeight / GRID_ROWS;
+    const lineStyle = {
+      width: 2,
+      height: 2,
+      fill: "rgba(255, 255, 255, 0.8)",
+      stroke: "rgb(0, 0, 0, 1)",
+      strokeWidth: 0.1
+    };
+
+    // Вертикальные линии
+    for (let i = 1; i < GRID_COLS; i++) {
+      const x = imageX + cellWidth * i;
+      lines.push(
+        <Rect
+          key={`v-${i}`}
+          x={x}
+          y={imageY}
+          width={lineStyle.width}
+          height={imgHeight}
+          fill={lineStyle.fill}
+          stroke={lineStyle.stroke}
+          strokeWidth={lineStyle.strokeWidth}
+        />
+      );
+    }
+
+    // Горизонтальные линии
+    for (let i = 1; i < GRID_ROWS; i++) {
+      const y = imageY + imgHeight - cellHeight * i;
+      lines.push(
+        <Rect
+          key={`h-${i}`}
+          x={imageX}
+          y={y}
+          width={imgWidth}
+          height={lineStyle.height}
+          fill={lineStyle.fill}
+          stroke={lineStyle.stroke}
+          strokeWidth={lineStyle.strokeWidth}
+        />
+      );
+    }
+
+    return lines;
+  }, [img, GRID_COLS, GRID_ROWS, imageX, imageY, scaleToFit]);
+
   useEffect(() => {
     if (storyboardsData?.recommended?.step_x) {
       setStepXInput(storyboardsData.recommended.step_x.toFixed(2));
@@ -224,189 +416,97 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     }
   }, [storyboardsData?.recommended?.step_y]);
 
-  const extractFrames = async () => {
-    if (!img) return;
+  //  Универсальные функции экстракции кадров 
+
+  /** Общая функция нарезки кадров для точечной и рекомендуемой раскадровки */
+  const extractFramesGeneric = async (
+    pts: Point[],
+    storyboardKey: StoryboardType,
+    setFramesUrls: (urls: string[]) => void
+  ): Promise<string[]> => {
+    if (!img) return [];
 
     const blobs = await Promise.all(
-      points.map((p) =>
-        cropFrameKonva(img, p.x, p.y, frameWidthPx, frameHeightPx),
-      ),
+      pts.map((p) => cropFrameKonva(img, p.x, p.y, frameWidthPx, frameHeightPx))
     );
 
     const totalBytes = blobs.reduce((sum, b) => sum + b.size, 0);
 
-    console.log("Размер одного кадра (пример):", blobs[0]?.size, "байт");
-    console.log("Общий размер:", totalBytes, "байт");
-    console.log("Общий размер (MB):", (totalBytes / 1024 / 1024).toFixed(2));
-
     setStoryboardsData((prev) => ({
       ...prev,
-      point: {
-        ...prev.point,
+      [storyboardKey]: {
+        ...prev[storyboardKey],
         disk_space: totalBytes,
         count_frames: blobs.length,
       },
     }));
 
-    const urls = blobs.map((b) => {
-      return URL.createObjectURL(b);
-    });
-    setFramesUrlsPointBased(urls);
+    const urls = blobs.map((b) => URL.createObjectURL(b));
+    setFramesUrls(urls);
     return urls;
   };
 
-  const extractRecommendedFrames = async () => {
-    if (!img) return;
+  /** Универсальная функция нарезки кадров для всех оптимальных методов */
+  const extractOptimalFramesGeneric = async (
+    trajectory: any,
+    storyboardKey: StoryboardType,
+    setFramesUrls: (urls: string[]) => void
+  ): Promise<void> => {
+    if (!img || !trajectory) return;
 
-    if (pointsRecommended.length === 0) {
-      notifications.show(
-        "Кадры сформировать не удалось. Укажите область большего размера.",
-        {
-          severity: "error",
-          autoHideDuration: 5000,
-        },
-      );
-      return;
-    }
-
-    const blobs = await Promise.all(
-      pointsRecommended.map((p) =>
-        cropFrameKonva(img, p.x, p.y, frameWidthPx, frameHeightPx),
-      ),
-    );
-
-    const totalBytes = blobs.reduce((sum, b) => sum + b.size, 0);
-
-    console.log("Размер одного кадра (пример):", blobs[0]?.size, "байт");
-    console.log("Общий размер:", totalBytes, "байт");
-    console.log("Общий размер (MB):", (totalBytes / 1024 / 1024).toFixed(2));
-
-    setStoryboardsData((prev) => ({
-      ...prev,
-      recommended: {
-        ...prev.recommended,
-        disk_space: totalBytes,
-        count_frames: blobs.length,
-      },
-    }));
-
-    const urls = blobs.map((b) => {
-      return URL.createObjectURL(b);
-    });
-    setFramesUrlsRecommended(urls);
-  };
-
-  const extractOptimalFrames = async () => {
-    if (!img || !trajectoryData) return;
-
-    const metersToPxWidth = imageData.width / droneParams.frameWidthBase;
-    const metersToPxHeight = imageData.height / droneParams.frameHeightBase;
-
-    // Получаем все точки из всех объектов в массиве B и переводим в пиксели
-    const pointsFromB = trajectoryData?.B.flatMap((bItem: any) =>
+    const pointsFromB = trajectory.B.flatMap((bItem: any) =>
       bItem.points.map((point: any) => ({
         x: point[0] * metersToPxWidth,
         y: imageData.height - point[1] * metersToPxHeight,
-      })),
+      }))
     );
 
     const blobs = await Promise.all(
       pointsFromB.map((p: any) =>
-        cropFrameKonva(img, p.x, p.y, frameWidthPx, frameHeightPx),
-      ),
+        cropFrameKonva(img, p.x, p.y, frameWidthPx, frameHeightPx)
+      )
     );
 
     const totalBytes = blobs.reduce((sum, b) => sum + b.size, 0);
 
     setStoryboardsData((prev) => ({
       ...prev,
-      optimal: {
-        ...prev.optimal,
+      [storyboardKey]: {
+        ...prev[storyboardKey],
         disk_space: totalBytes,
         count_frames: blobs.length,
       },
     }));
 
-    const urls = blobs.map((b) => {
-      return URL.createObjectURL(b);
-    });
-    setFramesUrlsOptimal(urls);
+    const urls = blobs.map((b) => URL.createObjectURL(b));
+    setFramesUrls(urls);
   };
 
-  const extractOptimal2Frames = async () => {
-    if (!img || !trajectoryData2) return;
-
-    const metersToPxWidth = imageData.width / droneParams.frameWidthBase;
-    const metersToPxHeight = imageData.height / droneParams.frameHeightBase;
-
-    // Получаем все точки из всех объектов в массиве B и переводим в пиксели
-    const pointsFromB = trajectoryData2?.B.flatMap((bItem: any) =>
-      bItem.points.map((point: any) => ({
-        x: point[0] * metersToPxWidth,
-        y: imageData.height - point[1] * metersToPxHeight,
-      })),
-    );
-
-    const blobs = await Promise.all(
-      pointsFromB.map((p: any) =>
-        cropFrameKonva(img, p.x, p.y, frameWidthPx, frameHeightPx),
-      ),
-    );
-
-    const totalBytes = blobs.reduce((sum, b) => sum + b.size, 0);
+  /** Сброс состояния раскадровки для любого типа */
+  const resetStoryboard = (
+    storyboardKey: StoryboardType,
+    framesUrls: string[],
+    setFramesUrls: (urls: string[]) => void,
+    extraReset?: () => void
+  ) => {
+    framesUrls.forEach((u) => URL.revokeObjectURL(u));
+    setFramesUrls([]);
 
     setStoryboardsData((prev) => ({
       ...prev,
-      optimal_big_density: {
-        ...prev.optimal_big_density,
-        disk_space: totalBytes,
-        count_frames: blobs.length,
+      [storyboardKey]: {
+        ...prev[storyboardKey],
+        applied: false,
+        count_frames: null,
+        disk_space: null,
+        total_flight_time: null,
       },
     }));
 
-    const urls = blobs.map((b) => {
-      return URL.createObjectURL(b);
-    });
-    setFramesUrlsOptimal2(urls);
+    extraReset?.();
   };
 
-  const extractOptimal3Frames = async () => {
-    if (!img || !trajectoryData3) return;
-
-    const metersToPxWidth = imageData.width / droneParams.frameWidthBase;
-    const metersToPxHeight = imageData.height / droneParams.frameHeightBase;
-
-    // Получаем все точки из всех объектов в массиве B и переводим в пиксели
-    const pointsFromB = trajectoryData3?.B.flatMap((bItem: any) =>
-      bItem.points.map((point: any) => ({
-        x: point[0] * metersToPxWidth,
-        y: imageData.height - point[1] * metersToPxHeight,
-      })),
-    );
-
-    const blobs = await Promise.all(
-      pointsFromB.map((p: any) =>
-        cropFrameKonva(img, p.x, p.y, frameWidthPx, frameHeightPx),
-      ),
-    );
-
-    const totalBytes = blobs.reduce((sum, b) => sum + b.size, 0);
-
-    setStoryboardsData((prev) => ({
-      ...prev,
-      optimal_combi: {
-        ...prev.optimal_combi,
-        disk_space: totalBytes,
-        count_frames: blobs.length,
-      },
-    }));
-
-    const urls = blobs.map((b) => {
-      return URL.createObjectURL(b);
-    });
-    setFramesUrlsOptimal3(urls);
-  };
-
+  //  Основные обработчики 
 
   const toggleType = (type: StoryboardType) => {
     setActiveType(type);
@@ -415,26 +515,25 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   const handleApply = async () => {
     setLoading(true);
 
-    if (isPointBased) {
-      framesUrlsPointBased.map((u: string) => URL.revokeObjectURL(u));
-      setFramesUrlsPointBased([]);
-      setLoading(true);
-      try {
-        await extractFrames();
+    try {
+      // Точечная раскадровка
+      if (isPointBased) {
+        framesUrlsPointBased.forEach((u) => URL.revokeObjectURL(u));
+        setFramesUrlsPointBased([]);
 
-        const pointsArray = points.map((p: any) => {
-          const xMeters = p.x / metersToPxWidth;
+        await extractFramesGeneric(points, "point", setFramesUrlsPointBased);
 
-          // инвертируем Y и переводим в метры
-          const yMeters = (imageData.height - p.y) / metersToPxHeight;
-
-          return [xMeters, yMeters];
-        });
+        const pointsArray = convertPointsToMeters(
+          points,
+          imageData,
+          metersToPxWidth,
+          metersToPxHeight
+        );
 
         const flightTime = await trajectoryApi.getFlightTime(
           pointsArray,
           droneParams.speed,
-          droneParams.hoverTime,
+          droneParams.hoverTime
         );
 
         setStoryboardsData((prev) => ({
@@ -445,32 +544,38 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
             total_flight_time: flightTime ? flightTime.flight_time_sec : null,
           },
         }));
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
       }
-    } else if (isRecommended) {
-      framesUrlsRecommended.map((u: string) => URL.revokeObjectURL(u));
-      setFramesUrlsRecommended([]);
-      setIsSelecting(false);
-      setLoading(true);
-      try {
-        await extractRecommendedFrames();
+      // Рекомендуемая раскадровка
+      else if (isRecommended) {
+        framesUrlsRecommended.forEach((u) => URL.revokeObjectURL(u));
+        setFramesUrlsRecommended([]);
+        setIsSelecting(false);
 
-        const pointsArray = pointsRecommended.map((p: any) => {
-          const xMeters = p.x / metersToPxWidth;
+        if (pointsRecommended.length === 0) {
+          notifications.show(
+            "Кадры сформировать не удалось. Укажите область большего размера.",
+            { severity: "error", autoHideDuration: 5000 }
+          );
+          return;
+        }
 
-          // инвертируем Y и переводим в метры
-          const yMeters = (imageData.height - p.y) / metersToPxHeight;
+        await extractFramesGeneric(
+          pointsRecommended,
+          "recommended",
+          setFramesUrlsRecommended
+        );
 
-          return [xMeters, yMeters];
-        });
+        const pointsArray = convertPointsToMeters(
+          pointsRecommended,
+          imageData,
+          metersToPxWidth,
+          metersToPxHeight
+        );
 
         const flightTime = await trajectoryApi.getFlightTime(
           pointsArray,
           droneParams.speed,
-          droneParams.hoverTime,
+          droneParams.hoverTime
         );
 
         setStoryboardsData((prev) => ({
@@ -483,119 +588,66 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
         }));
 
         setIsNeedUpdateRecommended(false);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
       }
-    } else if (isOptimal1Method) {
-      framesUrlsOptimal.map((u: string) => URL.revokeObjectURL(u));
-      setFramesUrlsOptimal([]);
-      setLoading(true);
-      try {
-        await extractOptimalFrames();
-
-        const flightTimes = await Promise.all(
-          trajectoryData.B.map((bItem: any) => {
-            const pointsArray = bItem.points.map((p: any) => [p[0], p[1]]);
-            return trajectoryApi.getFlightTime(
-              pointsArray,
-              droneParams.speed,
-              droneParams.hoverTime,
-            );
-          }),
-        );
-
-        const totalFlightTime = flightTimes.reduce(
-          (sum, result) => sum + (result?.flight_time_sec ?? 0),
-          0,
-        );
-
-        setStoryboardsData((prev) => ({
-          ...prev,
-          optimal: {
-            ...prev.optimal,
-            applied: true,
-            total_flight_time: totalFlightTime > 0 ? totalFlightTime : null,
+      // Оптимальные методы — через карту конфигураций
+      else {
+        const optimalConfigs = [
+          {
+            check: isOptimal1Method,
+            trajectoryData,
+            storyboardKey: "optimal" as StoryboardType,
+            setFramesUrls: setFramesUrlsOptimal,
+            framesUrls: framesUrlsOptimal,
+            setFramesUrlsClean: setFramesUrlsOptimal,
           },
-        }));
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    } else if (isOptimal2Method) {
-      framesUrlsOptimal2.map((u: string) => URL.revokeObjectURL(u));
-      setFramesUrlsOptimal2([]);
-      setLoading(true);
-      try {
-        await extractOptimal2Frames();
-
-        const flightTimes = await Promise.all(
-          trajectoryData2.B.map((bItem: any) => {
-            const pointsArray = bItem.points.map((p: any) => [p[0], p[1]]);
-            return trajectoryApi.getFlightTime(
-              pointsArray,
-              droneParams.speed,
-              droneParams.hoverTime,
-            );
-          }),
-        );
-
-        const totalFlightTime = flightTimes.reduce(
-          (sum, result) => sum + (result?.flight_time_sec ?? 0),
-          0,
-        );
-
-        setStoryboardsData((prev) => ({
-          ...prev,
-          optimal_big_density: {
-            ...prev.optimal_big_density,
-            applied: true,
-            total_flight_time: totalFlightTime > 0 ? totalFlightTime : null,
+          {
+            check: isOptimal2Method,
+            trajectoryData: trajectoryData2,
+            storyboardKey: "optimal_big_density" as StoryboardType,
+            setFramesUrls: setFramesUrlsOptimal2,
+            framesUrls: framesUrlsOptimal2,
+            setFramesUrlsClean: setFramesUrlsOptimal2,
           },
-        }));
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    } else if (isOptimal3Method) {
-      framesUrlsOptimal3.map((u: string) => URL.revokeObjectURL(u));
-      setFramesUrlsOptimal3([]);
-      setLoading(true);
-      try {
-        await extractOptimal3Frames();
-
-        const flightTimes = await Promise.all(
-          trajectoryData3.B.map((bItem: any) => {
-            const pointsArray = bItem.points.map((p: any) => [p[0], p[1]]);
-            return trajectoryApi.getFlightTime(
-              pointsArray,
-              droneParams.speed,
-              droneParams.hoverTime,
-            );
-          }),
-        );
-
-        const totalFlightTime = flightTimes.reduce(
-          (sum, result) => sum + (result?.flight_time_sec ?? 0),
-          0,
-        );
-
-        setStoryboardsData((prev) => ({
-          ...prev,
-          optimal_combi: {
-            ...prev.optimal_combi,
-            applied: true,
-            total_flight_time: totalFlightTime > 0 ? totalFlightTime : null,
+          {
+            check: isOptimal3Method,
+            trajectoryData: trajectoryData3,
+            storyboardKey: "optimal_combi" as StoryboardType,
+            setFramesUrls: setFramesUrlsOptimal3,
+            framesUrls: framesUrlsOptimal3,
+            setFramesUrlsClean: setFramesUrlsOptimal3,
           },
-        }));
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+        ];
+
+        const config = optimalConfigs.find((c) => c.check);
+        if (config) {
+          config.framesUrls.forEach((u: string) => URL.revokeObjectURL(u));
+          config.setFramesUrlsClean([]);
+
+          await extractOptimalFramesGeneric(
+            config.trajectoryData,
+            config.storyboardKey,
+            config.setFramesUrls
+          );
+
+          const totalFlightTime = await calculateOptimalFlightTime(
+            config.trajectoryData,
+            droneParams
+          );
+
+          setStoryboardsData((prev) => ({
+            ...prev,
+            [config.storyboardKey]: {
+              ...prev[config.storyboardKey],
+              applied: true,
+              total_flight_time: totalFlightTime > 0 ? totalFlightTime : null,
+            },
+          }));
+        }
       }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -610,9 +662,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
       { check: isOptimal3Method, frames: framesUrlsOptimal3 },
     ];
 
-    const matched = conditions.find(condition => condition.check);
-
-    return matched?.frames ?? [];
+    return conditions.find((c) => c.check)?.frames ?? [];
   }, [
     activeStoryboardData?.applied,
     isPointBased,
@@ -628,80 +678,54 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   ]);
 
   const handleResetInterestArea = () => {
-    if (isPointBased) {
-      framesUrlsPointBased.forEach((u) => URL.revokeObjectURL(u));
-      setFramesUrlsPointBased([]);
+    const resetConfigs = [
+      {
+        check: isPointBased,
+        framesUrls: framesUrlsPointBased,
+        setFramesUrls: setFramesUrlsPointBased,
+        storyboardKey: "point" as StoryboardType,
+      },
+      {
+        check: isRecommended,
+        framesUrls: framesUrlsRecommended,
+        setFramesUrls: setFramesUrlsRecommended,
+        storyboardKey: "recommended" as StoryboardType,
+        extraReset: () => setSelection(null),
+      },
+      {
+        check: isOptimal1Method,
+        framesUrls: framesUrlsOptimal,
+        setFramesUrls: setFramesUrlsOptimal,
+        storyboardKey: "optimal" as StoryboardType,
+      },
+      {
+        check: isOptimal2Method,
+        framesUrls: framesUrlsOptimal2,
+        setFramesUrls: setFramesUrlsOptimal2,
+        storyboardKey: "optimal_big_density" as StoryboardType,
+      },
+      {
+        check: isOptimal3Method,
+        framesUrls: framesUrlsOptimal3,
+        setFramesUrls: setFramesUrlsOptimal3,
+        storyboardKey: "optimal_combi" as StoryboardType,
+      },
+    ];
 
-      setStoryboardsData((prev) => ({
-        ...prev,
-        point: {
-          ...prev.point,
-          applied: false,
-          count_frames: null,
-          disk_space: null,
-          total_flight_time: null,
-        },
-      }));
-    } else if (isRecommended) {
-      setSelection(null);
+    const config = resetConfigs.find((c) => c.check);
+    if (config) {
 
-      framesUrlsRecommended.forEach((u) => URL.revokeObjectURL(u));
-      setFramesUrlsRecommended([]);
-
-      setStoryboardsData((prev) => ({
-        ...prev,
-        recommended: {
-          ...prev.recommended,
-          applied: false,
-          count_frames: null,
-          disk_space: null,
-          total_flight_time: null,
-        },
-      }));
-    } else if (isOptimal1Method) {
-      framesUrlsOptimal.forEach((u) => URL.revokeObjectURL(u));
-      setFramesUrlsOptimal([]);
-
-      setStoryboardsData((prev) => ({
-        ...prev,
-        optimal: {
-          ...prev.optimal,
-          applied: false,
-          count_frames: null,
-          disk_space: null,
-          total_flight_time: null,
-        },
-      }));
-    } else if (isOptimal2Method) {
-      framesUrlsOptimal2.forEach((u) => URL.revokeObjectURL(u));
-      setFramesUrlsOptimal2([]);
-
-      setStoryboardsData((prev) => ({
-        ...prev,
-        optimal_big_density: {
-          ...prev.optimal_big_density,
-          applied: false,
-          count_frames: null,
-          disk_space: null,
-          total_flight_time: null,
-        },
-      }));
-    } else if (isOptimal3Method) {
-      framesUrlsOptimal3.forEach((u) => URL.revokeObjectURL(u));
-      setFramesUrlsOptimal3([]);
-
-      setStoryboardsData((prev) => ({
-        ...prev,
-        optimal_combi: {
-          ...prev.optimal_combi,
-          applied: false,
-          count_frames: null,
-          disk_space: null,
-          total_flight_time: null,
-        },
-      }));
+      // Здесь задать вопрос?
+      resetStoryboard(
+        config.storyboardKey,
+        config.framesUrls,
+        config.setFramesUrls,
+        config.extraReset
+      );
     }
   };
+
+  //  Вспомогательные функции для рекомендуемой раскадровки 
 
   const generateRecommendedGridInSelection = (selection: {
     x: number;
@@ -720,11 +744,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
       droneParams.frameHeightPlanned;
 
     const points: Point[] = [];
-
     const startX = selection.x + scaledFrameWidth / 2;
     const endX = selection.x + selection.width;
     let currentY = selection.y + selection.height - scaledFrameHeight / 2;
-
     let rowIndex = 0;
 
     while (currentY >= selection.y) {
@@ -736,44 +758,33 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
         currentX += stepX;
       }
 
-      if (rowIndex % 2 !== 0) {
-        row.reverse();
-      }
-
+      if (rowIndex % 2 !== 0) row.reverse();
       points.push(...row);
-
       currentY -= stepY;
       rowIndex++;
     }
 
-    // console.warn("Generated recommended grid points:", points);
     return points;
   };
 
   const normalizeSelection = (sel: typeof selection) => {
     if (!sel) return null;
-
-    const x = sel.width < 0 ? sel.x + sel.width : sel.x;
-    const y = sel.height < 0 ? sel.y + sel.height : sel.y;
-
-    const width = Math.abs(sel.width);
-    const height = Math.abs(sel.height);
-
-    return { x, y, width, height };
+    return {
+      x: sel.width < 0 ? sel.x + sel.width : sel.x,
+      y: sel.height < 0 ? sel.y + sel.height : sel.y,
+      width: Math.abs(sel.width),
+      height: Math.abs(sel.height),
+    };
   };
 
+  //  Эффекты 
+
   useEffect(() => {
-    if (!selection) {
-      return;
-    }
-
-    const normalizedSelection = normalizeSelection(selection);
-    if (!normalizedSelection) {
-      return;
-    }
-
-    const points = generateRecommendedGridInSelection(normalizedSelection);
-    setPointsRecommended(points);
+    if (!selection) return;
+    const normalized = normalizeSelection(selection);
+    if (!normalized) return;
+    const pts = generateRecommendedGridInSelection(normalized);
+    setPointsRecommended(pts);
   }, [
     selection,
     frameWidthPx,
@@ -783,60 +794,43 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   ]);
 
   useEffect(() => {
-    if (isSelecting || pointsRecommended.length != framesUrlsRecommended.length)
+    if (isSelecting || pointsRecommended.length !== framesUrlsRecommended.length) {
       setIsNeedUpdateRecommended(true);
+    }
   }, [selection, framesUrlsRecommended.length]);
-
 
   const isDisabledApplyButton = () => {
     if (isPointBased) return points.length === 0;
     if (isRecommended) return !selection;
-
     if (isOptimal1Method) return !trajectoryData || trajectoryData.B.length === 0;
     if (isOptimal2Method) return !trajectoryData2 || trajectoryData2.B.length === 0;
     if (isOptimal3Method) return !trajectoryData3 || trajectoryData3.B.length === 0;
+    return true;
   };
 
+  const activeTrajectoryData = useMemo(() => {
+    if (isOptimal1Method) return trajectoryData;
+    if (isOptimal2Method) return trajectoryData2;
+    if (isOptimal3Method) return trajectoryData3;
+    return null;
+  }, [isOptimal1Method, isOptimal2Method, isOptimal3Method, trajectoryData, trajectoryData2, trajectoryData3]);
 
+  // Инициализация значений шагов по умолчанию
   useEffect(() => {
-    setStoryboardsData((prev) => {
-      if (
-        prev.recommended?.step_x == undefined ||
-        prev.recommended?.step_x == null || prev.recommended?.step_x == 0
-      )
-        return {
-          ...prev,
-          recommended: {
-            ...prev.recommended,
-            step_x: droneParams.frameWidthPlanned,
-          },
-        };
-
-      return prev;
-    });
+    setStoryboardsData((prev) => ({
+      ...prev,
+      recommended: {
+        ...prev.recommended,
+        step_x: prev.recommended?.step_x || droneParams.frameWidthPlanned,
+        step_y: prev.recommended?.step_y || droneParams.frameHeightPlanned,
+      },
+    }));
   }, []);
 
-  useEffect(() => {
-    setStoryboardsData((prev) => {
-      if (
-        prev.recommended?.step_y == undefined ||
-        prev.recommended?.step_y == null || prev.recommended?.step_y == 0
-      )
-        return {
-          ...prev,
-          recommended: {
-            ...prev.recommended,
-            step_y: droneParams.frameHeightPlanned,
-          },
-        };
-
-      return prev;
-    });
-  }, []);
+  //  Рендер 
 
   return (
     <Box display="flex" flexDirection="column" height="100%" width="100%">
-      {/* Спиннер */}
       {loading && (
         <Box
           sx={{
@@ -862,6 +856,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
           </Typography>
         </Box>
       )}
+
       {/* Header */}
       <Box
         display="flex"
@@ -912,7 +907,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                     color: isActive ? "primary.dark" : "text.primary",
                     bgcolor: isActive
                       ? "transparent"
-                      : "          rgba(0, 78, 158, 0.08)",
+                      : "rgba(0, 78, 158, 0.08)",
                   },
                 }}
                 role="button"
@@ -969,16 +964,12 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
               {typeConfigs[activeType].description}
             </Typography>
             <Box
-              sx={{
-                overflowY: "auto",
-                pr: 1,
-              }}
-              // flex={1}
+              sx={{ overflowY: "auto", pr: 1 }}
               display="flex"
               flexDirection="column"
               gap={2}
             >
-              {/*  Размер кадра */}
+              {/* Размер кадра */}
               <Box
                 sx={{
                   p: 2,
@@ -995,7 +986,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                 >
                   Размер кадра (ширина × высота)
                 </Typography>
-
                 <Stack spacing={1} mt={1}>
                   <Typography color="text.secondary" fontWeight={600}>
                     {droneParams.frameWidthPlanned.toFixed(2)} ×{" "}
@@ -1006,7 +996,9 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                   </Typography>
                 </Stack>
               </Box>
-              {activeType === "recommended" && (
+
+              {/* Параметры рекомендуемой раскадровки */}
+              {isRecommended && (
                 <Box
                   sx={{
                     p: 2,
@@ -1024,7 +1016,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                   >
                     Параметры
                   </Typography>
-
                   <Stack spacing={1.5} mt={1}>
                     <Box
                       display="flex"
@@ -1035,12 +1026,18 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                         Шаг по ширине, м
                       </Typography>
                       <FloatInput
-                        value={storyboardsData?.recommended?.step_x ?? droneParams.frameWidthPlanned}
+                        value={
+                          storyboardsData?.recommended?.step_x ??
+                          droneParams.frameWidthPlanned
+                        }
                         onChange={(val) => {
                           setIsNeedUpdateRecommended(true);
                           setStoryboardsData((prev) => ({
                             ...prev,
-                            recommended: { ...prev.recommended, step_x: val },
+                            recommended: {
+                              ...prev.recommended,
+                              step_x: val,
+                            },
                           }));
                         }}
                         min={0.1}
@@ -1055,19 +1052,24 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                         Шаг по высоте, м
                       </Typography>
                       <FloatInput
-                        value={storyboardsData?.recommended?.step_y ?? droneParams.frameHeightPlanned}
+                        value={
+                          storyboardsData?.recommended?.step_y ??
+                          droneParams.frameHeightPlanned
+                        }
                         onChange={(val) => {
                           setIsNeedUpdateRecommended(true);
                           setStoryboardsData((prev) => ({
                             ...prev,
-                            recommended: { ...prev.recommended, step_y: val },
+                            recommended: {
+                              ...prev.recommended,
+                              step_y: val,
+                            },
                           }));
                         }}
                         min={0.1}
                       />
                     </Box>
 
-                    {/* Кнопки снизу */}
                     <Stack
                       direction="row"
                       justifyContent="space-between"
@@ -1075,7 +1077,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                       alignItems="center"
                       mt={2}
                     >
-                      {/* Кнопка для выбора области */}
                       <Typography
                         variant="body2"
                         color="text.secondary"
@@ -1096,17 +1097,13 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                           <ToggleButton
                             value="check"
                             selected={isSelecting}
-                            onChange={() => {
-                              setIsSelecting((prev) => !prev);
-                            }}
+                            onChange={() => setIsSelecting((prev) => !prev)}
                           >
                             <HighlightAltIcon />
                           </ToggleButton>
                         </span>
                       </Tooltip>
                     </Stack>
-
-                    {/* Текст инструкции при включенном режиме выбора */}
 
                     {isSelecting && (
                       <Alert
@@ -1127,6 +1124,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                 </Box>
               )}
 
+              {/* Информационные предупреждения */}
               {!isSelecting && !selection && isRecommended && (
                 <Alert
                   severity="info"
@@ -1159,7 +1157,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                   </Alert>
                 )}
 
-              {/* Свойства раскадровки  */}
+              {/* Свойства раскадровки */}
               <Box
                 sx={{
                   p: 2,
@@ -1177,98 +1175,66 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                 >
                   Свойства раскадровки
                 </Typography>
-
                 <Stack spacing={1.5} mt={1}>
-                  <Box
-                    display="flex"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    gap={1}
-                  >
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Box
-                        sx={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          bgcolor: "#004e9e",
-                        }}
-                      />
-                      <Typography variant="body2" color="text.secondary">
-                        Количество кадров
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      {activeStoryboardData?.count_frames
+                  {[
+                    {
+                      label: "Количество кадров",
+                      value: activeStoryboardData?.count_frames
                         ? `${activeStoryboardData.count_frames} шт.`
-                        : "—"}
-                    </Typography>
-                  </Box>
-
-                  <Box
-                    display="flex"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    gap={1}
-                  >
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Box
-                        sx={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          bgcolor: "#004e9e",
-                        }}
-                      />
-                      <Typography variant="body2" color="text.secondary">
-                        Объём памяти
+                        : "—",
+                    },
+                    {
+                      label: "Объём памяти",
+                      value: activeStoryboardData?.disk_space
+                        ? formatFileSize(activeStoryboardData.disk_space)
+                        : "—",
+                    },
+                    {
+                      label: "Время полёта",
+                      value: activeStoryboardData?.total_flight_time
+                        ? `${activeStoryboardData.total_flight_time.toFixed(2)} с.`
+                        : "—",
+                      tooltip:
+                        "Время полёта от кадра к кадру с зависанием без учёта погоды.",
+                    },
+                  ].map((item) => (
+                    <Box
+                      key={item.label}
+                      display="flex"
+                      justifyContent="space-between"
+                      alignItems="center"
+                      gap={1}
+                    >
+                      <Box display="flex" alignItems="center" gap={2}>
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            bgcolor: "#004e9e",
+                          }}
+                        />
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          display="flex"
+                          alignItems="center"
+                        >
+                          {item.label}
+                          {item.tooltip && (
+                            <HelpIconTooltip title={item.tooltip} />
+                          )}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" fontWeight={500}>
+                        {item.value}
                       </Typography>
                     </Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      {activeStoryboardData?.disk_space
-                        ? `${formatFileSize(activeStoryboardData.disk_space)}`
-                        : "—"}
-                    </Typography>
-                  </Box>
-
-                  <Box
-                    display="flex"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    gap={1}
-                  >
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Box
-                        sx={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          bgcolor: "#004e9e",
-                        }}
-                      />
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        display="flex"
-                        alignItems="center"
-                      >
-                        Время полёта
-                        <HelpIconTooltip title="Время полёта от кадра к кадру с зависанием без учёта погоды." />
-                      </Typography>
-                    </Box>
-
-                    <Typography variant="body2" fontWeight={500}>
-                      {activeStoryboardData?.total_flight_time
-                        ? `${activeStoryboardData.total_flight_time.toFixed(
-                          2,
-                        )} с.`
-                        : "—"}
-                    </Typography>
-                  </Box>
+                  ))}
                 </Stack>
               </Box>
 
-              {/*  Параметры БПЛА  */}
+              {/* Параметры БПЛА и съёмки */}
               <Box
                 sx={{
                   p: 2,
@@ -1286,86 +1252,56 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                 >
                   Параметры БПЛА и съёмки
                 </Typography>
-
                 <Stack spacing={1.5} mt={1}>
-                  <Box
-                    display="flex"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    gap={1}
-                  >
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Box
-                        sx={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          bgcolor: "#009e2f",
-                        }}
-                      />
-                      <Typography variant="body2" color="text.secondary">
-                        Рабочая скорость
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      {droneParams?.speed
+                  {[
+                    {
+                      label: "Рабочая скорость",
+                      value: droneParams?.speed
                         ? `${droneParams.speed.toFixed(2)} м/с`
-                        : "—"}
-                    </Typography>
-                  </Box>
-                  <Box
-                    display="flex"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    gap={1}
-                  >
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Box
-                        sx={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          bgcolor: "#009e2f",
-                        }}
-                      />
-                      <Typography variant="body2" color="text.secondary">
-                        Время зависания
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      {droneParams?.hoverTime
+                        : "—",
+                    },
+                    {
+                      label: "Время зависания",
+                      value: droneParams?.hoverTime
                         ? `${droneParams.hoverTime.toFixed(2)} с.`
-                        : "—"}
-                    </Typography>
-                  </Box>
-                  <Box
-                    display="flex"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    gap={1}
-                  >
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Box
-                        sx={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          bgcolor: "#009e2f",
-                        }}
-                      />
-                      <Typography variant="body2" color="text.secondary">
-                        Расстояние съёмки
+                        : "—",
+                    },
+                    {
+                      label: "Расстояние съёмки",
+                      value: droneParams?.plannedDistance
+                        ? `${droneParams.plannedDistance.toFixed(2)} м`
+                        : "—",
+                    },
+                  ].map((item) => (
+                    <Box
+                      key={item.label}
+                      display="flex"
+                      justifyContent="space-between"
+                      alignItems="center"
+                      gap={1}
+                    >
+                      <Box display="flex" alignItems="center" gap={2}>
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            bgcolor: "#009e2f",
+                          }}
+                        />
+                        <Typography variant="body2" color="text.secondary">
+                          {item.label}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" fontWeight={500}>
+                        {item.value}
                       </Typography>
                     </Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      {droneParams?.plannedDistance
-                        ? `${droneParams.plannedDistance.toFixed(2)} м`
-                        : "—"}
-                    </Typography>
-                  </Box>
+                  ))}
                 </Stack>
               </Box>
 
+              {/* Предупреждения для оптимальных методов */}
               {isOptimal1Method && !trajectoryData && (
                 <Alert
                   severity="warning"
@@ -1380,7 +1316,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                   траектории.
                 </Alert>
               )}
-
               {isOptimal2Method && !trajectoryData2 && (
                 <Alert
                   severity="warning"
@@ -1395,7 +1330,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                   траектории.
                 </Alert>
               )}
-
               {isOptimal3Method && !trajectoryData3 && (
                 <Alert
                   severity="warning"
@@ -1411,24 +1345,21 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
                 </Alert>
               )}
             </Box>
-            {/*  Кнопки  */}
+
+            {/* Кнопки действий */}
             <Stack
               direction="row"
-              // spacing={2}
               alignItems="center"
               justifyContent="space-between"
             >
               <Button
                 size="small"
                 variant="contained"
-                // fullWidth
                 onClick={handleApply}
                 disabled={isDisabledApplyButton()}
               >
                 Применить
               </Button>
-
-              {/* Кнопка сброса */}
               <Tooltip title="Очистить раскадровку">
                 <IconButton
                   color="error"
@@ -1465,7 +1396,45 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
             justifyContent="center"
             pt={2}
           >
-            <SceneCanvas
+            <SceneStoryboardStage
+              stageRef={stageRef}
+              STAGE_WIDTH={STAGE_WIDTH}
+              STAGE_HEIGHT={STAGE_HEIGHT}
+              scale={scale}
+              position={position}
+              image={img}
+              imageX={imageX}
+              imageY={imageY}
+              scaleToFit={scaleToFit}
+              gridLines={gridLines}
+              points={points}
+              pointsRecommended={pointsRecommended}
+              obstacles={obstacles}
+              trajectoryData={activeTrajectoryData} // или нужный из трёх
+              showPoints={isPointBased}
+              showObstacles={true}
+              showTaxons={isOptimal1Method || isOptimal2Method || isOptimal3Method}
+              frameWidthPx={frameWidthPx}
+              frameHeightPx={frameHeightPx}
+              applyPointBasedStoryboard={activeStoryboardData?.applied && activeType === "point"}
+              applyRecommendedStoryboard={activeStoryboardData?.applied && isRecommended}
+              applyOptimalStoryboard={activeStoryboardData?.applied && (isOptimal1Method || isOptimal2Method || isOptimal3Method)}
+              droneParams={droneParams}
+              isSelecting={isSelecting}
+              selection={selection}
+              pxPerMeterX={(img?.width || 1) / width_m}
+              pxPerMeterY={(img?.height || 1) / height_m}
+              handleDragMove={handleDragMove}
+              handleWheel={handleWheel}
+              handleMouseDown={handleMouseDown}
+              handleMouseMove={handleMouseMove}
+              handleMouseUp={handleMouseUp}
+              handleClick={() => { }}
+              showUavLine={isOptimal1Method || isOptimal2Method || isOptimal3Method}
+              flightLineY={flightLineY}
+            />
+
+            {/* <SceneCanvas
               imageData={imageData}
               points={points}
               pointsRecommended={pointsRecommended}
@@ -1481,30 +1450,26 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
               showTaxonsMethod2={isOptimal2Method}
               showTaxonsMethod3={isOptimal3Method}
               applyPointBasedStoryboard={
-                (activeStoryboardData?.applied || false) &&
-                activeType == "point"
+                (activeStoryboardData?.applied || false) && activeType === "point"
               }
               applyRecommendedStoryboard={
                 (activeStoryboardData?.applied || false) && isRecommended
               }
               applyOptimalStoryboard={
-                (activeStoryboardData?.applied || false) &&
-                isOptimal1Method
+                (activeStoryboardData?.applied || false) && isOptimal1Method
               }
               applyOptimal2Storyboard={
-                (activeStoryboardData?.applied || false) &&
-                isOptimal2Method
+                (activeStoryboardData?.applied || false) && isOptimal2Method
               }
               applyOptimal3Storyboard={
-                (activeStoryboardData?.applied || false) &&
-                isOptimal3Method
+                (activeStoryboardData?.applied || false) && isOptimal3Method
               }
               isSelecting={isSelecting}
               activeType={activeType}
               selection={selection}
               setSelection={setSelection}
               droneParams={droneParams}
-            />
+            /> */}
           </Box>
           <Box flexShrink={0}>
             <StoryboardTimeline frames={frames} />

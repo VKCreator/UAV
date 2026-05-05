@@ -271,6 +271,11 @@ const FlightSchemaPage: React.FC<Props> = ({
   const PREVIEW_LAYER_WIDTH = containerLayerSize.width;
   const PREVIEW_LAYER_HEIGHT = containerLayerSize.height;
 
+  // Функция для безопасной проверки наличия данных оптимизации
+  const hasValidOptimizationData = (data: Opt1TrajectoryData | null): boolean => {
+    return !!(data && data.B && Array.isArray(data.B) && data.B.length > 0);
+  };
+
   // ── Хелпер для выбора данных оптимизации ────────────────────────────────
   const getOptimizationData = (tab: number): Opt1TrajectoryData | null => {
     if (tab === 0) return trajectoryData;
@@ -316,16 +321,40 @@ const FlightSchemaPage: React.FC<Props> = ({
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const { width, height } = entry.contentRect;
-        setContainerOptSize({
-          width: Math.floor(width),
-          height: Math.floor(height)
-        });
+        if (width > 0 && height > 0) {
+          setContainerOptSize({
+            width: Math.floor(width),
+            height: Math.floor(height)
+          });
+        }
       }
     });
 
     resizeObserver.observe(containerOptimizationRef.current);
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [optimizationTab]);
+
+  React.useEffect(() => {
+    // Сбрасываем размеры контейнера при переключении вкладки
+    // чтобы принудительно пересчитать их заново
+    setContainerOptSize({ width: 0, height: 0 });
+
+    // Небольшая задержка для пересчета
+    const timer = setTimeout(() => {
+      if (containerOptimizationRef.current) {
+        const { width, height } = containerOptimizationRef.current.getBoundingClientRect();
+        if (width > 0 && height > 0) {
+          setContainerOptSize({
+            width: Math.floor(width),
+            height: Math.floor(height)
+          });
+        }
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [optimizationTab]);
+
 
   React.useEffect(() => {
     if (!containerLayerRef.current) return;
@@ -344,18 +373,6 @@ const FlightSchemaPage: React.FC<Props> = ({
     return () => resizeObserver.disconnect();
   }, []);
 
-  // ── Эффект для автоматического переключения ─────────────────────────────
-  React.useEffect(() => {
-    // Если приоритетный метод не задан, не переключаем
-    if (!priorityMethod) return;
-
-    const idx = getMethodIndex(priorityMethod);
-
-    setOptimizationTab(idx);
-    setComparisonTab(idx);
-    // +2, потому что первые 2 вкладки раскадровки — это Точечная и Рекомендуемая
-    setStoryboardTab(idx + 2);
-  }, [priorityMethod]); // Срабатывает, когда priorityMethod загрузился или изменился
 
   // ── Данные для графиков сравнения ────────────────────────────────────────
 
@@ -455,6 +472,33 @@ const FlightSchemaPage: React.FC<Props> = ({
     stageRef: sceneUserTrajectoryShower,
     image: image,
   };
+
+React.useEffect(() => {
+  // Принудительно обновляем размеры после загрузки изображения
+  if (image && containerOptimizationRef.current) {
+    const rect = containerOptimizationRef.current.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      setContainerOptSize({
+        width: Math.floor(rect.width),
+        height: Math.floor(rect.height)
+      });
+    }
+  }
+}, [image]);
+
+
+  // ── Эффект для автоматического переключения ─────────────────────────────
+  React.useEffect(() => {
+    // Если приоритетный метод не задан, не переключаем
+    if (!priorityMethod) return;
+
+    const idx = getMethodIndex(priorityMethod);
+
+    setOptimizationTab(idx);
+    setComparisonTab(idx);
+    // +2, потому что первые 2 вкладки раскадровки — это Точечная и Рекомендуемая
+    setStoryboardTab(idx + 2);
+  }, [priorityMethod]); // Срабатывает, когда priorityMethod загрузился или изменился
 
   const [expanded, setExpanded] = React.useState<string | false>('panel1');
 
@@ -1429,7 +1473,7 @@ const FlightSchemaPage: React.FC<Props> = ({
             <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
               <Box display="flex" alignItems="center" gap={1}>
                 <Typography variant="h6">Оптимизация траектории</Typography>
-                {weatherConditions.isUse && (<Tooltip title="Навигационные треугольники">
+                {weatherConditions.isUse && currentOptimizationData && (<Tooltip title="Навигационные треугольники">
                   <ToggleButton
                     value="triangles"
                     selected={showNavTriangles}
@@ -1489,22 +1533,51 @@ const FlightSchemaPage: React.FC<Props> = ({
 
           <Box mt={2} minHeight={340}>
             {/* Отрисовка активной вкладки оптимизации */}
-            {currentOptimizationData ? (
+            {currentOptimizationData && image && hasValidOptimizationData(currentOptimizationData) ? (
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <Box ref={containerOptimizationRef} sx={{ height: { xs: 400, md: 450 } }}>
-                    <ScenePreview
-                      {...commonProps}
-                      trajectoryData={currentOptimizationData}
-                      showUserTrajectory={false}
-                      showTaxonTrajectory={true}
-                      isLoading={getOptimizationLoading(optimizationTab)}
-                      PREVIEW_WIDTH={PREVIEW_OPT_WIDTH}
-                      PREVIEW_HEIGHT={PREVIEW_OPT_HEIGHT}
-                      isShowView={false}
-                      showNavigationTriangles={showNavTriangles}
 
-                    />
+                  <Box ref={containerOptimizationRef} flex={1}
+                    sx={{
+                      width: "100%",
+                      minHeight: 400,
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      position: "relative",
+                      overflow: "hidden"
+                    }}>
+
+                    {containerOptSize.width > 0 && containerOptSize.height > 0 ? (
+                      <Box sx={{ width: "100%", height: "100%", p: "10px" }}>
+                        <ScenePreview
+                          {...commonProps}
+                          trajectoryData={currentOptimizationData}
+                          showUserTrajectory={false}
+                          showTaxonTrajectory={true}
+                          isLoading={getOptimizationLoading(optimizationTab)}
+                          PREVIEW_WIDTH={PREVIEW_OPT_WIDTH - 20}
+                          PREVIEW_HEIGHT={PREVIEW_OPT_HEIGHT - 20}
+                          isShowView={false}
+                          showNavigationTriangles={showNavTriangles}
+
+                        />
+                      </Box>
+                    ) : (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          height: '100%',
+                          width: '100%'
+                        }}
+                      >
+                        <Typography variant="body2" color="text.secondary">
+                          Загрузка...
+                        </Typography>
+                      </Box>
+                    )}
                   </Box>
                 </Grid>
                 {/* Метрики (логика та же, но берем из currentOptimizationData) */}
@@ -1533,6 +1606,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                       <AccordionDetails sx={{
                         flex: 1,
                         overflowY: 'auto', // Включаем скролл
+                        maxHeight: "250px"
                       }}>
                         {/* Ваш старый контент */}
                         <Stack spacing={2}>
@@ -1584,7 +1658,7 @@ const FlightSchemaPage: React.FC<Props> = ({
                           <TableContainer
                             component={Paper}
                             variant="outlined"
-                            sx={{ background: "transparent", maxHeight: 100 }}
+                            sx={{ background: "transparent" }}
                           >
                             <Table size="small">
                               <TableHead>
