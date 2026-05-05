@@ -20,8 +20,8 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import HighlightAltIcon from "@mui/icons-material/HighlightAlt";
+import DownloadIcon from "@mui/icons-material/Download";
 
-import SceneCanvas from "../../storyboard/components/SceneStoryboardCanvas";
 import StoryboardTimeline from "../../storyboard/components/StoryboardTimeline";
 import { DroneParams } from "../../../types/uav.types";
 import { Storyboards } from "../../../types/storyboards.types";
@@ -34,6 +34,7 @@ import { HelpIconTooltip } from "../../../components/ui/HelpIconTooltip";
 import { trajectoryApi } from "../../../api/trajectory.api";
 import { FloatInput } from "../../../components/ui/FloatInput";
 import { SceneStoryboardStage } from "./SceneStoryboardStage";
+import { downloadStoryboard } from "../utils/SceneStoryboardExport";
 
 interface StoryboardEditorProps {
   onClose: () => void;
@@ -512,9 +513,13 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     setActiveType(type);
   };
 
+const yieldToBrowser = (): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, 0));
+
   const handleApply = async () => {
     setLoading(true);
 
+    await yieldToBrowser();
     try {
       // Точечная раскадровка
       if (isPointBased) {
@@ -827,6 +832,46 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     }));
   }, []);
 
+  const handleDownload = async () => {
+    if (!img) return;
+
+    // Определяем активную траекторию
+    const activeTrajectoryData = isOptimal1Method
+      ? trajectoryData
+      : isOptimal2Method
+        ? trajectoryData2
+        : isOptimal3Method
+          ? trajectoryData3
+          : null;
+
+    await downloadStoryboard(
+      {
+        image: img,
+        width_m: droneParams.frameWidthBase,
+        height_m: droneParams.frameHeightBase,
+        GRID_COLS: droneParams.frameWidthBase / droneParams.frameWidthPlanned,
+        GRID_ROWS: droneParams.frameHeightBase / droneParams.frameHeightPlanned,
+        points,
+        pointsRecommended,
+        obstacles,
+        trajectoryData: activeTrajectoryData,
+        frameWidthPx,
+        frameHeightPx,
+        showGrid: true,
+        showObstacles: true,
+        showPoints: isPointBased,
+        showRecommended: isRecommended,
+        showOptimal: isOptimal1Method || isOptimal2Method || isOptimal3Method,
+        showUAVLine: isOptimal1Method || isOptimal2Method || isOptimal3Method,
+        flightLineY: flightLineY,
+        applyOptimal: activeStoryboardData?.applied || false,
+        setLoading,
+      },
+      `storyboard_${activeType}_${Date.now()}.jpeg`,
+      0.5,
+    );
+  };
+
   //  Рендер 
 
   return (
@@ -867,12 +912,25 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
         borderColor="divider"
         bgcolor="background.paper"
       >
-        <IconButton size="small" onClick={onClose}>
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h6" fontWeight="medium">
-          Редактор раскадровки
-        </Typography>
+        <Box display="flex" alignItems="center" gap={1}>
+
+          <IconButton size="small" onClick={onClose}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h6" fontWeight="medium">
+            Редактор раскадровки
+          </Typography>
+        </Box>
+
+        <Box sx={{ flexGrow: 1 }} />
+        <Button
+          startIcon={<DownloadIcon />}
+          onClick={handleDownload}
+          aria-label="Скачать"
+          color="primary"
+        >
+          Скачать схему
+        </Button>
       </Box>
 
       <Box display="flex" flex={1} overflow="hidden">
@@ -1433,43 +1491,6 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
               showUavLine={isOptimal1Method || isOptimal2Method || isOptimal3Method}
               flightLineY={flightLineY}
             />
-
-            {/* <SceneCanvas
-              imageData={imageData}
-              points={points}
-              pointsRecommended={pointsRecommended}
-              obstacles={obstacles}
-              trajectoryData={trajectoryData}
-              trajectoryData2={trajectoryData2}
-              trajectoryData3={trajectoryData3}
-              frameWidthPx={frameWidthPx}
-              frameHeightPx={frameHeightPx}
-              showPoints={isPointBased}
-              showObstacles={true}
-              showTaxonsMethod1={isOptimal1Method}
-              showTaxonsMethod2={isOptimal2Method}
-              showTaxonsMethod3={isOptimal3Method}
-              applyPointBasedStoryboard={
-                (activeStoryboardData?.applied || false) && activeType === "point"
-              }
-              applyRecommendedStoryboard={
-                (activeStoryboardData?.applied || false) && isRecommended
-              }
-              applyOptimalStoryboard={
-                (activeStoryboardData?.applied || false) && isOptimal1Method
-              }
-              applyOptimal2Storyboard={
-                (activeStoryboardData?.applied || false) && isOptimal2Method
-              }
-              applyOptimal3Storyboard={
-                (activeStoryboardData?.applied || false) && isOptimal3Method
-              }
-              isSelecting={isSelecting}
-              activeType={activeType}
-              selection={selection}
-              setSelection={setSelection}
-              droneParams={droneParams}
-            /> */}
           </Box>
           <Box flexShrink={0}>
             <StoryboardTimeline frames={frames} />
