@@ -57,7 +57,7 @@ const OptimizationDetailDialog: FC<OptimizationDetailDialogProps> = ({
   ) => {
     if (reason === "escapeKeyDown" || reason === "backdropClick") return;
     onClose();
-  }; 
+  };
 
   return (
     <Dialog open={open} onClose={handleDialogClose} maxWidth="md" fullWidth>
@@ -137,7 +137,10 @@ const TabContent: FC<{
         <Typography>
           <b>Количество таксонов:</b> {data.B.length} шт.
         </Typography>
-       <Typography>
+        <Typography>
+          <b>Количество недостижимых точек:</b> {data.C.length} шт.
+        </Typography>
+        <Typography>
           <b>Общее время полёта:</b> {totalFlightTime.toFixed(1)} с
         </Typography>
       </Stack>

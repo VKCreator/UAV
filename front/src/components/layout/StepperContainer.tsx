@@ -32,11 +32,10 @@ export interface StepperContainerProps extends ContainerProps {
 export default function StepperContainer(props: StepperContainerProps) {
   const { children, title, actions = null, centerContent = false } = props;
   const navigate = useNavigate();
-  const { confirm } = useDialogs();
 
   const handleBackClick = React.useCallback(async () => {
       navigate('/trajectories');
-  }, [navigate, confirm]);
+  }, [navigate]);
 
   return (
     <Container

@@ -33,6 +33,8 @@ interface ExportStoryboardParams {
 
   // Apply: рисовать ли рамки кадров для оптимальной траектории
   applyOptimal: boolean;
+  applyPoint: boolean;
+  applyRecommended: boolean;
 
   setLoading?: (loading: boolean) => void;
 }
@@ -123,6 +125,8 @@ export const createStoryboardScene = async (
     showOptimal,
     showUAVLine,
     applyOptimal,
+    applyPoint,
+    applyRecommended
   } = params;
 
   // ─── REFERENCE_SIZE: все визуальные размеры пропорциональны изображению ──
@@ -367,19 +371,22 @@ export const createStoryboardScene = async (
 
     // Точки и рамки кадров
     points.forEach((p, i) => {
-      // Рамка кадра — для пользовательской раскадровки рисуется всегда
-      layer.add(
-        new Konva.Rect({
-          x: p.x - frameWidthPx / 2,
-          y: p.y - frameHeightPx / 2,
-          width: frameWidthPx,
-          height: frameHeightPx,
-          stroke: "black",
-          strokeWidth: FRAME_STROKE,
-          fill: "#e54d4d5e",
-          listening: false,
-        }),
-      );
+      if (applyPoint) {
+
+        // Рамка кадра — для пользовательской раскадровки рисуется всегда
+        layer.add(
+          new Konva.Rect({
+            x: p.x - frameWidthPx / 2,
+            y: p.y - frameHeightPx / 2,
+            width: frameWidthPx,
+            height: frameHeightPx,
+            stroke: "black",
+            strokeWidth: FRAME_STROKE,
+            fill: "#e54d4d5e",
+            listening: false,
+          }),
+        );
+      }
 
       // Кружок
       layer.add(
@@ -414,7 +421,7 @@ export const createStoryboardScene = async (
   }
 
   // ─── 6. Рекомендуемая раскадровка ────────────
-  if (showRecommended && pointsRecommended.length > 0) {
+  if (showRecommended && applyRecommended && pointsRecommended.length > 0) {
     // Стрелки змейкой
     pointsRecommended.forEach((r, i) => {
       if (i === pointsRecommended.length - 1) return;

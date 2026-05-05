@@ -306,14 +306,7 @@ const TrajectoryStepper = () => {
 
   // Шаг 4: сравнение оптимизаций и выбор приоритетной траектори
   const [priorityMethod, setPriorityMethod] = React.useState<string>("");
-  // React.useEffect(() => {
-  //   console.log("🔴 Родитель: priorityMethod изменился на:", priorityMethod);
-  // }, [priorityMethod]);
 
-  // React.useEffect(() => {
-  //   console.log("🟡 Родитель смонтирован");
-  //   return () => console.log("🟡 Родитель РАЗМОНТИРОВАН");
-  // }, []);
   const methodNames2PrettyName: Record<string, string> = {
     "METHOD_1": "low-d",
     "METHOD_2": "high-d",
@@ -1215,7 +1208,7 @@ const TrajectoryStepper = () => {
       return {
         isNextDisabled: true,
         nextTooltip:
-          "Для шага 4 необходимо выполнить раскадровку по выполненным методам оптимизации",
+          "Для шага 4 необходимо выполнить раскадровку по завершенным методам оптимизации",
       };
     }
 

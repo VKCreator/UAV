@@ -35,6 +35,7 @@ import { trajectoryApi } from "../../../api/trajectory.api";
 import { FloatInput } from "../../../components/ui/FloatInput";
 import { SceneStoryboardStage } from "./SceneStoryboardStage";
 import { downloadStoryboard } from "../utils/SceneStoryboardExport";
+import { useDialogs } from "../../../hooks/useDialogs/useDialogs";
 
 interface StoryboardEditorProps {
   onClose: () => void;
@@ -215,6 +216,7 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
   flightLineY
 }) => {
   const notifications = useNotifications();
+  const { confirm } = useDialogs();
 
   const [activeType, setActiveType] = useState<StoryboardType | null>("point");
   const [loading, setLoading] = useState(false);
@@ -513,8 +515,8 @@ const StoryboardEditor: FC<StoryboardEditorProps> = ({
     setActiveType(type);
   };
 
-const yieldToBrowser = (): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, 0));
+  const yieldToBrowser = (): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, 0));
 
   const handleApply = async () => {
     setLoading(true);
@@ -682,7 +684,7 @@ const yieldToBrowser = (): Promise<void> =>
     framesUrlsOptimal3,
   ]);
 
-  const handleResetInterestArea = () => {
+  const handleResetInterestArea = async () => {
     const resetConfigs = [
       {
         check: isPointBased,
@@ -720,7 +722,19 @@ const yieldToBrowser = (): Promise<void> =>
     const config = resetConfigs.find((c) => c.check);
     if (config) {
 
-      // Здесь задать вопрос?
+
+      const shouldDelete = await confirm(
+        "Вы действительно хотите очистить раскадровку?",
+        {
+          title: "Подтверждение",
+          okText: "Да",
+          cancelText: "Нет",
+        }
+      );
+
+      if (!shouldDelete) return;
+
+
       resetStoryboard(
         config.storyboardKey,
         config.framesUrls,
@@ -865,6 +879,8 @@ const yieldToBrowser = (): Promise<void> =>
         showUAVLine: isOptimal1Method || isOptimal2Method || isOptimal3Method,
         flightLineY: flightLineY,
         applyOptimal: activeStoryboardData?.applied || false,
+        applyPoint: activeStoryboardData?.applied && activeType === "point",
+        applyRecommended: activeStoryboardData?.applied && isRecommended,
         setLoading,
       },
       `storyboard_${activeType}_${Date.now()}.jpeg`,
@@ -1360,7 +1376,48 @@ const yieldToBrowser = (): Promise<void> =>
               </Box>
 
               {/* Предупреждения для оптимальных методов */}
-              {isOptimal1Method && !trajectoryData && (
+             {isOptimal1Method && trajectoryData && trajectoryData.B.length == 0 && trajectoryData.C.length != 0 && (
+                <Alert
+                  severity="warning"
+                  sx={{
+                    fontSize: "0.7rem",
+                    borderRadius: 1,
+                    p: 1.5,
+                    alignItems: "center",
+                  }}
+                >
+                  Все точки являются недостижимыми. Раскадровка недоступна.
+                </Alert>
+              )}
+              
+             {isOptimal2Method && trajectoryData2 && trajectoryData2.B.length == 0 && trajectoryData2.C.length != 0 && (
+                <Alert
+                  severity="warning"
+                  sx={{
+                    fontSize: "0.7rem",
+                    borderRadius: 1,
+                    p: 1.5,
+                    alignItems: "center",
+                  }}
+                >
+                  Все точки являются недостижимыми. Раскадровка недоступна.
+                </Alert>
+              )}
+              
+             {isOptimal3Method && trajectoryData3 && trajectoryData3.B.length == 0 && trajectoryData3.C.length != 0 && (
+                <Alert
+                  severity="warning"
+                  sx={{
+                    fontSize: "0.7rem",
+                    borderRadius: 1,
+                    p: 1.5,
+                    alignItems: "center",
+                  }}
+                >
+                  Все точки являются недостижимыми. Раскадровка недоступна.
+                </Alert>
+              )}
+                            {isOptimal1Method && !trajectoryData && (
                 <Alert
                   severity="warning"
                   sx={{
